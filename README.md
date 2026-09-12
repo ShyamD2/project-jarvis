@@ -108,7 +108,7 @@
 | **17** | AWS Cloud Agent | `READY` | Cloud health & LocalStack integration |
 | **18** | Terraform Agent | `READY` | Terraform validate and plan automation |
 | **19** | Docker Agent | `READY` | Container inspection and restart |
-| **20** | Kubernetes Agent | `READY` | Pod and deployment inspection hooks |
+| **20** | Kubernetes Agent | `PLANNED` | Scoped out for future cloud cluster expansion (not implemented) |
 | **21** | Git / CI/CD Agent | `READY` | Git repository staging and commit tracking |
 | **22** | Cloud Operations Agent | `READY` | SQS queue and telemetry checks |
 | **23** | Cloud Security / SOC Agent | `READY` | IAM least-privilege wildcard policy auditing |

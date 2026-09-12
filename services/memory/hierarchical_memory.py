@@ -73,16 +73,16 @@ class HierarchicalMemory:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     return json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to load memory file '{path}': {e}")
         return default
 
     def _save_json(self, path: str, data: Any):
         try:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to save memory file '{path}': {e}")
 
     # Tier 1 & 2: Working & Conversation
     def add_conversation_turn(self, role: str, content: str, intent: Optional[str] = None):

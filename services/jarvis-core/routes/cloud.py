@@ -150,10 +150,12 @@ async def run_terraform_apply(req: TerraformRequest):
 async def get_finops_metrics():
     """Returns real FinOps spending breakdown based on active AWS resources"""
     health = aws_agent.check_cloud_health()
-    ec2_count = health.get("ec2_instance_count", 0)
-    s3_count = health.get("s3_bucket_count", 0)
+    if finops_tracker:
+        return finops_tracker.estimate_cloud_spend(health)
 
-    # Real estimated spend based on actual active infrastructure
+    ec2_count = len(health.get("ec2_instances", []))
+    s3_count = len(health.get("s3_buckets", []))
+
     ec2_spend = round(ec2_count * 15.0, 2)
     s3_spend = round(s3_count * 0.50, 2)
     total_spend = round(ec2_spend + s3_spend, 2)
@@ -162,6 +164,7 @@ async def get_finops_metrics():
 
     return {
         "status": "success",
+        "is_estimation": True,
         "currency": "USD",
         "account": health.get("account") or "Not Connected",
         "month_to_date_spend": total_spend,

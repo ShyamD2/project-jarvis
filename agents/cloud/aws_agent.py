@@ -140,15 +140,21 @@ class AWSAgent:
         }
 
     def run_terraform_operation(self, command: str, env: str = "dev") -> Dict[str, Any]:
-        """Executes Terraform validate or plan commands"""
+        """Executes Terraform validate or plan commands via real TerraformAgent"""
         logger.info(f"[AWSAgent] Running Terraform {command} in environment: {env}")
-        return {
-            "success": True,
-            "command": f"terraform {command}",
-            "env": env,
-            "channel_1_logical": True,
-            "output": "Configuration is valid. 0 errors."
-        }
+        try:
+            from agents.cloud.terraform_runner import terraform_agent
+            if command == "validate":
+                return terraform_agent.validate()
+            elif command == "plan":
+                return terraform_agent.plan()
+            else:
+                import subprocess
+                res = subprocess.run(["terraform", command], cwd=terraform_agent.base_dir, capture_output=True, text=True, timeout=30)
+                return {"success": res.returncode == 0, "output": res.stdout, "command": f"terraform {command}"}
+        except Exception as e:
+            logger.error(f"[AWSAgent] Terraform {command} execution failed: {e}")
+            return {"success": False, "error": str(e)}
 
 
 aws_agent = AWSAgent()

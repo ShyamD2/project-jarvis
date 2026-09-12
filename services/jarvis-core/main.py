@@ -48,7 +48,24 @@ async def lifespan(app: FastAPI):
     logger.info(f"Local MQTT Fast-Path: {config.mqtt_broker}:{config.mqtt_port}")
     logger.info(f"AWS Event Bus: {config.event_bus_name}")
     logger.info(f"Emergency Stand Down: {config.emergency_stand_down}")
+
+    # Start PCDaemon background telemetry loop
+    pc_task = None
+    try:
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pc-agent")))
+        from agent_daemon import pc_daemon
+        import asyncio
+        pc_task = asyncio.create_task(pc_daemon.start())
+        logger.info("⚡ [Lifespan] Started PCDaemon background telemetry loop.")
+    except Exception as e:
+        logger.warning(f"[Lifespan] PCDaemon background task could not be started: {e}")
+
     yield
+
+    if 'pc_daemon' in locals() and pc_daemon:
+        pc_daemon.stop()
+    if pc_task:
+        pc_task.cancel()
     logger.info("J.A.R.V.I.S. Core Engine shutting down.")
 
 
