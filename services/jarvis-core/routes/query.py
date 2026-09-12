@@ -54,7 +54,10 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
     # 2. Execute Brain Turn
     result = await brain_runtime.execute_turn(req.query)
 
-    response_text = result.get("response", "Instruction processed, sir.")
+    response_text = result.get("response")
+    if not response_text or not response_text.strip():
+        response_text = "Instruction processed, sir."
+
     short_term_memory.add_turn(
         role="jarvis",
         content=response_text,
@@ -70,7 +73,7 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
         audio_file = matched_clip["file_path"]
         if req.play_server_audio:
             soundboard.play_clip(clip_name)
-    elif req.speak:
+    elif req.speak and response_text and response_text.strip():
         try:
             audio_file = await voice_synthesizer.speak(response_text, play_audio=req.play_server_audio)
         except Exception as e:

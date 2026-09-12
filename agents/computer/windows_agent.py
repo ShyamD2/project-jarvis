@@ -117,6 +117,37 @@ class WindowsAgent:
             except Exception as e:
                 logger.warning(f"[WindowsAgent] Could not resolve browser preference: {e}")
 
+        # Support Windows App Protocols (Calendar, Settings)
+        if app_lower in ["calendar", "ms-calendar", "ms-calendar:"]:
+            try:
+                os.startfile("ms-calendar:")
+                logger.info("[WindowsAgent] Launched Windows Calendar via ms-calendar: protocol")
+                return {
+                    "success": True,
+                    "app": "calendar",
+                    "path": "ms-calendar:",
+                    "pid": 0,
+                    "status": "running",
+                    "channel_1_logical": True
+                }
+            except Exception as pe:
+                logger.warning(f"[WindowsAgent] Protocol launch error: {pe}")
+
+        if app_lower in ["settings", "ms-settings", "ms-settings:"]:
+            try:
+                os.startfile("ms-settings:")
+                logger.info("[WindowsAgent] Launched Windows Settings via ms-settings: protocol")
+                return {
+                    "success": True,
+                    "app": "settings",
+                    "path": "ms-settings:",
+                    "pid": 0,
+                    "status": "running",
+                    "channel_1_logical": True
+                }
+            except Exception as pe:
+                logger.warning(f"[WindowsAgent] Protocol launch error: {pe}")
+
         if not target_path:
             target_path = self.find_app_path(app_name)
 

@@ -9,7 +9,7 @@ import time
 from services.brain.intent_router import router as intent_router, IntentType
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
 from services.brain.providers.mock_provider import MockLLMProvider
-from services.brain.providers.unified_ai_provider import unified_provider
+from services.brain.providers.ai_manager import ai_manager
 from services.memory.feedback_learning import learner
 from services.brain.tools.registry import registry as tool_registry
 from shared.schemas.action_envelope import ActionTier, TargetWorld, ActionEnvelope
@@ -28,8 +28,8 @@ class AgentRuntime:
         deep_provider: Optional[BaseLLMProvider] = None,
         max_loop_iterations: int = 5
     ):
-        self.fast_provider = fast_provider or unified_provider
-        self.deep_provider = deep_provider or unified_provider
+        self.fast_provider = fast_provider or ai_manager
+        self.deep_provider = deep_provider or ai_manager
         self.max_loop_iterations = max_loop_iterations
 
     async def execute_turn(self, query: str) -> Dict[str, Any]:
@@ -182,9 +182,35 @@ class AgentRuntime:
 
         total_latency = (time.time() - start_time) * 1000
 
-        # 4. RESPOND
+        # 4. RESPOND: Formulate verified response
+        final_response = llm_response.content
+        if not final_response or not final_response.strip():
+            if executed_actions:
+                summaries = []
+                for act in executed_actions:
+                    t_name = act.get("tool", "")
+                    res = act.get("result", {})
+                    if t_name in ["launch_app", "open_app"]:
+                        app_name = act.get("arguments", {}).get("app") or act.get("arguments", {}).get("app_name") or "application"
+                        pid = res.get("pid")
+                        if pid:
+                            summaries.append(f"{app_name.capitalize()} has been launched (PID: {pid})")
+                        else:
+                            summaries.append(f"{app_name.capitalize()} has been launched")
+                    elif "light" in t_name or "relay" in t_name or "device" in t_name:
+                        summaries.append("Physical IoT device state updated")
+                    elif t_name == "prepare_workspace":
+                        summaries.append("Your developer workspace is prepared")
+                    elif act.get("status") == "permission_blocked":
+                        summaries.append(f"Action '{t_name}' was intercepted by policy engine (approval required)")
+                    else:
+                        summaries.append(f"Action '{t_name}' executed successfully")
+                final_response = f"Right away, sir. {', and '.join(summaries)}."
+            else:
+                final_response = "At your service, sir. Instructions received."
+
         return {
-            "response": llm_response.content,
+            "response": final_response,
             "intent": routed.intent_type.value,
             "model": llm_response.model,
             "actions_executed": executed_actions,

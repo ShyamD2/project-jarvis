@@ -44,7 +44,10 @@ logger = get_logger("JARVIS-1.0")
 
 
 def print_banner():
-    banner = """
+    from services.brain.providers.ai_manager import ai_manager
+    ai_status = ai_manager.get_key_status()
+
+    banner = f"""
     \033[96m
     ███████╗ █████╗ ██████╗ ██╗   ██╗██╗███████╗   ██╗██████╗ 
     ╚══███╔╝██╔══██╗██╔══██╗██║   ██║██║██╔════╝  ███║██╔═████╗
@@ -59,7 +62,8 @@ def print_banner():
     * Computer World:   Windows Process, App & Shell Control
     * Digital World:    AWS Cloud, Terraform IaC & LocalStack
     * Safety Matrix:    4-Tier Blast Radius + Stand Down Breaker
-    * Cognitive Fabric: Real AI Multi-Provider + Continuous Learning
+    * Cognitive Fabric: {ai_status['status_message']}
+      - Gemini: [{ai_status['gemini_status']}] | Groq: [{ai_status['groq_status']}]
     * Hands-Free VOX:   Acoustic Wake-Word Daemon + Authentic Soundboard
     --------------------------------------------------------
     """

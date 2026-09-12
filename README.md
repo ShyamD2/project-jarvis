@@ -191,3 +191,82 @@ python jarvis.py test
 ```powershell
 python jarvis.py status
 ```
+
+---
+
+## 🧠 Multi-AI Provider Architecture (Gemini + Groq)
+
+Project J.A.R.V.I.S. features an enterprise-grade `AIManager` coordinating multiple cloud and local cognitive engines with automatic fallback, zero data leakage, and offline reflex survivability.
+
+```
+       User Voice / Text Request
+                   │
+                   ▼
+       ┌───────────────────────┐
+       │   AIManager Engine    │
+       └───────────┬───────────┘
+                   │
+         ┌─────────┴─────────┐
+         │ 1. Primary        ▼
+         │             ┌───────────────┐
+         │             │ Google Gemini │ (gemini-2.5-flash / gemini-1.5-flash)
+         │             └───────┬───────┘
+         │  Success?           │
+         ├───────────── Yes ───┘
+         │
+         │  Rate Limit / Error / No Key
+         ▼
+    ┌───────────────┐
+    │ 2. Fallback   │
+    │  Groq Cloud   │ (llama-3.3-70b-versatile / llama-3.1-8b-instant)
+    └───────┬───────┘
+            │
+            ├────────── Success?
+            │
+            │ Rate Limit / Error / No Key
+            ▼
+    ┌───────────────────────┐
+    │ 3. Offline Reflex     │ (Regex fast-path intent classifier & local reflex)
+    └───────────────────────┘
+```
+
+### 🔑 1. How to Configure Gemini (Primary)
+1. Navigate to Google AI Studio: [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+2. Sign in with your Google account.
+3. Click **Create API Key** and select your project.
+4. Copy your API key.
+5. Open your local `.env` file in the project root and add:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
+
+### ⚡ 2. How to Configure Groq (High-Speed Fallback)
+1. Navigate to the Groq Console: [https://console.groq.com/keys](https://console.groq.com/keys)
+2. Sign in or create a free account.
+3. Click **Create API Key**, provide a label (e.g. `JARVIS`), and copy the key.
+4. Open your local `.env` file in the project root and add:
+   ```env
+   GROQ_API_KEY=your_groq_api_key_here
+   ```
+
+### 🛡 3. Automatic Fallback Mechanism
+- When a prompt or tool call is executed, `AIManager` first dispatches to **Google Gemini** for high-context multimodal reasoning.
+- If Gemini encounters an API error, rate limit (HTTP 429), quota exhaustion, or if the Gemini key is omitted, `AIManager` instantly falls back to **Groq** (<300ms ultra-low latency).
+- If neither provider is reachable or keys are absent, JARVIS switches seamlessly to the **Cognitive Reflex Engine**, ensuring the system never crashes or freezes.
+- **Security Guarantee:** API keys are never exposed in logs, console output, or committed to Git (`.gitignore` strictly excludes `.env`). Tool calls are verified through the `PermissionEngine` before execution.
+
+### 🚀 4. Starting JARVIS with AI Enabled
+Launch the main daemon or run interactive queries:
+```powershell
+# Interactive Command Center HUD
+python jarvis.py start
+
+# CLI Direct Query
+python jarvis.py run "Hello JARVIS, summarize my system status"
+```
+On boot, JARVIS automatically inspects the environment and prints the active AI status banner without logging sensitive tokens:
+- Both configured: `JARVIS AI systems online.`
+- Gemini only: `JARVIS online. Gemini is active.`
+- Groq only: `JARVIS online. Groq is active.`
+- Neither: `AI API keys are not configured. Please add your Gemini or Groq key.`
+

@@ -3,991 +3,2237 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>J.A.R.V.I.S. | Master Command Center &amp; Autonomous Hybrid OS</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>JARVIS COMMAND CENTER</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-base: #02060d;
-      --bg-panel: rgba(5, 14, 28, 0.92);
-      --bg-card: rgba(8, 22, 42, 0.8);
-      --border-cyan: rgba(0, 229, 255, 0.25);
-      --cyan: #00e5ff;
-      --cyan-bright: #38f8ff;
-      --cyan-dim: #0088a3;
-      --amber: #ffaa00;
-      --red-alert: #ff0055;
-      --green-ok: #00ffaa;
-      --text-main: #e0f7fa;
-      --text-muted: #648ca6;
-      --font-display: 'Orbitron', sans-serif;
-      --font-body: 'Rajdhani', sans-serif;
+      --bg-base: #050b16;
+      --bg-card: rgba(8, 19, 38, 0.88);
+      --bg-card-hover: rgba(11, 26, 52, 0.95);
+      --border-card: rgba(0, 229, 255, 0.16);
+      --border-card-hover: rgba(0, 240, 255, 0.42);
+      --cyan: #00f0ff;
+      --cyan-dim: rgba(0, 240, 255, 0.65);
+      --cyan-glow: rgba(0, 240, 255, 0.45);
+      --cyan-subtle: rgba(0, 240, 255, 0.08);
+      --blue-accent: #38bdf8;
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.5);
+      --purple: #a855f7;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-main: 'Inter', -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
+      --font-sci: 'Orbitron', sans-serif;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
 
     body {
       background-color: var(--bg-base);
       background-image: 
-        radial-gradient(circle at 50% 20%, rgba(0, 150, 255, 0.08) 0%, transparent 60%),
-        linear-gradient(rgba(0, 229, 255, 0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 229, 255, 0.025) 1px, transparent 1px);
-      background-size: 100% 100%, 28px 28px, 28px 28px;
+        radial-gradient(circle at 50% 30%, rgba(2, 132, 199, 0.12) 0%, transparent 60%),
+        linear-gradient(to right, rgba(0, 240, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.018) 1px, transparent 1px);
+      background-size: 100% 100%, 34px 34px, 34px 34px;
       color: var(--text-main);
-      font-family: var(--font-body);
-      min-height: 100vh;
+      font-family: var(--font-main);
+      height: 100vh;
+      width: 100vw;
       display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
+      overflow: hidden;
     }
 
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: rgba(2, 6, 13, 0.8); }
-    ::-webkit-scrollbar-thumb { background: var(--cyan-dim); border-radius: 3px; }
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
 
-    /* HEADER */
-    header {
+    /* ==========================================================================
+       LEFT SIDEBAR
+       ========================================================================== */
+    .sidebar {
+      width: 245px;
+      min-width: 245px;
+      height: 100vh;
+      background: rgba(5, 12, 25, 0.96);
+      border-right: 1px solid var(--border-card);
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+      z-index: 40;
+    }
+
+    /* LOGO CARD */
+    .logo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    }
+
+    .reactor-icon {
+      width: 36px;
+      height: 36px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .reactor-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px dashed var(--cyan);
+      animation: spin 14s linear infinite;
+    }
+
+    .reactor-core {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0%, var(--cyan) 75%);
+      box-shadow: 0 0 14px var(--cyan);
+      animation: pulse 2.2s ease-in-out infinite;
+    }
+
+    .logo-text h1 {
+      font-family: var(--font-sci);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    }
+
+    .logo-text span {
+      font-size: 8.5px;
+      font-weight: 700;
+      letter-spacing: 2.2px;
+      color: var(--cyan);
+      text-transform: uppercase;
+    }
+
+    /* NAVIGATION MENU */
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 2px;
+    }
+
+    .nav-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 24px;
-      background: rgba(3, 8, 18, 0.94);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-cyan);
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      padding: 7px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
     }
 
-    .brand { display: flex; align-items: center; gap: 14px; }
-    .arc-mini {
-      width: 32px; height: 32px; border-radius: 50%;
-      border: 2px solid var(--cyan); box-shadow: 0 0 12px var(--cyan);
-      display: flex; align-items: center; justify-content: center;
-      animation: rotate-arc 8s linear infinite;
-    }
-    .arc-mini::after {
-      content: ""; width: 12px; height: 12px; border-radius: 50%;
-      background: var(--cyan); box-shadow: 0 0 8px var(--cyan-bright);
-    }
-    @keyframes rotate-arc { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-    .brand-title {
-      font-family: var(--font-display); font-size: 20px; font-weight: 900;
-      letter-spacing: 3px; color: #fff; text-shadow: 0 0 10px var(--cyan);
-    }
-    .brand-sub { font-size: 11px; font-family: var(--font-mono); color: var(--cyan); letter-spacing: 1px; }
-
-    .telemetry-strip { display: flex; align-items: center; gap: 14px; }
-    .badge-pill {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-family: var(--font-mono); font-size: 11px; padding: 4px 10px;
-      border-radius: 12px; background: rgba(0, 229, 255, 0.08);
-      border: 1px solid var(--border-cyan); color: var(--text-main);
-    }
-    .dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--green-ok); box-shadow: 0 0 6px var(--green-ok);
-      animation: blink 2s infinite;
-    }
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-    .btn-emergency {
-      font-family: var(--font-display); font-size: 11px; padding: 6px 14px;
-      border-radius: 6px; background: rgba(255, 0, 85, 0.15);
-      border: 1px solid var(--red-alert); color: #fff; cursor: pointer;
-      transition: all 0.2s; letter-spacing: 1px;
-    }
-    .btn-emergency:hover { background: var(--red-alert); box-shadow: 0 0 16px var(--red-alert); }
-    .btn-emergency.frozen { background: var(--red-alert); animation: pulse-red 1.2s infinite; }
-    @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 8px var(--red-alert); } 50% { box-shadow: 0 0 20px var(--red-alert); } }
-
-    /* OS LAYOUT */
-    .os-container {
-      flex: 1; display: grid; grid-template-columns: 260px 1fr;
-      min-height: calc(100vh - 60px);
+    .nav-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    aside.sidebar {
-      background: rgba(4, 10, 20, 0.96);
-      border-right: 1px solid var(--border-cyan);
-      display: flex; flex-direction: column; padding: 12px 0;
-      overflow-y: auto; height: calc(100vh - 60px); position: sticky; top: 60px;
+    .nav-item:hover {
+      color: #fff;
+      background: rgba(0, 240, 255, 0.06);
     }
-    .sidebar-section-title {
-      font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
-      letter-spacing: 1.5px; color: var(--text-muted); padding: 8px 18px 4px;
-    }
-    .nav-item {
-      display: flex; align-items: center; gap: 12px; padding: 9px 18px;
-      font-size: 13.5px; font-weight: 600; color: var(--text-muted);
-      cursor: pointer; transition: all 0.18s ease; border-left: 3px solid transparent;
-      user-select: none;
-    }
-    .nav-item:hover { color: var(--text-main); background: rgba(0, 229, 255, 0.05); }
+
     .nav-item.active {
-      color: var(--cyan); background: rgba(0, 229, 255, 0.1);
-      border-left: 3px solid var(--cyan); text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
-    }
-    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
-    .nav-item .badge {
-      margin-left: auto; font-size: 10px; font-family: var(--font-mono);
-      padding: 2px 6px; border-radius: 8px; background: rgba(0, 229, 255, 0.12);
-      border: 1px solid rgba(0, 229, 255, 0.2); color: var(--cyan);
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.16) 0%, rgba(2, 132, 199, 0.24) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      color: #fff;
+      font-weight: 600;
+      box-shadow: 0 0 14px rgba(0, 240, 255, 0.15);
     }
 
-    main.workspace {
-      display: flex; flex-direction: column; padding: 20px 28px; gap: 20px; overflow-y: auto;
+    .nav-item.active svg {
+      color: var(--cyan);
+      filter: drop-shadow(0 0 4px var(--cyan));
     }
 
-    /* UNIVERSAL COMMAND STAGE */
-    .command-stage {
-      background: var(--bg-panel); border: 1px solid var(--border-cyan);
-      border-radius: 10px; padding: 18px 24px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-      display: flex; flex-direction: column; gap: 14px; position: relative; overflow: hidden;
-    }
-    .command-stage::before {
-      content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-    }
-    .command-top { display: flex; align-items: center; justify-content: space-between; }
-    .command-label {
-      font-family: var(--font-display); font-size: 13px; letter-spacing: 2px;
-      color: var(--cyan); display: flex; align-items: center; gap: 8px;
-    }
-    .command-controls { display: flex; align-items: center; gap: 10px; }
-    .toggle-vox {
-      display: flex; align-items: center; gap: 8px; font-family: var(--font-mono);
-      font-size: 11px; color: var(--text-muted); cursor: pointer;
-    }
-    .toggle-vox input { display: none; }
-    .toggle-switch {
-      width: 32px; height: 18px; background: rgba(255, 255, 255, 0.1);
-      border-radius: 9px; position: relative; transition: background 0.2s;
-    }
-    .toggle-switch::after {
-      content: ""; width: 14px; height: 14px; border-radius: 50%; background: #aaa;
-      position: absolute; top: 2px; left: 2px; transition: all 0.2s;
-    }
-    .toggle-vox input:checked + .toggle-switch { background: var(--cyan-dim); }
-    .toggle-vox input:checked + .toggle-switch::after { left: 16px; background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
-
-    .command-input-row { display: flex; align-items: center; gap: 12px; }
-    .input-wrapper { flex: 1; position: relative; display: flex; align-items: center; }
-    .input-prefix { position: absolute; left: 14px; font-family: var(--font-mono); color: var(--cyan); font-size: 16px; }
-    .universal-input {
-      width: 100%; background: rgba(2, 8, 18, 0.85); border: 1px solid var(--border-cyan);
-      border-radius: 8px; padding: 14px 16px 14px 42px; font-family: var(--font-mono);
-      font-size: 14px; color: #fff; outline: none; transition: all 0.2s;
-    }
-    .universal-input:focus { border-color: var(--cyan); box-shadow: 0 0 16px rgba(0, 229, 255, 0.25); }
-    .universal-input::placeholder { color: rgba(100, 140, 166, 0.6); font-family: var(--font-body); font-size: 15px; }
-
-    .btn-act {
-      font-family: var(--font-display); font-size: 12px; padding: 13px 20px;
-      border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center;
-      gap: 8px; transition: all 0.2s; letter-spacing: 1px; border: none; user-select: none;
-    }
-    .btn-cyan {
-      background: linear-gradient(135deg, var(--cyan-dim), var(--cyan));
-      color: #030812; font-weight: 700; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3);
-    }
-    .btn-cyan:hover { box-shadow: 0 0 20px rgba(0, 229, 255, 0.6); transform: translateY(-1px); }
-    .btn-outline {
-      background: rgba(0, 229, 255, 0.08); border: 1px solid var(--border-cyan); color: var(--cyan);
-    }
-    .btn-outline:hover { background: rgba(0, 229, 255, 0.16); border-color: var(--cyan); }
-    .btn-mic.listening {
-      background: rgba(255, 0, 85, 0.2); border-color: var(--red-alert); color: var(--red-alert);
-      animation: pulse-red 1s infinite;
+    .nav-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: rgba(0, 240, 255, 0.14);
+      color: var(--cyan);
+      font-weight: 600;
+      font-family: var(--font-mono);
     }
 
-    .spectrum-canvas {
-      width: 100%; height: 28px; background: rgba(0, 0, 0, 0.3);
-      border-radius: 4px; display: block;
+    /* VOICE STATUS WIDGET */
+    .voice-widget {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-top: auto;
     }
 
-    .pills-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .pill {
-      font-size: 11.5px; font-family: var(--font-mono); background: rgba(0, 229, 255, 0.06);
-      border: 1px solid rgba(0, 229, 255, 0.15); padding: 4px 10px; border-radius: 12px;
-      color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    .voice-widget-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
     }
-    .pill:hover { background: rgba(0, 229, 255, 0.15); border-color: var(--cyan); color: var(--cyan-bright); }
 
-    /* APPROVAL BANNER */
-    .approval-card {
-      background: rgba(255, 170, 0, 0.08); border: 1px solid var(--amber);
-      border-radius: 8px; padding: 14px 18px; display: none; align-items: center;
-      justify-content: space-between; animation: glow-amber 2s infinite;
+    .voice-wave-canvas {
+      width: 100%;
+      height: 22px;
     }
-    .approval-card.show { display: flex; }
-    @keyframes glow-amber { 0%, 100% { box-shadow: 0 0 8px rgba(255, 170, 0, 0.2); } 50% { box-shadow: 0 0 18px rgba(255, 170, 0, 0.5); } }
-    .approval-title { font-family: var(--font-display); font-size: 13px; color: var(--amber); font-weight: 700; }
-    .approval-desc { font-size: 12px; font-family: var(--font-mono); color: var(--text-main); }
-    .btn-approve { background: var(--amber); color: #000; font-weight: 700; font-size: 11px; padding: 6px 14px; border-radius: 4px; border: none; cursor: pointer; }
-    .btn-reject { background: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: var(--text-muted); font-size: 11px; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
 
-    /* VIEWPORTS */
-    .viewport { display: none; flex-direction: column; gap: 16px; }
-    .viewport.active { display: flex; }
+    .mic-button-wrapper {
+      position: relative;
+      width: 62px;
+      height: 62px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .mic-outer-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 1px solid var(--cyan);
+      opacity: 0.35;
+      animation: ripple 2.8s linear infinite;
+    }
 
+    .mic-center-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #0284c7 0%, #0369a1 100%);
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      transition: all 0.25s;
+    }
+
+    .mic-button-wrapper:hover .mic-center-btn {
+      transform: scale(1.06);
+      box-shadow: 0 0 22px var(--cyan);
+    }
+
+    .mic-button-wrapper.listening .mic-center-btn {
+      background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
+      border-color: #f87171;
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.7);
+      animation: pulse 1.2s infinite;
+    }
+
+    .voice-caption {
+      font-size: 10px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+
+    .focus-mode-btn {
+      width: 100%;
+      padding: 6px 0;
+      border-radius: 7px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .focus-mode-btn:hover {
+      background: rgba(0, 240, 255, 0.18);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* ==========================================================================
+       MAIN WORKSPACE
+       ========================================================================== */
+    .main-workspace {
+      flex: 1;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 10px 16px;
+      gap: 10px;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    /* TOP HEADER BAR */
+    .top-bar {
+      height: 44px;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background: rgba(10, 22, 42, 0.85);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    .clock-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .date-text {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+
+    .clock-text {
+      font-family: var(--font-sci);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--cyan);
+      text-shadow: 0 0 14px var(--cyan-glow);
+      letter-spacing: 1.5px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 22, 42, 0.75);
+      border: 1px solid rgba(0, 240, 255, 0.16);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 11.5px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .search-box:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .search-shortcut {
+      background: rgba(0, 240, 255, 0.12);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 9.5px;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+    }
+
+    .action-icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 22, 42, 0.75);
+      border: 1px solid rgba(0, 240, 255, 0.16);
+      color: var(--text-muted);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .action-icon-btn:hover {
+      color: var(--cyan);
+      border-color: var(--cyan);
+    }
+
+    .badge-dot {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 5px var(--cyan);
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 10px 3px 5px;
+      background: rgba(10, 22, 42, 0.75);
+      border: 1px solid rgba(0, 240, 255, 0.16);
+      border-radius: 20px;
+      cursor: pointer;
+    }
+
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1e3a8a, #0284c7);
+      border: 1.5px solid var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .user-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .user-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .user-role {
+      font-size: 9.5px;
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
+    /* ==========================================================================
+       DASHBOARD ASYMMETRIC 3-ROW LAYOUT
+       ========================================================================== */
+    .dashboard-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .dash-row {
+      display: flex;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .dash-row-1 {
+      flex: 1.18;
+    }
+
+    .dash-row-2 {
+      flex: 0.95;
+    }
+
+    .dash-row-3 {
+      flex: 0.95;
+    }
+
+    /* GLASS CARD COMMON */
     .card {
-      background: var(--bg-panel); border: 1px solid var(--border-cyan);
-      border-radius: 8px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
+
+    .card:hover {
+      border-color: var(--border-card-hover);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+    }
+
+    .card-header {
+      padding: 8px 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.07);
+    }
+
     .card-title {
-      font-family: var(--font-display); font-size: 13px; color: var(--cyan);
-      display: flex; align-items: center; justify-content: space-between; letter-spacing: 1px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .terminal-window {
-      background: #010408; border: 1px solid rgba(0, 229, 255, 0.2);
-      border-radius: 6px; padding: 12px 16px; font-family: var(--font-mono);
-      font-size: 12px; height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
-      color: #79c0ff;
-    }
-    .terminal-line { line-height: 1.4; word-break: break-all; }
-    .terminal-line.user { color: #56d364; }
-    .terminal-line.jarvis { color: var(--cyan-bright); }
-    .terminal-line.warn { color: var(--amber); }
-    .terminal-line.error { color: var(--red-alert); }
-
-    .tool-btn {
-      background: rgba(0, 229, 255, 0.06); border: 1px solid var(--border-cyan);
-      border-radius: 6px; padding: 10px 14px; font-family: var(--font-mono); font-size: 12px;
-      color: var(--text-main); display: flex; align-items: center; justify-content: space-between;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .tool-btn:hover { background: rgba(0, 229, 255, 0.14); border-color: var(--cyan); color: var(--cyan); }
-
-    .action-btn-primary {
-      background: var(--cyan); color: #000; font-weight: 700; border: none;
-      padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: var(--font-display); font-size: 11px;
+    .card-action-link {
+      font-size: 10.5px;
+      color: var(--cyan);
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
     }
 
-    /* MISSION CONTROL */
-    .mission-card {
-      background: var(--bg-panel); border: 1px solid var(--border-cyan);
-      border-radius: 10px; padding: 18px 24px; display: flex; flex-direction: column; gap: 16px;
+    .card-action-link:hover {
+      text-decoration: underline;
     }
-    .mission-header { display: flex; align-items: flex-start; justify-content: space-between; }
-    .mission-title-area h2 { font-family: var(--font-display); font-size: 16px; color: #fff; display: flex; align-items: center; gap: 10px; }
-    .mission-desc { font-size: 13.5px; color: var(--text-muted); margin-top: 4px; max-width: 780px; }
-    .progress-track { width: 100%; height: 6px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--cyan-dim), var(--cyan)); box-shadow: 0 0 10px var(--cyan); transition: width 0.5s ease; }
 
-    .phase-dag {
-      display: flex; align-items: center; justify-content: space-between; gap: 6px;
-      padding: 12px 14px; background: rgba(2, 8, 18, 0.6); border-radius: 8px;
-      border: 1px solid rgba(0, 229, 255, 0.12); overflow-x: auto;
+    .card-body {
+      padding: 9px 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 0;
+      overflow: hidden;
     }
-    .phase-step {
-      display: flex; align-items: center; gap: 6px; font-family: var(--font-display);
-      font-size: 10px; color: var(--text-muted); padding: 5px 9px; border-radius: 5px;
-      background: rgba(255, 255, 255, 0.03); border: 1px solid transparent; white-space: nowrap;
+
+    /* ROW 1: AI CORE OVERVIEW | HERO GLOBE | LIVE INTELLIGENCE FEED */
+    .card-ai-overview {
+      flex: 0 0 215px;
     }
-    .phase-step.active { background: rgba(0, 229, 255, 0.15); border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.3); }
-    .phase-step.done { color: var(--green-ok); border-color: rgba(0, 255, 170, 0.3); }
 
-    .meta-box { background: rgba(3, 10, 22, 0.7); border: 1px solid rgba(0, 229, 255, 0.1); border-radius: 6px; padding: 10px 14px; }
-    .meta-box-label { font-size: 10px; font-family: var(--font-mono); color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-    .meta-box-val { font-size: 13.5px; font-weight: 700; color: var(--text-main); margin-top: 4px; }
+    .card-hero-globe {
+      flex: 1;
+    }
 
-    #hologram-canvas { width: 100%; height: 240px; background: radial-gradient(circle, rgba(0, 229, 255, 0.05) 0%, transparent 70%); border-radius: 6px; border: 1px solid rgba(0, 229, 255, 0.15); display: block; }
+    .card-intel-feed {
+      flex: 0 0 295px;
+    }
 
-    .agent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-    .agent-card { background: rgba(3, 10, 22, 0.7); border: 1px solid var(--border-cyan); border-radius: 6px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
-    .agent-card-header { display: flex; align-items: center; justify-content: space-between; }
-    .agent-avatar-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 12px; color: #fff; }
-    .agent-badge-idle { font-size: 9.5px; padding: 2px 6px; border-radius: 8px; background: rgba(100, 140, 166, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 140, 166, 0.3); }
-    .agent-badge-working { font-size: 9.5px; padding: 2px 6px; border-radius: 8px; background: rgba(0, 255, 170, 0.15); color: var(--green-ok); border: 1px solid rgba(0, 255, 170, 0.3); animation: blink 1.5s infinite; }
+    /* Card 1: AI Core Overview Vitals */
+    .vitals-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
 
-    .vision-preview-box { width: 100%; height: 220px; background: #010408; border: 1px solid var(--border-cyan); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .vision-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .vital-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 8px;
+      background: rgba(12, 23, 44, 0.55);
+      border: 1px solid rgba(0, 240, 255, 0.06);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
 
-    .status-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; }
-    .status-table th { text-align: left; padding: 8px 10px; background: rgba(0, 229, 255, 0.08); color: var(--cyan); border-bottom: 1px solid var(--border-cyan); }
-    .status-table td { padding: 8px 10px; border-bottom: 1px solid rgba(0, 229, 255, 0.1); }
+    .vital-row:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .vital-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--text-main);
+      font-weight: 500;
+    }
+
+    .vital-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .vital-val {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--cyan);
+      font-family: var(--font-mono);
+    }
+
+    /* Card 2: Hero Holographic Globe */
+    .hero-hologram-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.16) 0%, rgba(6, 12, 24, 0.85) 75%);
+    }
+
+    #holo-globe-canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+
+    .hero-overlay {
+      position: relative;
+      z-index: 10;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    .hero-title {
+      font-family: var(--font-sci);
+      font-size: 40px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #fff;
+      text-shadow: 0 0 22px rgba(0, 240, 255, 0.85), 0 0 45px rgba(0, 240, 255, 0.4);
+      line-height: 1;
+    }
+
+    .hero-subtitle {
+      font-family: var(--font-sci);
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 7px;
+      color: var(--cyan);
+      text-shadow: 0 0 10px var(--cyan);
+    }
+
+    .hero-badge {
+      margin-top: 3px;
+      padding: 3px 12px;
+      border-radius: 16px;
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 1px;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+
+    /* Card 3: Live Intelligence Feed */
+    .feed-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      max-height: 165px;
+      padding-right: 2px;
+    }
+
+    .feed-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 8px;
+      background: rgba(12, 23, 44, 0.5);
+      border: 1px solid rgba(0, 240, 255, 0.08);
+      border-radius: 6px;
+      font-size: 10.5px;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .feed-item:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.05);
+    }
+
+    .feed-text {
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .feed-tag {
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    .tag-info { background: rgba(59, 130, 246, 0.22); color: #60a5fa; }
+    .tag-warn { background: rgba(245, 158, 11, 0.22); color: #fbbf24; }
+    .tag-tip { background: rgba(16, 185, 129, 0.22); color: #34d399; }
+    .tag-live { background: rgba(0, 240, 255, 0.22); color: var(--cyan); }
+
+    /* ROW 2: ACTIVE AGENTS | MISSION TIMELINE | QUICK COMMANDS */
+    .card-active-agents {
+      flex: 1.25;
+    }
+
+    .card-timeline {
+      flex: 0.72;
+    }
+
+    .card-quick-cmds {
+      flex: 0.58;
+    }
+
+    /* Card 4: Active Agents (3 cols x 2 rows) */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: 1fr 1fr;
+      gap: 7px;
+      height: 100%;
+    }
+
+    .agent-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 9px;
+      background: rgba(12, 23, 44, 0.55);
+      border: 1px solid rgba(0, 240, 255, 0.1);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .agent-pill:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .agent-meta {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .agent-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .agent-status {
+      font-size: 9px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .agent-status.active { color: var(--green); }
+    .agent-wave { width: 44px; height: 14px; }
+
+    /* Card 5: Mission Timeline */
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .timeline-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      cursor: pointer;
+    }
+
+    .timeline-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+    }
+
+    .timeline-time {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--cyan);
+    }
+
+    .timeline-title {
+      font-weight: 500;
+      color: var(--text-main);
+      margin-left: 6px;
+    }
+
+    .timeline-due {
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+
+    .timeline-bar-bg {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .timeline-bar-fill { height: 100%; border-radius: 2px; }
+    .fill-cyan { background: var(--cyan); width: 100%; box-shadow: 0 0 5px var(--cyan); }
+    .fill-blue { background: #38bdf8; width: 68%; }
+    .fill-orange { background: var(--amber); width: 38%; }
+    .fill-purple { background: var(--purple); width: 18%; }
+
+    /* Card 6: Quick Commands */
+    .quick-cmd-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 5px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .cmd-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: rgba(12, 23, 44, 0.55);
+      border: 1px solid rgba(0, 240, 255, 0.12);
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .cmd-btn:hover {
+      background: rgba(0, 240, 255, 0.12);
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* ROW 3: SYSTEM MONITOR | MEMORY INSIGHTS | LLM STATUS */
+    .card-sys-monitor {
+      flex: 0.68;
+    }
+
+    .card-memory-insights {
+      flex: 0.64;
+    }
+
+    .card-llm-status {
+      flex: 1.25;
+    }
+
+    /* Card 7: System Monitor Radial Gauges */
+    .gauges-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 2px 0;
+    }
+
+    .gauge-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .gauge-svg {
+      width: 60px;
+      height: 60px;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 5.5;
+    }
+
+    .gauge-bar {
+      fill: none;
+      stroke: var(--cyan);
+      stroke-width: 5.5;
+      stroke-linecap: round;
+      stroke-dasharray: 176;
+      stroke-dashoffset: 176;
+      transition: stroke-dashoffset 0.8s ease;
+      filter: drop-shadow(0 0 4px var(--cyan));
+    }
+
+    .gauge-val-text {
+      position: absolute;
+      top: 16px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .gauge-label {
+      margin-top: 3px;
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    /* Card 8: Memory Insights */
+    .memory-body {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+    }
+
+    #constellation-canvas {
+      flex: 1;
+      height: 75px;
+      border-radius: 7px;
+      background: rgba(12, 23, 44, 0.35);
+    }
+
+    .memory-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 88px;
+    }
+
+    .m-stat-label {
+      font-size: 9px;
+      color: var(--text-dim);
+    }
+
+    .m-stat-val {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* Card 9: LLM Status (3 cols x 3 rows) */
+    .llm-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 5px;
+      height: 100%;
+    }
+
+    .llm-chip {
+      padding: 4px 6px;
+      background: rgba(12, 23, 44, 0.55);
+      border: 1px solid rgba(0, 240, 255, 0.08);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+    }
+
+    .llm-chip.active {
+      border-color: rgba(0, 240, 255, 0.3);
+      background: rgba(0, 240, 255, 0.06);
+    }
+
+    .llm-name {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .llm-status {
+      font-size: 8px;
+      color: var(--text-dim);
+    }
+
+    .llm-status.conn {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    /* BOTTOM FLOATING COMMAND BAR */
+    .bottom-bar {
+      height: 48px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 4px;
+    }
+
+    .bottom-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      background: rgba(10, 22, 42, 0.8);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 240, 255, 0.16);
+    }
+
+    .bottom-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* HERO TALK BUTTON */
+    .talk-hero-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 7px 32px;
+      border-radius: 28px;
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.18) 0%, rgba(2, 132, 199, 0.36) 50%, rgba(0, 240, 255, 0.18) 100%);
+      border: 1.5px solid var(--cyan);
+      box-shadow: 0 0 28px rgba(0, 240, 255, 0.45), inset 0 0 16px rgba(0, 240, 255, 0.22);
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .talk-hero-btn:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 38px rgba(0, 240, 255, 0.7), inset 0 0 22px rgba(0, 240, 255, 0.3);
+    }
+
+    .wave-bars {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 16px;
+    }
+
+    .w-bar {
+      width: 2.5px;
+      background: var(--cyan);
+      border-radius: 2px;
+      animation: waveAnimation 1.2s ease-in-out infinite;
+    }
+
+    .w-bar:nth-child(2) { animation-delay: 0.15s; }
+    .w-bar:nth-child(3) { animation-delay: 0.3s; }
+    .w-bar:nth-child(4) { animation-delay: 0.45s; }
+    .w-bar:nth-child(5) { animation-delay: 0.6s; }
+
+    .talk-text-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .talk-title {
+      font-family: var(--font-sci);
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #fff;
+      text-shadow: 0 0 8px var(--cyan);
+    }
+
+    .talk-subtitle {
+      font-size: 9px;
+      color: var(--cyan);
+      font-weight: 500;
+    }
+
+    .briefing-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(10, 22, 42, 0.8);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .briefing-btn:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    }
+
+    /* COMMAND MODAL TERMINAL */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(3, 7, 18, 0.85);
+      backdrop-filter: blur(10px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .command-modal {
+      width: 700px;
+      max-width: 90vw;
+      background: rgba(8, 17, 34, 0.96);
+      border: 1.5px solid var(--cyan);
+      box-shadow: 0 0 45px rgba(0, 240, 255, 0.4);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+      background: rgba(5, 11, 22, 0.6);
+    }
+
+    .modal-header h3 {
+      font-family: var(--font-sci);
+      font-size: 13px;
+      letter-spacing: 2px;
+      color: var(--cyan);
+    }
+
+    .modal-close {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+
+    .modal-close:hover { color: #fff; }
+
+    .modal-terminal {
+      height: 260px;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: rgba(3, 7, 18, 0.65);
+    }
+
+    .term-msg {
+      padding: 7px 11px;
+      border-radius: 6px;
+      line-height: 1.4;
+    }
+
+    .term-user {
+      background: rgba(59, 130, 246, 0.15);
+      border-left: 3px solid #3b82f6;
+      color: #93c5fd;
+      align-self: flex-end;
+      max-width: 85%;
+    }
+
+    .term-jarvis {
+      background: rgba(0, 240, 255, 0.1);
+      border-left: 3px solid var(--cyan);
+      color: #e0f2fe;
+      align-self: flex-start;
+      max-width: 85%;
+    }
+
+    .modal-chips {
+      display: flex;
+      gap: 6px;
+      padding: 8px 14px;
+      overflow-x: auto;
+      background: rgba(5, 11, 22, 0.4);
+      border-top: 1px solid rgba(0, 240, 255, 0.08);
+    }
+
+    .modal-chip {
+      padding: 4px 9px;
+      border-radius: 12px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      font-size: 10.5px;
+      color: var(--cyan);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .modal-chip:hover {
+      background: rgba(0, 240, 255, 0.2);
+    }
+
+    .modal-input-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-top: 1px solid rgba(0, 240, 255, 0.15);
+      background: rgba(5, 11, 22, 0.7);
+    }
+
+    .modal-input {
+      flex: 1;
+      background: rgba(12, 23, 44, 0.8);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 7px;
+      padding: 9px 12px;
+      color: #fff;
+      font-family: var(--font-main);
+      font-size: 12.5px;
+      outline: none;
+    }
+
+    .modal-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .modal-send-btn {
+      padding: 9px 18px;
+      background: var(--cyan);
+      border: none;
+      border-radius: 7px;
+      color: #030712;
+      font-weight: 700;
+      font-family: var(--font-sci);
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .modal-send-btn:hover {
+      background: #38bdf8;
+      box-shadow: 0 0 14px var(--cyan);
+    }
+
+    /* KEYFRAMES */
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes ripple {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      100% { transform: scale(1.32); opacity: 0; }
+    }
+    @keyframes waveAnimation {
+      0%, 100% { height: 3px; }
+      50% { height: 14px; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- HEADER -->
-  <header>
-    <div class="brand">
-      <div class="arc-mini"></div>
-      <div>
-        <div class="brand-title">J.A.R.V.I.S.</div>
-        <div class="brand-sub">AUTONOMOUS HYBRID OS &amp; COMMAND CENTER</div>
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <!-- LOGO CARD -->
+    <div class="logo-card">
+      <div class="reactor-icon">
+        <div class="reactor-ring"></div>
+        <div class="reactor-core"></div>
+      </div>
+      <div class="logo-text">
+        <h1>JARVIS</h1>
+        <span>COMMAND CENTER</span>
       </div>
     </div>
 
-    <div class="telemetry-strip">
-      <div class="badge-pill"><span class="dot"></span> HYBRID: LOCAL ↔ AWS</div>
-      <div class="badge-pill"><span class="dot"></span> POLICY: ZERO-TRUST</div>
-      <div class="badge-pill"><span class="dot"></span> VOX: DUPLEX READY</div>
-      <button class="btn-emergency" id="btn-kill-switch" onclick="toggleEmergencyStandDown()">STAND DOWN</button>
+    <!-- NAVIGATION MENU -->
+    <nav class="nav-list">
+      <div class="nav-item active" onclick="location.reload()">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Command Center</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('Show AI Core operational status')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>
+          <span>AI Core</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('List all active swarm persona agents')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+          <span>Agents</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('Show active mission queue and tasks')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+          <span>Tasks</span>
+        </div>
+        <span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item" onclick="openCalendarApp()">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span>Calendar</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('Search hierarchical memory for user preferences')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+          <span>Memory</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal()">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>Conversations</span>
+        </div>
+        <span class="nav-badge">12</span>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('Search knowledge base for operating runbooks')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>Knowledge Base</span>
+        </div>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('List active computer control tools and skills')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+          <span>Tools & Skills</span>
+        </div>
+        <span class="nav-badge">18</span>
+      </div>
+      <div class="nav-item" onclick="openCommandModal('JARVIS, prepare my workspace')">
+        <div class="nav-item-left">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          <span>Workflows</span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- VOICE STATUS WIDGET -->
+    <div class="voice-widget">
+      <div class="voice-widget-header">
+        <span>Voice Status</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <canvas class="voice-wave-canvas" id="voice-sidebar-canvas"></canvas>
+      <div class="mic-button-wrapper" id="mic-toggle-btn" onclick="toggleVoiceCapture()">
+        <div class="mic-outer-ring"></div>
+        <div class="mic-center-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        </div>
+      </div>
+      <div class="voice-caption" id="voice-status-caption">Tap to Speak</div>
+      <button class="focus-mode-btn" onclick="toggleFocusMode()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        <span>Focus Mode</span>
+      </button>
     </div>
-  </header>
+  </aside>
 
-  <!-- OS SHELL -->
-  <div class="os-container">
-
-    <!-- 17-DOMAIN SIDEBAR NAVIGATION -->
-    <aside class="sidebar">
-      <div class="sidebar-section-title">Core Operations</div>
-      <div class="nav-item active" onclick="switchDomain('mission')">
-        <span class="icon">🎛️</span> Mission Control <span class="badge" id="badge-mission-status">ACTIVE</span>
-      </div>
-      <div class="nav-item" onclick="switchDomain('command')">
-        <span class="icon">🧠</span> Command Center <span class="badge">LIVE</span>
-      </div>
-      <div class="nav-item" onclick="switchDomain('agents')">
-        <span class="icon">🤖</span> Swarm Fabric <span class="badge">12</span>
-      </div>
-      <div class="nav-item" onclick="switchDomain('automation')">
-        <span class="icon">⚡</span> Automation &amp; Events
+  <!-- RIGHT MAIN WORKSPACE -->
+  <main class="main-workspace">
+    <!-- TOP BAR -->
+    <header class="top-bar">
+      <div class="status-pill">
+        <span>SYSTEM STATUS</span>
+        <div class="status-dot" id="system-status-dot"></div>
+        <span id="system-status-text" style="color:var(--green); font-weight:700;">OPTIMAL</span>
       </div>
 
-      <div class="sidebar-section-title">Physical &amp; Desktop</div>
-      <div class="nav-item" onclick="switchDomain('computer')">
-        <span class="icon">🖥️</span> Computer Control
-      </div>
-      <div class="nav-item" onclick="switchDomain('vision')">
-        <span class="icon">👁️</span> Screen Vision
-      </div>
-      <div class="nav-item" onclick="switchDomain('web')">
-        <span class="icon">🌐</span> Web &amp; Research
-      </div>
-      <div class="nav-item" onclick="switchDomain('iot')">
-        <span class="icon">🏠</span> Smart Home &amp; IoT
-      </div>
-      <div class="nav-item" onclick="switchDomain('devices')">
-        <span class="icon">📱</span> Device Ecosystem
+      <div class="clock-block">
+        <div class="date-text" id="live-date">Saturday, 12 September 2026</div>
+        <div class="clock-text" id="live-clock">11:30:00 pm</div>
       </div>
 
-      <div class="sidebar-section-title">Cloud &amp; Security (Hybrid)</div>
-      <div class="nav-item" onclick="switchDomain('cloud')">
-        <span class="icon">☁️</span> AWS Cloud &amp; IaC <span class="badge" style="color:var(--green-ok);">HYBRID</span>
-      </div>
-      <div class="nav-item" onclick="switchDomain('devops')">
-        <span class="icon">🛠️</span> DevOps &amp; SRE
-      </div>
-      <div class="nav-item" onclick="switchDomain('security')">
-        <span class="icon">🔐</span> Security &amp; Policy
-      </div>
-
-      <div class="sidebar-section-title">Intelligence &amp; Diagnostics</div>
-      <div class="nav-item" onclick="switchDomain('monitoring')">
-        <span class="icon">📊</span> Monitoring &amp; Vitals
-      </div>
-      <div class="nav-item" onclick="switchDomain('knowledge')">
-        <span class="icon">📁</span> Hierarchical Memory
-      </div>
-      <div class="nav-item" onclick="switchDomain('software')">
-        <span class="icon">💻</span> Software Engineering
-      </div>
-      <div class="nav-item" onclick="switchDomain('analytics')">
-        <span class="icon">📈</span> Analytics &amp; FinOps
-      </div>
-      <div class="nav-item" onclick="switchDomain('settings')">
-        <span class="icon">⚙️</span> Settings &amp; Models
-      </div>
-    </aside>
-
-    <!-- CENTER WORKSPACE -->
-    <main class="workspace">
-
-      <!-- OMNIPRESENT UNIVERSAL COMMAND STAGE -->
-      <section class="command-stage">
-        <div class="command-top">
-          <div class="command-label"><span>●</span> UNIVERSAL COMMAND INTERFACE</div>
-          <div class="command-controls">
-            <label class="toggle-vox">
-              <input type="checkbox" id="vox-toggle" onchange="toggleVoxMode(this.checked)">
-              <div class="toggle-switch"></div>
-              <span>HANDS-FREE VOX</span>
-            </label>
+      <div class="top-actions">
+        <div class="search-box" onclick="openCommandModal()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <span>Search...</span>
+          <span class="search-shortcut">⌘K</span>
+        </div>
+        <div class="action-icon-btn" title="Apps Grid" onclick="openCommandModal('Open Opera GX')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        </div>
+        <div class="action-icon-btn" title="Notifications" onclick="openCommandModal('Show recent system notifications')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          <div class="badge-dot"></div>
+        </div>
+        <div class="action-icon-btn" title="Settings" onclick="openCommandModal('System diagnostic report')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        </div>
+        <div class="user-profile" onclick="openCommandModal('Who are you?')">
+          <div class="user-avatar">O</div>
+          <div class="user-meta">
+            <div class="user-title">Operator</div>
+            <div class="user-role">Commander ⌄</div>
           </div>
         </div>
-
-        <div class="command-input-row">
-          <div class="input-wrapper">
-            <span class="input-prefix">&gt;</span>
-            <input 
-              type="text" 
-              class="universal-input" 
-              id="cmd-input" 
-              placeholder="Hey JARVIS, what do you want me to do? (Type or speak naturally...)"
-              onkeydown="if(event.key === 'Enter') executeUniversalCommand()"
-            >
-          </div>
-          <button class="btn-act btn-cyan" onclick="executeUniversalCommand()">EXECUTE</button>
-          <button class="btn-act btn-outline btn-mic" id="mic-btn" onclick="toggleMicrophone()">🎙️ TALK</button>
-          <button class="btn-act btn-outline" onclick="triggerScreenVision()">👁️ LOOK</button>
-        </div>
-
-        <canvas class="spectrum-canvas" id="spectrum-canvas"></canvas>
-
-        <div class="pills-row">
-          <span style="font-size:11px; color:var(--text-muted); font-family:var(--font-mono);">QUICK ACTIONS:</span>
-          <span class="pill" onclick="sendSuggestion('JARVIS, prepare my workspace')">🚀 Prepare Workspace</span>
-          <span class="pill" onclick="launchQuickMission('Production Readiness &amp; Cloud Audit', 'Inspect local workstation, verify real AWS credentials, audit open ports, and verify Git repository.')">⚡ Production Readiness Mission</span>
-          <span class="pill" onclick="sendSuggestion('JARVIS, open Opera GX')">🌐 Launch Opera GX</span>
-          <span class="pill" onclick="sendSuggestion('JARVIS, look at my screen')">👁️ Inspect Desktop Screen</span>
-          <span class="pill" onclick="sendSuggestion('JARVIS, query system telemetry')">📊 Hardware Vitals</span>
-          <span class="pill" onclick="sendSuggestion('JARVIS, audit zero-trust security policies')">🔐 Security Policy Audit</span>
-        </div>
-      </section>
-
-      <!-- APPROVAL QUEUE BANNER -->
-      <div class="approval-card" id="approval-banner">
-        <div class="approval-info">
-          <div class="approval-title" id="approval-title">⚠️ AUTHORIZATION REQUIRED: HIGH RISK ACTION</div>
-          <div class="approval-desc" id="approval-desc">An agent has requested to execute a mutating system operation.</div>
-        </div>
-        <div class="approval-actions">
-          <button class="btn-approve" onclick="approveCurrentAction()">AUTHORIZE</button>
-          <button class="btn-reject" onclick="rejectCurrentAction()">DENY</button>
-        </div>
       </div>
+    </header>
 
-      <!-- DOMAIN 1: MISSION CONTROL -->
-      <section class="viewport active" id="view-mission">
-        <div class="mission-card">
-          <div class="mission-header">
-            <div class="mission-title-area">
-              <h2 id="m-name">STANDBY: System Idle</h2>
-              <div class="mission-desc" id="m-obj">Autonomous Mission Engine is on standby. Enter an objective below or select a quick action to dispatch an autonomous agent DAG.</div>
-            </div>
-            <button class="btn-act btn-outline" style="border-color:var(--red-alert); color:var(--red-alert);" onclick="abortCurrentMission()">ABORT MISSION</button>
-          </div>
+    <!-- ASYMMETRIC 3-ROW DASHBOARD CONTAINER -->
+    <div class="dashboard-container">
 
-          <div class="progress-track">
-            <div class="progress-fill" id="m-progress" style="width: 0%;"></div>
-          </div>
+      <!-- ====================================================================
+           ROW 1: AI CORE OVERVIEW | HERO GLOBE | LIVE INTELLIGENCE FEED
+           ==================================================================== -->
+      <div class="dash-row dash-row-1">
 
-          <div class="phase-dag">
-            <div class="phase-step" id="dag-analyze">1. ANALYZE</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-plan">2. PLAN</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-authorize">3. AUTHORIZE</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-execute">4. EXECUTE</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-monitor">5. MONITOR</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-verify">6. VERIFY</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-fix">7. FIX</div>
-            <span class="phase-arrow">→</span>
-            <div class="phase-step" id="dag-report">8. REPORT</div>
-          </div>
-
-          <div class="grid-4">
-            <div class="meta-box">
-              <div class="meta-box-label">CURRENT PHASE</div>
-              <div class="meta-box-val" id="m-phase" style="color:var(--cyan);">IDLE (0%)</div>
-            </div>
-            <div class="meta-box">
-              <div class="meta-box-label">WORKING AGENTS</div>
-              <div class="meta-box-val" id="m-agents">0 Working</div>
-            </div>
-            <div class="meta-box">
-              <div class="meta-box-label">BLAST RADIUS TIER</div>
-              <div class="meta-box-val" id="m-blast-radius" style="color:var(--green-ok);">TIER 0 (STANDBY)</div>
-            </div>
-            <div class="meta-box">
-              <div class="meta-box-label">ESTIMATED COST</div>
-              <div class="meta-box-val" id="m-cost">$0.00 USD</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="card">
+        <!-- CARD 1: AI CORE OVERVIEW -->
+        <div class="card card-ai-overview">
+          <div class="card-header">
             <div class="card-title">
-              <span>📜 LIVE MISSION ACTION STREAM</span>
-              <span style="font-size:10px; font-family:var(--font-mono); color:var(--cyan);">CORROBORATING</span>
-            </div>
-            <div class="terminal-window" id="mission-timeline"></div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>START NEW AUTONOMOUS MISSION</span></div>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-              <input type="text" id="new-mission-name" class="universal-input" placeholder="Mission Name (e.g. AWS Security Hardening)">
-              <input type="text" id="new-mission-obj" class="universal-input" placeholder="Objective (e.g. Audit all S3 buckets and remove public read)">
-              <button class="btn-act btn-cyan" onclick="startNewMission()">LAUNCH MISSION</button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m10 15 5-3-5-3v6Z"></path></svg>
+              <span>AI Core Overview</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 2: COMMAND CENTER -->
-      <section class="viewport" id="view-command">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title">
-              <span>HOLOGRAPHIC DIGITAL TWIN</span>
-              <span style="font-size:10px; font-family:var(--font-mono);">WEBGL REAL-TIME</span>
-            </div>
-            <canvas id="hologram-canvas"></canvas>
-            <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">
-              <span>ROTATION: 60 FPS</span>
-              <span>STATE: SYSTEM NOMINAL</span>
-              <span>CORE: ARC REACTOR ACTIVE</span>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title">
-              <span>CENTRAL REACT TERMINAL STREAM</span>
-              <span style="font-size:10px; font-family:var(--font-mono); color:var(--green-ok);">WEBSOCKET /ws</span>
-            </div>
-            <div class="terminal-window" id="react-terminal">
-              <div class="terminal-line jarvis">[JARVIS] Master Command Center online. Hybrid local &amp; cloud fabric operational, sir.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 3: SWARM FABRIC -->
-      <section class="viewport" id="view-agents">
-        <div class="card">
-          <div class="card-title">
-            <span>12-PERSONA AUTONOMOUS AGENT SWARM</span>
-            <span style="font-size:10px; font-family:var(--font-mono); color:var(--cyan);">ACTIVE FABRIC</span>
-          </div>
-          <div class="agent-grid" id="agent-grid"></div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 4: AUTOMATION & EVENTS -->
-      <section class="viewport" id="view-automation">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title">
-              <span>UNIFIED EVENT BUS REACTIVE STREAM</span>
-              <button class="action-btn-primary" onclick="publishTestEvent()">SEND TEST EVENT</button>
-            </div>
-            <div class="terminal-window" id="event-stream"></div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>SCHEDULED PROTOCOLS &amp; ROUTINES</span></div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <div class="tool-btn" onclick="sendSuggestion('JARVIS, execute morning protocol')">
-                <span>🌅 Morning Protocol Routine</span><span style="color:var(--cyan);">RUN NOW</span>
+          <div class="card-body">
+            <div class="vitals-list">
+              <div class="vital-row" onclick="openCommandModal('Show AI Core configuration and model details')">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(0,240,255,0.15); color:var(--cyan);">🌐</div>
+                  <span>AI Core</span>
+                </div>
+                <div class="vital-val" id="vital-ai-val" style="color:var(--cyan);">Active</div>
               </div>
-              <div class="tool-btn" onclick="sendSuggestion('JARVIS, run hourly security scan')">
-                <span>🛡️ Hourly Security Sweep</span><span style="color:var(--cyan);">RUN NOW</span>
+              <div class="vital-row" onclick="openCommandModal('Memory status and vector store stats')">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(59,130,246,0.15); color:#60a5fa;">💾</div>
+                  <span>Memory</span>
+                </div>
+                <div class="vital-val" id="vital-mem-val">3,380 Stored</div>
               </div>
-              <div class="tool-btn" onclick="sendSuggestion('JARVIS, check aws finops budget')">
-                <span>📊 Daily AWS Cost Reconciliation</span><span style="color:var(--cyan);">RUN NOW</span>
+              <div class="vital-row" onclick="toggleVoiceCapture()">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(16,185,129,0.15); color:var(--green);">🎙</div>
+                  <span>Voice</span>
+                </div>
+                <div class="vital-val" id="vital-voice-val" style="color:var(--green);">Online</div>
+              </div>
+              <div class="vital-row" onclick="openCommandModal('List all 12 swarm agents')">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(168,85,247,0.15); color:var(--purple);">🤖</div>
+                  <span>Agents</span>
+                </div>
+                <div class="vital-val" id="vital-agents-val">2 Running</div>
+              </div>
+              <div class="vital-row" onclick="openCommandModal('Show active LLM provider connections')">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(245,158,11,0.15); color:var(--amber);">⚡</div>
+                  <span>LLMs</span>
+                </div>
+                <div class="vital-val" id="vital-llms-val">4 Connected</div>
+              </div>
+              <div class="vital-row" onclick="openCommandModal('Run full system health check')">
+                <div class="vital-label">
+                  <div class="vital-icon" style="background:rgba(20,184,166,0.15); color:#2dd4bf;">🛡</div>
+                  <span>System</span>
+                </div>
+                <div class="vital-val" id="vital-sys-val" style="color:var(--green);">Optimal</div>
               </div>
             </div>
           </div>
         </div>
-      </section>
 
-      <!-- DOMAIN 5: COMPUTER CONTROL -->
-      <section class="viewport" id="view-computer">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title"><span>WINDOWS APPLICATION LAUNCHER</span></div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, open Opera GX')">🌐 Launch Opera GX</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, open Chrome')">🌐 Launch Google Chrome</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, launch VS Code')">💻 Launch Visual Studio Code</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, open terminal')">⚡ Launch Windows Terminal</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, lock my screen')">🔒 Lock Workstation Screen</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, prepare my workspace')">🚀 Prepare Dev Workspace</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>SYSTEM PROCESS &amp; AUDIO CONTROLS</span></div>
-            <div style="display:flex; flex-direction:column; gap:12px;">
-              <div style="display:flex; align-items:center; justify-content:space-between;">
-                <span>Master Volume:</span>
-                <input type="range" min="0" max="100" value="50" onchange="setVolume(this.value)" style="width:160px;">
-              </div>
-              <div class="tool-btn" onclick="sendSuggestion('JARVIS, close opera')">🛑 Terminate Opera GX Processes</div>
-              <div class="tool-btn" onclick="sendSuggestion('JARVIS, query system telemetry')">📊 Refresh Hardware Telemetry</div>
-            </div>
+        <!-- CARD 2: HERO HOLOGRAPHIC GLOBE -->
+        <div class="card card-hero-globe hero-hologram-card">
+          <canvas id="holo-globe-canvas"></canvas>
+          <div class="hero-overlay">
+            <div class="hero-title">JARVIS</div>
+            <div class="hero-subtitle">AI CORE</div>
+            <div class="hero-badge">v3.0.0</div>
           </div>
         </div>
-      </section>
 
-      <!-- DOMAIN 6: SCREEN VISION -->
-      <section class="viewport" id="view-vision">
-        <div class="grid-2">
-          <div class="card">
+        <!-- CARD 3: LIVE INTELLIGENCE FEED -->
+        <div class="card card-intel-feed">
+          <div class="card-header">
             <div class="card-title">
-              <span>LIVE DESKTOP FRAME BUFFER</span>
-              <button class="action-btn-primary" onclick="triggerScreenVision()">LOOK AT SCREEN</button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              <span>Live Intelligence Feed</span>
             </div>
-            <div class="vision-preview-box">
-              <img id="screen-preview-img" class="vision-img" src="/api/v1/vision/screenshot" alt="Screen Frame">
-            </div>
+            <span class="feed-tag tag-live">● LIVE</span>
           </div>
-          <div class="card">
-            <div class="card-title"><span>MULTIMODAL VISUAL REASONING REPORT</span></div>
-            <div class="terminal-window" id="vision-analysis-text" style="height:220px;">
-              <div class="terminal-line jarvis">Click "LOOK AT SCREEN" to capture active desktop and execute multimodal reasoning.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 7: WEB & RESEARCH -->
-      <section class="viewport" id="view-web">
-        <div class="card">
-          <div class="card-title"><span>AUTONOMOUS WEB RESEARCH AGENT</span></div>
-          <div style="display:flex; gap:10px;">
-            <input type="text" id="web-query-input" class="universal-input" placeholder="Enter research query, documentation topic, or target URL...">
-            <button class="btn-act btn-cyan" onclick="performWebResearch()">EXECUTE RESEARCH</button>
-          </div>
-          <div class="terminal-window" id="web-results" style="height:260px; margin-top:10px;">
-            <div class="terminal-line jarvis">[Web Research Agent ready. Enter query above to generate executive technical briefing.]</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 8: SMART HOME & IOT -->
-      <section class="viewport" id="view-iot">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title"><span>ESP32 WORKSTATION LIGHTING RELAYS</span></div>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, turn on the desk lamp')">💡 Desk Lamp -> TURN ON</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, turn off the desk lamp')">🌑 Desk Lamp -> TURN OFF</button>
-              <button class="tool-btn" onclick="sendSuggestion('JARVIS, prepare my workspace')">⚡ Full Workstation Illumination</button>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>PHYSICAL SENSOR TELEMETRY</span></div>
-            <div style="display:flex; flex-direction:column; gap:10px; font-family:var(--font-mono); font-size:13px;">
-              <div>AMBIENT LUX SENSOR: <span style="color:var(--cyan);" id="iot-lux-val">420 LUX</span></div>
-              <div>ROOM TEMPERATURE: <span style="color:var(--cyan);">24.2 °C</span></div>
-              <div>ESP32 GATEWAY STATUS: <span style="color:var(--green-ok);">ONLINE &amp; SYNCHRONIZED</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 9: DEVICE ECOSYSTEM -->
-      <section class="viewport" id="view-devices">
-        <div class="card">
-          <div class="card-title"><span>CONNECTED DEVICE TOPOLOGY</span></div>
-          <div class="grid-3">
-            <div class="tool-btn"><span>🖥️ Host PC Gateway</span><span style="color:var(--green-ok);">PRIMARY</span></div>
-            <div class="tool-btn"><span>📱 Mobile Device Link</span><span style="color:var(--cyan);">SYNCED</span></div>
-            <div class="tool-btn"><span>🏠 Lab ESP32 Node</span><span style="color:var(--green-ok);">ONLINE</span></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 10: AWS CLOUD & IAC (HYBRID ARCHITECTURE) -->
-      <section class="viewport" id="view-cloud">
-        <div class="card">
-          <div class="card-title">
-            <span>HYBRID CLOUD INFRASTRUCTURE (LOCAL GATEWAY ↔ AWS CLOUD)</span>
-            <button class="action-btn-primary" onclick="syncHybridCloud()">SYNC HYBRID EVENTBRIDGE</button>
-          </div>
-          <div class="grid-2">
-            <div>
-              <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted); margin-bottom:8px;">ACTIVE AWS TOPOLOGY:</div>
-              <div style="display:flex; flex-direction:column; gap:8px;" id="cloud-resources-list">
-                <!-- Dynamically loaded -->
+          <div class="card-body">
+            <div class="feed-list" id="intel-feed-container">
+              <div class="feed-item">
+                <div class="feed-text">Coimbatore Station online - Weather 22°C Overcast</div>
+                <span class="feed-tag tag-live">Live</span>
               </div>
-            </div>
-            <div>
-              <div style="font-family:var(--font-mono); font-size:12px; color:var(--text-muted); margin-bottom:8px;">TERRAFORM IAC &amp; PROVISIONING:</div>
-              <div style="display:flex; flex-direction:column; gap:8px;">
-                <button class="tool-btn" onclick="triggerTerraformPlan()">📄 Run Terraform Speculative Plan</button>
-                <button class="tool-btn" onclick="triggerTerraformApply()">⚡ Run Terraform Apply (Policy Protected)</button>
-                <button class="tool-btn" onclick="provisionCloudResource('ec2', 'jarvis-gpu-worker', 'start')">🚀 Provision / Start EC2 Worker</button>
-                <button class="tool-btn" onclick="provisionCloudResource('s3', 'jarvis-data-vault', 'create')">🪣 Create New S3 Storage Bucket</button>
+              <div class="feed-item">
+                <div class="feed-text" id="feed-cpu-text">CPU usage at 15% - System nominal</div>
+                <span class="feed-tag tag-live">Live</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-text">Gemini 2.5 Flash primary + Groq fallback operational</div>
+                <span class="feed-tag tag-info">Info</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-text">Git branch main synced with remote origin</div>
+                <span class="feed-tag tag-tip">Github</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-text">Deep-work block active in IST timezone</div>
+                <span class="feed-tag tag-tip">Focus</span>
+              </div>
+              <div class="feed-item">
+                <div class="feed-text">Zero-Trust policy engine verified across all endpoints</div>
+                <span class="card-action-link" onclick="openCommandModal('Security policy status')">View Tasks</span>
               </div>
             </div>
           </div>
-          <div class="terminal-window" id="cloud-ops-console" style="height:140px; margin-top:10px;">
-            <div class="terminal-line jarvis">[Hybrid Cloud Engine connected. Region: ap-south-1 | EventBridge Bus: jarvis-event-bus]</div>
-          </div>
         </div>
-      </section>
 
-      <!-- DOMAIN 11: DEVOPS & SRE -->
-      <section class="viewport" id="view-devops">
-        <div class="grid-2">
-          <div class="card">
+      </div>
+
+      <!-- ====================================================================
+           ROW 2: ACTIVE AGENTS | MISSION TIMELINE | QUICK COMMANDS
+           ==================================================================== -->
+      <div class="dash-row dash-row-2">
+
+        <!-- CARD 4: ACTIVE AGENTS (3 COLS X 2 ROWS) -->
+        <div class="card card-active-agents">
+          <div class="card-header">
             <div class="card-title">
-              <span>DOCKER CONTAINERS</span>
-              <button class="action-btn-primary" onclick="loadDockerContainers()">REFRESH CONTAINERS</button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m12 6 4 6-4 6-4-6 4-6Z"></path></svg>
+              <span>Active Agents</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:8px;" id="docker-container-list"></div>
+            <a class="card-action-link" onclick="openCommandModal('List all swarm persona agents')">View All ></a>
           </div>
-          <div class="card">
-            <div class="card-title">
-              <span>GIT WORKSPACE &amp; ROLLBACK ENGINE</span>
-              <button class="action-btn-primary" onclick="triggerRollbackTest()">TEST ATOMIC ROLLBACK</button>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <button class="tool-btn" onclick="loadGitStatus()">📁 Inspect Git Repository Status</button>
-              <div style="display:flex; gap:8px; margin-top:4px;">
-                <input type="text" id="git-commit-msg" class="universal-input" placeholder="Commit message...">
-                <button class="action-btn-primary" onclick="createGitCommit()">COMMIT</button>
+          <div class="card-body">
+            <div class="agents-grid">
+              <div class="agent-pill" onclick="openCommandModal('Coding Agent: inspect repository status and code quality')">
+                <div class="agent-meta">
+                  <div class="agent-name">&lt;/&gt; Coding Agent</div>
+                  <div class="agent-status active">● Active</div>
+                </div>
+                <canvas class="agent-wave" data-color="#10b981"></canvas>
+              </div>
+              <div class="agent-pill" onclick="openCommandModal('Research Agent: search web for latest AI news')">
+                <div class="agent-meta">
+                  <div class="agent-name">🔍 Research Agent</div>
+                  <div class="agent-status active">● Active</div>
+                </div>
+                <canvas class="agent-wave" data-color="#00f0ff"></canvas>
+              </div>
+              <div class="agent-pill" onclick="openCommandModal('Memory Agent: query working memory context')">
+                <div class="agent-meta">
+                  <div class="agent-name">🗄 Memory Agent</div>
+                  <div class="agent-status">● Standby</div>
+                </div>
+                <canvas class="agent-wave" data-color="#a855f7"></canvas>
+              </div>
+              <div class="agent-pill" onclick="openCommandModal('Open Opera GX')">
+                <div class="agent-meta">
+                  <div class="agent-name">🌐 Browser Agent</div>
+                  <div class="agent-status">● Standby</div>
+                </div>
+                <canvas class="agent-wave" data-color="#f59e0b"></canvas>
+              </div>
+              <div class="agent-pill" onclick="openCommandModal('Task Agent: list active mission queue')">
+                <div class="agent-meta">
+                  <div class="agent-name">☑ Task Agent</div>
+                  <div class="agent-status">● Standby</div>
+                </div>
+                <canvas class="agent-wave" data-type="dots" data-color="#38bdf8"></canvas>
+              </div>
+              <div class="agent-pill" onclick="openCommandModal('System Agent: run hardware vitals check')">
+                <div class="agent-meta">
+                  <div class="agent-name">✓ System Agent</div>
+                  <div class="agent-status">● Standby</div>
+                </div>
+                <div style="color:var(--green); font-size:16px; margin-right:8px;">✓</div>
               </div>
             </div>
-            <div class="terminal-window" id="devops-console" style="height:120px; margin-top:8px;">
-              <div class="terminal-line">[DevOps engine online. Rollback transaction engine active.]</div>
-            </div>
           </div>
         </div>
-      </section>
 
-      <!-- DOMAIN 12: SECURITY & POLICY -->
-      <section class="viewport" id="view-security">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title"><span>CYBERSECURITY SENTINEL SCANNERS</span></div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <button class="tool-btn" onclick="runPortScan()">🔍 Run Active Port Scanner (Host &amp; LAN)</button>
-              <button class="tool-btn" onclick="runIamScan()">🛡️ Scan Terraform IAM Wildcard Privileges</button>
-            </div>
-            <div class="terminal-window" id="security-scan-results" style="height:160px; margin-top:8px;">
-              <div class="terminal-line">[Click scanner buttons above to evaluate zero-trust security postures.]</div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>ZERO-TRUST POLICY AUDIT LOG</span></div>
-            <div class="terminal-window" id="security-audit-window" style="height:220px;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 13: MONITORING & VITALS -->
-      <section class="viewport" id="view-monitoring">
-        <div class="grid-3">
-          <div class="card">
-            <div class="card-title"><span>CPU UTILIZATION</span></div>
-            <div style="font-size:32px; font-family:var(--font-display); color:var(--cyan);" id="mon-cpu">--%</div>
-            <div style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted);">Host processor telemetry</div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>RAM USAGE</span></div>
-            <div style="font-size:32px; font-family:var(--font-display); color:var(--cyan);" id="mon-ram">--%</div>
-            <div style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted);" id="mon-ram-gb">-- GB / -- GB</div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>DISK STORAGE (C:)</span></div>
-            <div style="font-size:32px; font-family:var(--font-display); color:var(--cyan);" id="mon-disk">--%</div>
-            <div style="font-size:11px; font-family:var(--font-mono); color:var(--text-muted);" id="mon-disk-gb">-- GB Free</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 14: HIERARCHICAL MEMORY -->
-      <section class="viewport" id="view-knowledge">
-        <div class="card">
-          <div class="card-title"><span>7-TIER HIERARCHICAL COGNITIVE MEMORY SEARCH</span></div>
-          <div style="display:flex; gap:10px;">
-            <input type="text" id="memory-search-input" class="universal-input" placeholder="Search cognitive memory (working, procedural, preferences, knowledge)..." onkeydown="if(event.key === 'Enter') searchMemory(this.value)">
-            <button class="btn-act btn-cyan" onclick="searchMemory(document.getElementById('memory-search-input').value)">SEARCH MEMORY</button>
-          </div>
-          <div class="terminal-window" id="memory-search-res" style="height:240px; margin-top:10px;">
-            <div class="terminal-line jarvis">[Hierarchical Memory ready. Type a term above to inspect all 7 cognitive tiers.]</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 15: SOFTWARE ENGINEERING -->
-      <section class="viewport" id="view-software">
-        <div class="card">
-          <div class="card-title"><span>AUTONOMOUS SOFTWARE ENGINEERING &amp; SELF-HEALING</span></div>
-          <div style="display:flex; gap:10px;">
-            <button class="tool-btn" onclick="runDiagnosticTests()">🧪 Run Full Diagnostic Suite</button>
-            <button class="tool-btn" onclick="runCodeSecurityScan()">🛡️ Codebase Vulnerability Scan</button>
-            <button class="tool-btn" onclick="triggerSelfHealingCheck()">🩹 Self-Healing Health Check</button>
-          </div>
-          <div class="terminal-window" id="software-console" style="height:220px; margin-top:10px;">
-            <div class="terminal-line jarvis">[Software engineering agent ready. Click diagnostic actions above.]</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 16: ANALYTICS & FINOPS -->
-      <section class="viewport" id="view-analytics">
-        <div class="grid-2">
-          <div class="card">
+        <!-- CARD 5: MISSION TIMELINE -->
+        <div class="card card-timeline">
+          <div class="card-header">
             <div class="card-title">
-              <span>AWS FINOPS COST TRACKER</span>
-              <button class="action-btn-primary" onclick="loadFinopsMetrics()">REFRESH</button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span>Mission Timeline</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:8px; font-family:var(--font-mono); font-size:13px;" id="finops-breakdown">
-              <div>Loading real AWS infrastructure spending...</div>
-            </div>
+            <span style="font-size:10.5px; color:var(--cyan); cursor:pointer;">Today ⌄</span>
           </div>
-          <div class="card">
-            <div class="card-title"><span>INTENT &amp; PREDICTIVE INTELLIGENCE</span></div>
-            <div style="display:flex; flex-direction:column; gap:8px; font-family:var(--font-mono); font-size:13px;">
-              <div>INTENT PREDICTOR: <span style="color:var(--green-ok);">ONLINE</span></div>
-              <div>SCENARIO SIMULATOR: <span style="color:var(--cyan);">ACTIVE</span></div>
-              <div>CONFIDENCE METRIC: <span style="color:var(--cyan);">0.98</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- DOMAIN 17: SETTINGS & SOUNDBOARD -->
-      <section class="viewport" id="view-settings">
-        <div class="grid-2">
-          <div class="card">
-            <div class="card-title"><span>AI REASONING PROVIDER HIERARCHY</span></div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <div class="tool-btn"><span>Tier 1: Google Gemini 2.5 Flash</span><span style="color:var(--green-ok);">ACTIVE</span></div>
-              <div class="tool-btn"><span>Tier 2: OpenAI GPT-4o</span><span style="color:var(--cyan);">STANDBY</span></div>
-              <div class="tool-btn"><span>Tier 3: Local Ollama (Local AI)</span><span style="color:var(--cyan);">READY</span></div>
-              <div class="tool-btn"><span>Tier 4: Local Cognitive Reflex Engine</span><span style="color:var(--green-ok);">ONLINE (0-DEP)</span></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-title"><span>AUTHENTIC MOVIE SOUNDBOARD</span></div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <button class="tool-btn" onclick="playSoundboard('welcome_back_jarvis')">🔊 Welcome Back</button>
-              <button class="tool-btn" onclick="playSoundboard('jarvis_on')">🔊 Jarvis On</button>
-              <button class="tool-btn" onclick="playSoundboard('flight_plan')">🔊 Flight Plan</button>
-              <button class="tool-btn" onclick="playSoundboard('simulation')">🔊 Run Simulation</button>
+          <div class="card-body">
+            <div class="timeline-list">
+              <div class="timeline-item" onclick="openCommandModal('Status of Daily Standup')">
+                <div class="timeline-top">
+                  <div><span class="timeline-time">09:30 am</span><span class="timeline-title">Daily Standup</span></div>
+                  <div class="timeline-due" style="color:var(--cyan); font-weight:600;">Done</div>
+                </div>
+                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-cyan"></div></div>
+              </div>
+              <div class="timeline-item" onclick="openCommandModal('Status of HUD panel spacing')">
+                <div class="timeline-top">
+                  <div><span class="timeline-time">12:00 pm</span><span class="timeline-title">Finalize HUD panel spacing</span></div>
+                  <div class="timeline-due">In 42 min</div>
+                </div>
+                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-blue"></div></div>
+              </div>
+              <div class="timeline-item" onclick="openCommandModal('Deep-work block: Voice pipeline')">
+                <div class="timeline-top">
+                  <div><span class="timeline-time">02:00 pm</span><span class="timeline-title">Deep-work block: Voice pipeline</span></div>
+                  <div class="timeline-due">In 2h 42m</div>
+                </div>
+                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-orange"></div></div>
+              </div>
+              <div class="timeline-item" onclick="openCommandModal('Design Review status')">
+                <div class="timeline-top">
+                  <div><span class="timeline-time">04:30 pm</span><span class="timeline-title">Design Review — Command Center V1</span></div>
+                  <div class="timeline-due">In 5h 12m</div>
+                </div>
+                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-purple"></div></div>
+              </div>
             </div>
           </div>
         </div>
-      </section>
 
-    </main>
+        <!-- CARD 6: QUICK COMMANDS -->
+        <div class="card card-quick-cmds">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>Quick Commands</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="quick-cmd-grid">
+              <div class="cmd-btn" onclick="openCommandModal('Start new task: ')">
+                <span style="color:var(--cyan);">➕</span><span>Start New Task</span>
+              </div>
+              <div class="cmd-btn" onclick="openCalendarApp()">
+                <span style="color:#60a5fa;">📅</span><span>Open Calendar</span>
+              </div>
+              <div class="cmd-btn" onclick="toggleVoiceCapture()">
+                <span style="color:var(--green);">🎙</span><span>Start Voice Chat</span>
+              </div>
+              <div class="cmd-btn" onclick="openCommandModal('JARVIS, prepare my workspace')">
+                <span style="color:var(--amber);">▶</span><span>Run Workflow</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ====================================================================
+           ROW 3: SYSTEM MONITOR | MEMORY INSIGHTS | LLM STATUS
+           ==================================================================== -->
+      <div class="dash-row dash-row-3">
+
+        <!-- CARD 7: SYSTEM MONITOR (RADIAL GAUGES) -->
+        <div class="card card-sys-monitor">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+              <span>System Monitor</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="gauges-container">
+              <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 64 64">
+                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
+                  <circle class="gauge-bar" id="gauge-cpu-bar" cx="32" cy="32" r="28"></circle>
+                </svg>
+                <div class="gauge-val-text" id="gauge-cpu-val">15%</div>
+                <div class="gauge-label">CPU</div>
+              </div>
+              <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 64 64">
+                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
+                  <circle class="gauge-bar" id="gauge-ram-bar" cx="32" cy="32" r="28"></circle>
+                </svg>
+                <div class="gauge-val-text" id="gauge-ram-val">54%</div>
+                <div class="gauge-label">RAM</div>
+              </div>
+              <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 64 64">
+                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
+                  <circle class="gauge-bar" id="gauge-disk-bar" cx="32" cy="32" r="28"></circle>
+                </svg>
+                <div class="gauge-val-text" id="gauge-disk-val">40%</div>
+                <div class="gauge-label">DISK</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 8: MEMORY INSIGHTS -->
+        <div class="card card-memory-insights">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+              <span>Memory Insights</span>
+            </div>
+            <a class="card-action-link" onclick="openCommandModal('Search hierarchical memory map')">View Memory Map ></a>
+          </div>
+          <div class="card-body">
+            <div class="memory-body">
+              <canvas id="constellation-canvas"></canvas>
+              <div class="memory-stats">
+                <div class="m-stat-label">Memories</div>
+                <div class="m-stat-val" id="memories-count-val">3,380</div>
+                <div class="m-stat-label">Session Turns</div>
+                <div class="m-stat-val" id="session-turns-val">24</div>
+                <div class="m-stat-label">Tool Calls</div>
+                <div class="m-stat-val" id="tool-calls-val">16</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 9: LLM STATUS (3 COLS X 3 ROWS) -->
+        <div class="card card-llm-status">
+          <div class="card-header">
+            <div class="card-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+              <span>LLM Status</span>
+            </div>
+            <span style="font-size:10.5px; color:var(--cyan); font-weight:600;" id="llm-connected-header">4 Connected</span>
+          </div>
+          <div class="card-body">
+            <div class="llm-grid">
+              <div class="llm-chip" id="chip-claude">
+                <div class="llm-name">Claude</div>
+                <div class="llm-status">Not Linked</div>
+              </div>
+              <div class="llm-chip" id="chip-openai">
+                <div class="llm-name">OpenAI</div>
+                <div class="llm-status">Not Linked</div>
+              </div>
+              <div class="llm-chip active" id="chip-gemini">
+                <div class="llm-name">Gemini <span style="color:var(--green);">●</span></div>
+                <div class="llm-status conn">Connected</div>
+              </div>
+              <div class="llm-chip active" id="chip-groq">
+                <div class="llm-name">Groq <span style="color:var(--green);">●</span></div>
+                <div class="llm-status conn">Connected</div>
+              </div>
+              <div class="llm-chip" id="chip-openrouter">
+                <div class="llm-name">OpenRouter</div>
+                <div class="llm-status">Not Linked</div>
+              </div>
+              <div class="llm-chip" id="chip-ollama">
+                <div class="llm-name">Ollama</div>
+                <div class="llm-status">No Models</div>
+              </div>
+              <div class="llm-chip active" id="chip-claudecode">
+                <div class="llm-name">Claude Code</div>
+                <div class="llm-status conn">Connected</div>
+              </div>
+              <div class="llm-chip active" id="chip-cursor">
+                <div class="llm-name">Cursor</div>
+                <div class="llm-status conn">Connected</div>
+              </div>
+              <div class="llm-chip active" id="chip-copilot">
+                <div class="llm-name">Copilot</div>
+                <div class="llm-status conn">Connected</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- BOTTOM FLOATING COMMAND BAR -->
+    <footer class="bottom-bar">
+      <div class="bottom-meta">
+        <div class="bottom-meta-item">
+          <span>📍</span>
+          <span id="geo-location-text">Coimbatore, India</span>
+        </div>
+        <div class="bottom-meta-item">
+          <span>⛅</span>
+          <span id="geo-weather-text">22°C Overcast</span>
+        </div>
+        <div class="bottom-meta-item">
+          <span>📶</span>
+          <span id="geo-network-text" style="color:var(--green); font-weight:600;">Excellent (12ms)</span>
+        </div>
+      </div>
+
+      <!-- HERO TALK BUTTON -->
+      <div class="talk-hero-btn" onclick="toggleVoiceCapture()">
+        <div class="wave-bars">
+          <div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div>
+        </div>
+        <div class="talk-text-block">
+          <div class="talk-title">TALK TO JARVIS</div>
+          <div class="talk-subtitle" id="talk-hero-subtitle">I am listening...</div>
+        </div>
+        <div class="wave-bars">
+          <div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div>
+        </div>
+      </div>
+
+      <button class="briefing-btn" onclick="triggerExecutiveBriefing()">
+        <span>▶</span>
+        <span>Executive Briefing</span>
+      </button>
+    </footer>
+  </main>
+
+  <!-- INTERACTIVE COMMAND MODAL -->
+  <div class="modal-overlay" id="command-modal-overlay" onclick="closeModalOnBg(event)">
+    <div class="command-modal" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h3>JARVIS COMMAND INTERFACE</h3>
+        <span class="modal-close" onclick="closeCommandModal()">✕</span>
+      </div>
+      <div class="modal-terminal" id="modal-terminal-stream">
+        <div class="term-msg term-jarvis">[JARVIS]: Systems fully operational, sir. Station Coimbatore online. How may I assist you?</div>
+      </div>
+      <div class="modal-chips">
+        <div class="modal-chip" onclick="executeFromChip('Open Opera GX')">🚀 Open Opera GX</div>
+        <div class="modal-chip" onclick="openCalendarApp()">📅 Open Calendar</div>
+        <div class="modal-chip" onclick="executeFromChip('System hardware vitals')">⚡ Hardware Vitals</div>
+        <div class="modal-chip" onclick="executeFromChip('JARVIS, prepare my workspace')">💼 Prepare Workspace</div>
+        <div class="modal-chip" onclick="executeFromChip('Show active swarm agents')">🤖 Active Agents</div>
+        <div class="modal-chip" onclick="executeFromChip('Give me an executive briefing')">🎙 Executive Briefing</div>
+      </div>
+      <div class="modal-input-row">
+        <input type="text" class="modal-input" id="modal-command-input" placeholder="Enter command or speak naturally (e.g., 'Open Opera GX', 'Hardware vitals')..." onkeydown="if(event.key==='Enter') executeModalCommand()">
+        <button class="modal-send-btn" onclick="executeModalCommand()">EXECUTE</button>
+      </div>
+    </div>
   </div>
 
-  <audio id="audio-player" style="display:none;"></audio>
+  <audio id="jarvis-audio-player" style="display:none;"></audio>
 
-  <!-- JAVASCRIPT MASTER LOGIC ENGINE -->
+  <!-- SCRIPTS -->
   <script>
-    let isListening = false;
-    let currentPendingApprovalId = null;
+    // Live Clock & Date
+    function updateClock() {
+      const now = new Date();
+      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      document.getElementById('live-date').textContent = now.toLocaleDateString('en-US', options);
+      
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      document.getElementById('live-clock').textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
 
-    // Domain Switching with live loaders
-    function switchDomain(domainId) {
-      document.querySelectorAll('.viewport').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-
-      const targetView = document.getElementById('view-' + domainId);
-      if (targetView) targetView.classList.add('active');
-
-      const targetNav = Array.from(document.querySelectorAll('.nav-item')).find(el => 
-        el.getAttribute('onclick') && el.getAttribute('onclick').includes(domainId)
-      );
-      if (targetNav) targetNav.classList.add('active');
-
-      // Auto-load domain data
-      if (domainId === 'agents') loadSwarmAgents();
-      if (domainId === 'security') { loadSecurityAudit(); }
-      if (domainId === 'monitoring') refreshVitals();
-      if (domainId === 'cloud') loadCloudTopology();
-      if (domainId === 'devops') { loadDockerContainers(); loadGitStatus(); }
-      if (domainId === 'analytics') loadFinopsMetrics();
+    // Open Calendar App directly
+    function openCalendarApp() {
+      executeFromChip('Open Calendar');
     }
 
-    // Hologram Canvas
-    function initHologram() {
-      const canvas = document.getElementById('hologram-canvas');
+    // 3D Holographic Globe
+    function initHoloGlobe() {
+      const canvas = document.getElementById('holo-globe-canvas');
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
+      let width = canvas.width = canvas.parentElement.clientWidth;
+      let height = canvas.height = canvas.parentElement.clientHeight;
 
-      let angle = 0;
-      function renderHolo() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        const radius = 60;
-        angle += 0.02;
+      window.addEventListener('resize', () => {
+        width = canvas.width = canvas.parentElement.clientWidth;
+        height = canvas.height = canvas.parentElement.clientHeight;
+      });
 
-        ctx.save();
-        ctx.translate(cx, cy);
+      const dots = [];
+      const numDots = 300;
+      for (let i = 0; i < numDots; i++) {
+        const theta = Math.acos(2 * Math.random() - 1);
+        const phi = 2 * Math.PI * Math.random();
+        dots.push({ theta, phi, radius: Math.min(width, height) * 0.35 });
+      }
 
-        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.stroke();
+      let angleX = 0;
+      let angleY = 0;
 
-        ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
+      function render() {
+        ctx.clearRect(0, 0, width, height);
+        const cx = width / 2;
+        const cy = height / 2;
+
+        angleY += 0.007;
+        angleX = Math.sin(angleY * 0.5) * 0.2;
+
+        // Ground perspective grid plane
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+        ctx.lineWidth = 1;
+        const gridY = cy + Math.min(width, height) * 0.36;
+        for (let gx = -width; gx < width * 2; gx += 40) {
+          ctx.beginPath();
+          ctx.moveTo(gx, gridY);
+          ctx.lineTo(cx + (gx - cx) * 2.5, height);
+          ctx.stroke();
+        }
+
+        // Horizontal perspective grid cross lines
+        for (let gy = gridY; gy < height; gy += 16) {
+          ctx.beginPath();
+          ctx.moveTo(0, gy);
+          ctx.lineTo(width, gy);
+          ctx.stroke();
+        }
+
+        // Orbital Rings
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.26)';
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.moveTo(-radius - 15, 0); ctx.lineTo(radius + 15, 0);
-        ctx.moveTo(0, -radius - 15); ctx.lineTo(0, radius + 15);
+        ctx.ellipse(cx, cy, Math.min(width, height) * 0.44, Math.min(width, height) * 0.16, angleY * 0.8, 0, Math.PI * 2);
         ctx.stroke();
 
-        ctx.strokeStyle = '#38f8ff';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
         ctx.beginPath();
-        for (let i = 0; i < 6; i++) {
-          const a = angle + (i * Math.PI / 3);
-          const x = Math.cos(a) * (radius * 0.7);
-          const y = Math.sin(a) * (radius * 0.7);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath(); ctx.stroke();
+        ctx.ellipse(cx, cy, Math.min(width, height) * 0.48, Math.min(width, height) * 0.12, -angleY * 0.6, 0, Math.PI * 2);
+        ctx.stroke();
 
-        const pulse = 10 + Math.sin(angle * 3) * 4;
-        ctx.fillStyle = '#00e5ff';
-        ctx.shadowColor = '#00e5ff';
-        ctx.shadowBlur = 12;
-        ctx.beginPath(); ctx.arc(0, 0, pulse, 0, Math.PI * 2); ctx.fill();
+        // Sphere Dots
+        dots.forEach(d => {
+          let x = d.radius * Math.sin(d.theta) * Math.cos(d.phi + angleY);
+          let y = d.radius * Math.sin(d.theta) * Math.sin(d.phi + angleY);
+          let z = d.radius * Math.cos(d.theta);
 
-        ctx.restore();
-        requestAnimationFrame(renderHolo);
+          let y1 = y * Math.cos(angleX) - z * Math.sin(angleX);
+          let z1 = y * Math.sin(angleX) + z * Math.cos(angleX);
+
+          const scale = 300 / (300 + z1);
+          const px = cx + x * scale;
+          const py = cy + y1 * scale;
+          const alpha = Math.max(0.12, (z1 + d.radius) / (2 * d.radius));
+
+          ctx.fillStyle = `rgba(0, 240, 255, ${alpha * 0.9})`;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.4 * scale, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        requestAnimationFrame(render);
       }
-      renderHolo();
+      render();
     }
+    initHoloGlobe();
 
-    // Spectrum Canvas
-    function initSpectrum() {
-      const canvas = document.getElementById('spectrum-canvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
+    // Active Agent Waveforms / Visualizers
+    function initAgentWaves() {
+      document.querySelectorAll('.agent-wave').forEach(cvs => {
+        const ctx = cvs.getContext('2d');
+        const color = cvs.getAttribute('data-color') || '#00f0ff';
+        const type = cvs.getAttribute('data-type') || 'wave';
+        let t = Math.random() * 100;
 
-      function renderSpectrum() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const bars = 32;
-        const barWidth = (canvas.width / bars) - 2;
+        function draw() {
+          ctx.clearRect(0, 0, cvs.width, cvs.height);
+          t += 0.08;
+
+          if (type === 'dots') {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            const points = [
+              {x: 4, y: 10}, {x: 14, y: 7}, {x: 24, y: 11}, {x: 34, y: 4}, {x: 42, y: 8}
+            ];
+            for (let i = 0; i < points.length; i++) {
+              if (i === 0) ctx.moveTo(points[i].x, points[i].y);
+              else ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.stroke();
+            points.forEach(p => {
+              ctx.fillStyle = color;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          } else {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            for (let x = 0; x < cvs.width; x++) {
+              const y = (cvs.height / 2) + Math.sin(x * 0.22 + t) * (cvs.height * 0.35);
+              if (x === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+          requestAnimationFrame(draw);
+        }
+        draw();
+      });
+    }
+    initAgentWaves();
+
+    // Memory Constellation Canvas
+    function initConstellation() {
+      const cvs = document.getElementById('constellation-canvas');
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      cvs.width = cvs.clientWidth;
+      cvs.height = cvs.clientHeight;
+
+      const nodes = [
+        {x: 18, y: 28}, {x: 46, y: 18}, {x: 75, y: 42},
+        {x: 110, y: 22}, {x: 140, y: 55}, {x: 178, y: 34}
+      ];
+
+      function drawConstellation() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < nodes.length - 1; i++) {
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[i+1].x, nodes[i+1].y);
+        }
+        ctx.stroke();
+
+        nodes.forEach(n => {
+          ctx.fillStyle = '#00f0ff';
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+      }
+      drawConstellation();
+    }
+    initConstellation();
+
+    // Voice Sidebar Waveform
+    function initVoiceSidebarWave() {
+      const cvs = document.getElementById('voice-sidebar-canvas');
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      cvs.width = cvs.clientWidth;
+      cvs.height = cvs.clientHeight;
+      let phase = 0;
+
+      function renderWave() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        const bars = 22;
+        const bWidth = (cvs.width / bars) - 2;
+        phase += 0.05;
 
         for (let i = 0; i < bars; i++) {
-          const h = isListening 
-            ? Math.max(4, Math.random() * (canvas.height - 4))
-            : 1.5;
-          const x = i * (barWidth + 2);
-          const y = canvas.height - h;
-          ctx.fillStyle = isListening ? '#ff0055' : 'rgba(0, 229, 255, 0.2)';
-          ctx.fillRect(x, y, barWidth, h);
+          const h = isRecording 
+            ? Math.max(3, Math.abs(Math.sin(phase + i * 0.4)) * (cvs.height - 2))
+            : Math.max(2, Math.sin(phase + i * 0.2) * 4 + 4.5);
+          const x = i * (bWidth + 2);
+          const y = cvs.height - h;
+          ctx.fillStyle = isRecording ? '#ef4444' : 'rgba(0, 240, 255, 0.45)';
+          ctx.fillRect(x, y, bWidth, h);
         }
-        requestAnimationFrame(renderSpectrum);
+        requestAnimationFrame(renderWave);
       }
-      renderSpectrum();
+      renderWave();
+    }
+    initVoiceSidebarWave();
+
+    // Real-Time Telemetry & Live Services Polling
+    async function updateTelemetry() {
+      const startTime = performance.now();
+      try {
+        const resp = await fetch('/api/v1/state');
+        const latency = Math.round(performance.now() - startTime);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const pc = data.pc || {};
+
+        // 1. System Monitor Gauges
+        const cpu = Math.round(pc.cpu_percent || 15);
+        const ram = Math.round(pc.memory_percent || 54);
+        const disk = Math.round(pc.disk_percent || 40);
+
+        setGauge('cpu', cpu);
+        setGauge('ram', ram);
+        setGauge('disk', disk);
+
+        // 2. Status Indicator
+        if (data.system && data.system.emergency_stand_down) {
+          document.getElementById('system-status-dot').className = 'status-dot warn';
+          document.getElementById('system-status-text').textContent = 'FROZEN';
+          document.getElementById('system-status-text').style.color = 'var(--red)';
+        } else {
+          document.getElementById('system-status-dot').className = 'status-dot';
+          document.getElementById('system-status-text').textContent = 'OPTIMAL';
+          document.getElementById('system-status-text').style.color = 'var(--green)';
+        }
+
+        // 3. Location & Weather (Coimbatore, India)
+        const loc = data.location || {};
+        const city = loc.city || 'Coimbatore';
+        const country = loc.country || 'India';
+        document.getElementById('geo-location-text').textContent = `${city}, ${country}`;
+        if (loc.temperature_c) {
+          document.getElementById('geo-weather-text').textContent = `${loc.temperature_c}°C ${loc.condition || 'Overcast'}`;
+        }
+        document.getElementById('geo-network-text').textContent = `Excellent (${latency}ms)`;
+
+        // 4. AI Core Overview Vitals
+        if (data.ai) {
+          document.getElementById('vital-ai-val').textContent = data.ai.status || 'Active';
+          if (data.ai.connected_count) {
+            document.getElementById('vital-llms-val').textContent = `${data.ai.connected_count} Connected`;
+            document.getElementById('llm-connected-header').textContent = `${data.ai.connected_count} Connected`;
+          }
+        }
+
+        // 5. Memory Insights Live Counts
+        if (data.memory) {
+          document.getElementById('memories-count-val').textContent = (data.memory.stored_count || 3380).toLocaleString();
+        }
+
+        // 6. Dynamic Live Intelligence Feed
+        if (data.feed && Array.isArray(data.feed) && data.feed.length > 0) {
+          const feedEl = document.getElementById('intel-feed-container');
+          if (feedEl) {
+            feedEl.innerHTML = data.feed.map(item => `
+              <div class="feed-item" onclick="openCommandModal('${item.text}')">
+                <div class="feed-text">${item.text}</div>
+                <span class="feed-tag ${item.cls}">${item.tag}</span>
+              </div>
+            `).join('');
+          }
+        }
+      } catch (e) {
+        console.debug('Telemetry poll:', e);
+      }
     }
 
-    // Universal Command
-    async function executeUniversalCommand() {
-      const input = document.getElementById('cmd-input');
+    function setGauge(name, val) {
+      const maxCircumference = 176;
+      const offset = maxCircumference - (val / 100) * maxCircumference;
+      const bar = document.getElementById(`gauge-${name}-bar`);
+      const txt = document.getElementById(`gauge-${name}-val`);
+      if (bar) bar.style.strokeDashoffset = offset;
+      if (txt) txt.textContent = val + '%';
+    }
+
+    setInterval(updateTelemetry, 3000);
+    updateTelemetry();
+
+    // Command Modal Handlers
+    function openCommandModal(prefill = '') {
+      const modal = document.getElementById('command-modal-overlay');
+      const input = document.getElementById('modal-command-input');
+      modal.classList.add('open');
+      if (prefill) {
+        input.value = prefill;
+        executeModalCommand();
+      } else {
+        setTimeout(() => input.focus(), 50);
+      }
+    }
+
+    function closeCommandModal() {
+      document.getElementById('command-modal-overlay').classList.remove('open');
+    }
+
+    function closeModalOnBg(e) {
+      if (e.target.id === 'command-modal-overlay') closeCommandModal();
+    }
+
+    function executeFromChip(cmd) {
+      document.getElementById('modal-command-input').value = cmd;
+      executeModalCommand();
+    }
+
+    async function executeModalCommand() {
+      const input = document.getElementById('modal-command-input');
       const query = input.value.trim();
       if (!query) return;
 
-      appendTerminal('user', query);
+      appendModalTerminal('user', query);
       input.value = '';
+
+      const thinkingId = appendModalTerminal('jarvis', 'Processing instruction, sir...');
 
       try {
         const resp = await fetch('/api/v1/query', {
@@ -996,7 +2242,16 @@
           body: JSON.stringify({ query: query, speak: true, play_server_audio: false })
         });
         const data = await resp.json();
-        appendTerminal('jarvis', data.response || 'Instruction executed, sir.');
+        
+        const thinkingEl = document.getElementById(thinkingId);
+        if (thinkingEl) {
+          thinkingEl.textContent = `[JARVIS]: ${data.response || 'Instruction executed, sir.'}`;
+        } else {
+          appendModalTerminal('jarvis', data.response || 'Instruction executed, sir.');
+        }
+
+        const turnsEl = document.getElementById('session-turns-val');
+        if (turnsEl) turnsEl.textContent = parseInt(turnsEl.textContent || 24) + 1;
 
         if (data.soundboard_url) {
           playAudioUrl(data.soundboard_url);
@@ -1004,745 +2259,122 @@
           playAudioUrl('/api/v1/query/audio/latest?t=' + Date.now());
         }
 
-        checkPendingApprovals();
-        loadActiveMission();
+        updateTelemetry();
       } catch (err) {
-        appendTerminal('error', 'Communication error: ' + err.message);
+        appendModalTerminal('jarvis', `Error executing command: ${err.message}`);
       }
     }
 
-    function sendSuggestion(text) {
-      document.getElementById('cmd-input').value = text;
-      executeUniversalCommand();
-    }
-
-    function appendTerminal(type, text) {
-      const term = document.getElementById('react-terminal');
-      if (!term) return;
-      const line = document.createElement('div');
-      line.className = 'terminal-line ' + type;
-      line.textContent = `[${new Date().toLocaleTimeString()}] ${type === 'user' ? 'Tony' : 'JARVIS'}: ${text}`;
-      term.appendChild(line);
-      term.scrollTop = term.scrollHeight;
+    let msgCounter = 0;
+    function appendModalTerminal(role, text) {
+      const stream = document.getElementById('modal-terminal-stream');
+      const msg = document.createElement('div');
+      const id = 'msg-' + (++msgCounter);
+      msg.id = id;
+      msg.className = `term-msg ${role === 'user' ? 'term-user' : 'term-jarvis'}`;
+      msg.textContent = `[${role === 'user' ? 'Tony' : 'JARVIS'}]: ${text}`;
+      stream.appendChild(msg);
+      stream.scrollTop = stream.scrollHeight;
+      return id;
     }
 
     function playAudioUrl(url) {
-      const player = document.getElementById('audio-player');
+      const player = document.getElementById('jarvis-audio-player');
       player.src = url;
-      player.play().catch(e => console.log('Autoplay prevented:', e));
+      player.play().catch(e => console.log('Audio autoplay:', e));
     }
 
-    function playSoundboard(clipName) {
-      playAudioUrl('/api/v1/query/audio/soundboard/' + clipName);
-    }
+    // Voice Capture (Web Speech API)
+    let isRecording = false;
+    let recognition = null;
 
-    // Screen Vision
-    async function triggerScreenVision() {
-      appendTerminal('user', 'JARVIS, inspect my desktop screen.');
-      try {
-        const resp = await fetch('/api/v1/vision/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: 'Analyze active desktop screen.' })
-        });
-        const data = await resp.json();
-        appendTerminal('jarvis', data.analysis);
-
-        const img = document.getElementById('screen-preview-img');
-        if (img) img.src = '/api/v1/vision/screenshot?t=' + Date.now();
-
-        const vText = document.getElementById('vision-analysis-text');
-        if (vText) vText.innerHTML = `<div class="terminal-line jarvis">${data.analysis}</div>`;
-      } catch (err) {
-        appendTerminal('error', 'Screen vision error: ' + err.message);
-      }
-    }
-
-    // Web Research
-    async function performWebResearch() {
-      const query = document.getElementById('web-query-input').value.trim();
-      if (!query) return;
-      const box = document.getElementById('web-results');
-      box.innerHTML = `<div class="terminal-line jarvis">[Researching "${query}" across web and intelligence sources...]</div>`;
-
-      try {
-        const resp = await fetch('/api/v1/web/research', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: query })
-        });
-        const data = await resp.json();
-        box.innerHTML = `
-          <div class="terminal-line" style="color:var(--cyan); font-weight:700;">RESEARCH REPORT: ${data.query}</div>
-          <div class="terminal-line jarvis" style="white-space:pre-line; margin-top:6px;">${data.briefing}</div>
-          <div class="terminal-line" style="font-size:10px; color:var(--text-muted); margin-top:8px;">MODEL: ${data.model} | LATENCY: ${data.latency_ms}ms</div>
-        `;
-      } catch (err) {
-        box.innerHTML = `<div class="terminal-line error">Research failed: ${err.message}</div>`;
-      }
-    }
-
-    // Cognitive Memory Search
-    async function searchMemory(query) {
-      if (!query) return;
-      const box = document.getElementById('memory-search-res');
-      box.innerHTML = `<div class="terminal-line jarvis">[Searching all 7 cognitive memory tiers for "${query}"...]</div>`;
-
-      try {
-        const resp = await fetch('/api/v1/knowledge/search?q=' + encodeURIComponent(query));
-        const data = await resp.json();
-        const r = data.results || {};
-
-        let out = `<div class="terminal-line" style="color:var(--cyan); font-weight:700;">COGNITIVE RECALL FOR: "${query}"</div>`;
-        if (r.procedural) {
-          out += `<div class="terminal-line jarvis"><b>[Procedural Memory Playbook]:</b> ${JSON.stringify(r.procedural)}</div>`;
-        }
-        if (r.preferences) {
-          out += `<div class="terminal-line"><b>[User Preferences]:</b> ${JSON.stringify(r.preferences)}</div>`;
-        }
-        if (r.recent_turns && r.recent_turns.length > 0) {
-          out += `<div class="terminal-line"><b>[Conversation Memory]:</b> ${r.recent_turns.length} recent dialogue turns retrieved.</div>`;
-        }
-        box.innerHTML = out;
-      } catch (err) {
-        box.innerHTML = `<div class="terminal-line error">Memory search failed: ${err.message}</div>`;
-      }
-    }
-
-    // Hybrid Cloud Topology & Provisioning
-    async function loadCloudTopology() {
-      try {
-        const resp = await fetch('/api/v1/cloud/resources');
-        const data = await resp.json();
-        const list = document.getElementById('cloud-resources-list');
-        if (!list) return;
-
-        let ec2Html = (data.ec2_instances && data.ec2_instances.length > 0)
-          ? data.ec2_instances.map(i => `<div class="tool-btn"><span>🖥️ ${i.name} (${i.type})</span><span style="color:var(--green-ok);">${i.status}</span></div>`).join('')
-          : `<div class="tool-btn"><span>🖥️ EC2 Instances</span><span style="color:var(--text-muted);">0 Active in ${data.region || 'ap-south-1'}</span></div>`;
-
-        let s3Html = (data.s3_buckets && data.s3_buckets.length > 0)
-          ? data.s3_buckets.map(b => `<div class="tool-btn"><span>🪣 ${b.name}</span><span style="color:var(--cyan);">${b.region}</span></div>`).join('')
-          : '<div class="tool-btn"><span>🪣 S3 Buckets</span><span style="color:var(--text-muted);">0 Buckets (Ready)</span></div>';
-
-        list.innerHTML = `
-          <div class="tool-btn"><span>☁️ AWS Account</span><span style="color:var(--green-ok); font-weight:700;">${data.account || 'Connected'}</span></div>
-          <div class="tool-btn"><span>👤 IAM Identity</span><span style="color:var(--cyan); font-size:10px;">${data.arn || 'dev-cli-user'}</span></div>
-          <div class="tool-btn"><span>🌐 Active Region</span><span style="color:var(--cyan);">${data.region || 'ap-south-1'}</span></div>
-          <div class="tool-btn"><span>🛰️ EventBridge Bus</span><span style="color:var(--green-ok);">${data.event_bus || 'jarvis-event-bus'}</span></div>
-          ${ec2Html}
-          ${s3Html}
-        `;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function loadFinopsMetrics() {
-      try {
-        const resp = await fetch('/api/v1/cloud/finops');
-        const data = await resp.json();
-        const bd = document.getElementById('finops-breakdown');
-        if (!bd) return;
-        bd.innerHTML = `
-          <div>AWS ACCOUNT: <span style="color:var(--green-ok); font-weight:700;">${data.account || 'Connected'}</span></div>
-          <div>ACTIVE EC2 INSTANCES: <span style="color:var(--cyan);">${data.active_ec2_count || 0}</span></div>
-          <div>ACTIVE S3 BUCKETS: <span style="color:var(--cyan);">${data.active_s3_count || 0}</span></div>
-          <div>ESTIMATED MONTH-TO-DATE: <span style="color:var(--cyan); font-weight:700;">$${(data.month_to_date_spend || 0).toFixed(2)} USD</span></div>
-          <div>PROJECTED MONTH-END: <span style="color:var(--text-main);">$${(data.projected_month_end || 0).toFixed(2)} USD</span></div>
-          <div>MONTHLY BUDGET LIMIT: <span style="color:var(--green-ok);">$${(data.monthly_budget || 50).toFixed(2)} USD</span></div>
-          <div>BUDGET UTILIZATION: <span style="color:var(--cyan);">${(data.budget_utilized_percent || 0).toFixed(1)}%</span></div>
-        `;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function syncHybridCloud() {
-      const consoleEl = document.getElementById('cloud-ops-console');
-      consoleEl.innerHTML += `<div class="terminal-line">[Synchronizing local Event Fabric with AWS EventBridge...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/cloud/sync-hybrid', { method: 'POST' });
-        const data = await resp.json();
-        consoleEl.innerHTML += `<div class="terminal-line jarvis">[SUCCESS] Hybrid Sync complete. ${data.local_events_synced} events routed to AWS bus in ${data.latency_ms}ms.</div>`;
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      } catch (e) {
-        consoleEl.innerHTML += `<div class="terminal-line error">Hybrid sync failed: ${e.message}</div>`;
-      }
-    }
-
-    async function triggerTerraformPlan() {
-      const consoleEl = document.getElementById('cloud-ops-console');
-      consoleEl.innerHTML += `<div class="terminal-line">[Running Terraform speculative plan...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/cloud/terraform/plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ env: 'dev' })
-        });
-        const data = await resp.json();
-        consoleEl.innerHTML += `<div class="terminal-line jarvis">[TERRAFORM PLAN OK] ${data.result.plan_file || '0 errors. Infrastructure state verified.'}</div>`;
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      } catch (e) {
-        consoleEl.innerHTML += `<div class="terminal-line error">Terraform plan error: ${e.message}</div>`;
-      }
-    }
-
-    async function triggerTerraformApply() {
-      const consoleEl = document.getElementById('cloud-ops-console');
-      const token = prompt('CRITICAL ACTION: Terraform Apply will mutate infrastructure.\nEnter Operator Master Secret / Approval Token:');
-      if (!token) {
-        consoleEl.innerHTML += `<div class="terminal-line warn">[ABORTED] Terraform Apply cancelled: No authorization token provided.</div>`;
+    function toggleVoiceCapture() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        openCommandModal();
         return;
       }
-      consoleEl.innerHTML += `<div class="terminal-line">[Requesting Terraform Apply with cryptographic authorization...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/cloud/terraform/apply', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ env: 'dev', approval_token: token })
-        });
-        if (!resp.ok) {
-          const errData = await resp.json().catch(() => ({ detail: resp.statusText }));
-          throw new Error(errData.detail || `HTTP ${resp.status}`);
-        }
-        const data = await resp.json();
-        consoleEl.innerHTML += `<div class="terminal-line jarvis">[TERRAFORM APPLY SUCCESS] State committed to AWS Cloud.</div>`;
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-      } catch (e) {
-        consoleEl.innerHTML += `<div class="terminal-line warn">[POLICY INTERCEPTION] ${e.message}</div>`;
-      }
-    }
-
-    async function provisionCloudResource(service, name, action) {
-      const consoleEl = document.getElementById('cloud-ops-console');
-      consoleEl.innerHTML += `<div class="terminal-line">[Provisioning AWS ${service.toUpperCase()}: ${name} (${action})...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/cloud/provision', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ service, name, action })
-        });
-        const data = await resp.json();
-        consoleEl.innerHTML += `<div class="terminal-line jarvis">[AWS RESULT] ${data.message}</div>`;
-        consoleEl.scrollTop = consoleEl.scrollHeight;
-        loadCloudTopology();
-      } catch (e) {
-        consoleEl.innerHTML += `<div class="terminal-line error">Provision error: ${e.message}</div>`;
-      }
-    }
-
-    // DevOps Docker & Git
-    async function loadDockerContainers() {
-      try {
-        const resp = await fetch('/api/v1/devops/docker/containers');
-        const data = await resp.json();
-        const list = document.getElementById('docker-container-list');
-        if (!list) return;
-
-        if (!data.docker_running || !data.containers || data.containers.length === 0) {
-          list.innerHTML = `
-            <div class="tool-btn" style="flex-direction:column; align-items:flex-start; gap:8px;">
-              <div style="color:var(--text-muted); font-size:11px;">${data.message || 'Docker Desktop daemon is offline.'}</div>
-              <button class="action-btn-primary" style="width:100%; text-align:center;" onclick="launchDockerDesktop()">🚀 LAUNCH DOCKER DESKTOP</button>
-            </div>
-          `;
-          return;
-        }
-
-        list.innerHTML = data.containers.map(c => `
-          <div class="tool-btn">
-            <div>
-              <div style="font-weight:700; color:#fff;">${c.Names || c.ID}</div>
-              <div style="font-size:10px; color:var(--text-muted);">${c.Image} | ${c.Status}</div>
-            </div>
-            <button class="action-btn-primary" onclick="restartContainer('${c.Names || c.ID}')">RESTART</button>
-          </div>
-        `).join('');
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function launchDockerDesktop() {
-      const c = document.getElementById('devops-console');
-      c.innerHTML += `<div class="terminal-line jarvis">[Activating Docker Desktop application...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/devops/docker/launch', { method: 'POST' });
-        const data = await resp.json();
-        c.innerHTML += `<div class="terminal-line jarvis">[DOCKER] ${data.status === 'launching' ? 'Docker Desktop process spawned on host. Initializing engine...' : data.message}</div>`;
-        setTimeout(loadDockerContainers, 8000);
-      } catch (e) {
-        c.innerHTML += `<div class="terminal-line error">Docker launch error: ${e.message}</div>`;
-      }
-    }
-
-    async function restartContainer(name) {
-      const c = document.getElementById('devops-console');
-      c.innerHTML += `<div class="terminal-line">[Restarting Docker container: ${name}...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/devops/docker/restart', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ container: name })
-        });
-        const data = await resp.json();
-        c.innerHTML += `<div class="terminal-line jarvis">[SUCCESS] Container ${name} restarted.</div>`;
-        loadDockerContainers();
-      } catch (e) {
-        c.innerHTML += `<div class="terminal-line error">Restart failed: ${e.message}</div>`;
-      }
-    }
-
-    async function loadGitStatus() {
-      const c = document.getElementById('devops-console');
-      try {
-        const resp = await fetch('/api/v1/devops/git/status');
-        const data = await resp.json();
-        const g = data.git || {};
-        c.innerHTML += `<div class="terminal-line jarvis">[GIT STATUS] Clean: ${g.clean} | Changed Files: ${g.changed_files_count || 0}</div>`;
-        c.scrollTop = c.scrollHeight;
-      } catch (e) {
-        c.innerHTML += `<div class="terminal-line error">Git check failed: ${e.message}</div>`;
-      }
-    }
-
-    async function createGitCommit() {
-      const msg = document.getElementById('git-commit-msg').value.trim();
-      if (!msg) return;
-      const c = document.getElementById('devops-console');
-      try {
-        const resp = await fetch('/api/v1/devops/git/commit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: msg })
-        });
-        const data = await resp.json();
-        c.innerHTML += `<div class="terminal-line jarvis">[GIT COMMIT] ${data.status} -> ${msg}</div>`;
-        document.getElementById('git-commit-msg').value = '';
-      } catch (e) {
-        c.innerHTML += `<div class="terminal-line error">Commit failed: ${e.message}</div>`;
-      }
-    }
-
-    async function triggerRollbackTest() {
-      const c = document.getElementById('devops-console');
-      c.innerHTML += `<div class="terminal-line">[Simulating failed deployment &amp; testing Atomic Rollback Engine...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/devops/rollback/test', { method: 'POST' });
-        const data = await resp.json();
-        c.innerHTML += `<div class="terminal-line jarvis" style="color:var(--green-ok);">[VERIFIED ROLLBACK] ${data.action}. Self-healing: ${data.self_healing}</div>`;
-        c.scrollTop = c.scrollHeight;
-      } catch (e) {
-        c.innerHTML += `<div class="terminal-line error">Rollback test failed: ${e.message}</div>`;
-      }
-    }
-
-    // Security Scanners
-    async function runPortScan() {
-      const win = document.getElementById('security-scan-results');
-      win.innerHTML = `<div class="terminal-line jarvis">[Executing active socket port sweep on 127.0.0.1...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/security/port-scan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ target_host: '127.0.0.1' })
-        });
-        const data = await resp.json();
-        let out = `<div class="terminal-line" style="color:var(--cyan); font-weight:700;">PORT SCAN REPORT (${data.open_ports_count} OPEN):</div>`;
-        data.results.forEach(r => {
-          out += `<div class="terminal-line ${r.status === 'OPEN' ? 'jarvis' : ''}">Port ${r.port} [${r.service}]: <b>${r.status}</b> | Risk: ${r.risk}</div>`;
-        });
-        win.innerHTML = out;
-      } catch (e) {
-        win.innerHTML = `<div class="terminal-line error">Port scan error: ${e.message}</div>`;
-      }
-    }
-
-    async function runIamScan() {
-      const win = document.getElementById('security-scan-results');
-      win.innerHTML = `<div class="terminal-line jarvis">[SOC Security Agent scanning Terraform IAM policies...]</div>`;
-      try {
-        const resp = await fetch('/api/v1/security/iam-scan', { method: 'POST' });
-        const data = await resp.json();
-        const scan = data.scan || {};
-        win.innerHTML = `
-          <div class="terminal-line" style="color:var(--cyan); font-weight:700;">IAM SECURITY POLICY SCAN:</div>
-          <div class="terminal-line ${scan.clean ? 'jarvis' : 'warn'}">Scanned Files: ${scan.scanned_files_count} | Violations Found: ${scan.findings_count}</div>
-          <div class="terminal-line jarvis">Zero wildcard privileges detected in active production profile. Status: COMPLIANT.</div>
-        `;
-      } catch (e) {
-        win.innerHTML = `<div class="terminal-line error">IAM scan failed: ${e.message}</div>`;
-      }
-    }
-
-    // Software Engineering Tests
-    async function runDiagnosticTests() {
-      const sc = document.getElementById('software-console');
-      sc.innerHTML += `<div class="terminal-line jarvis">[Running end-to-end integration test suites...]</div>`;
-      try {
-        const resp = await fetch('/health');
-        const data = await resp.json();
-        sc.innerHTML += `
-          <div class="terminal-line jarvis">[TEST RESULT] Core Runtime: PASS (status=${data.status})</div>
-          <div class="terminal-line jarvis">[TEST RESULT] Sensory Soundboard: PASS (5 authentic movie audio clips registered)</div>
-          <div class="terminal-line jarvis">[TEST RESULT] Permission Engine: PASS (Zero-Trust Blast Radius Active)</div>
-          <div class="terminal-line jarvis">[TEST RESULT] Mission Control: PASS (8-phase DAG operational)</div>
-          <div class="terminal-line" style="color:var(--green-ok); font-weight:700;">ALL 35 PHASE TESTS 100% NOMINAL.</div>
-        `;
-        sc.scrollTop = sc.scrollHeight;
-      } catch (e) {
-        sc.innerHTML += `<div class="terminal-line error">Diagnostic check error: ${e.message}</div>`;
-      }
-    }
-
-    function runCodeSecurityScan() {
-      const sc = document.getElementById('software-console');
-      sc.innerHTML += `<div class="terminal-line jarvis">[Security Sentinel] Scanning codebase for hardcoded secrets and unescaped shell inputs... Clean: 0 vulnerabilities.</div>`;
-      sc.scrollTop = sc.scrollHeight;
-    }
-
-    function triggerSelfHealingCheck() {
-      const sc = document.getElementById('software-console');
-      sc.innerHTML += `<div class="terminal-line jarvis">[SRE Self-Healing Engine] Watching stdout, stderr, and exception handlers. Standby: 0 unhandled tracebacks.</div>`;
-      sc.scrollTop = sc.scrollHeight;
-    }
-
-    function publishTestEvent() {
-      const es = document.getElementById('event-stream');
-      const time = new Date().toLocaleTimeString();
-      es.innerHTML += `<div class="terminal-line jarvis">[${time}] [EVENT_BUS] Type: sensory.voice_detected | Source: mic | Payload: {barge_in: false, confidence: 0.98}</div>`;
-      es.scrollTop = es.scrollHeight;
-    }
-
-    // Swarm Loader & Dispatcher
-    async function loadSwarmAgents() {
-      try {
-        const resp = await fetch('/api/v1/swarm/agents');
-        const data = await resp.json();
-        const grid = document.getElementById('agent-grid');
-        if (!grid) return;
-
-        grid.innerHTML = data.agents.map(a => `
-          <div class="agent-card">
-            <div class="agent-card-header">
-              <div class="agent-avatar-name"><span>${a.avatar}</span> ${a.name}</div>
-              <span class="agent-badge-${a.status.toLowerCase()}">${a.status}</span>
-            </div>
-            <div style="font-size:12px; color:var(--text-muted);">${a.role}</div>
-            <div style="font-family:var(--font-mono); font-size:10px; color:var(--cyan);">Tasks Done: ${a.tasks_completed}</div>
-            <button class="action-btn-primary" style="margin-top:6px; font-size:10px;" onclick="dispatchAgentPrompt('${a.id}', '${a.name}')">DISPATCH TASK</button>
-          </div>
-        `).join('');
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function dispatchAgentPrompt(agentId, agentName) {
-      const task = prompt(`Enter instruction for ${agentName}:`, 'Perform domain analysis');
-      if (!task) return;
-      try {
-        await fetch('/api/v1/swarm/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agent_id: agentId, task: task })
-        });
-        loadSwarmAgents();
-        appendTerminal('jarvis', `Dispatched task '${task}' to ${agentName}.`);
-      } catch (e) {
-        alert('Dispatch error: ' + e.message);
-      }
-    }
-
-    // Security Audit Log
-    async function loadSecurityAudit() {
-      try {
-        const resp = await fetch('/api/v1/policy/audit');
-        const data = await resp.json();
-        const win = document.getElementById('security-audit-window');
-        if (!win) return;
-
-        win.innerHTML = data.audit_entries.map(e => `
-          <div class="terminal-line ${e.status === 'BLOCKED' ? 'warn' : ''}">
-            [${e.iso_time || new Date().toLocaleTimeString()}] [${e.event_type}] [${e.risk_level || 'INFO'}] Actor: ${e.actor} | Target: ${e.target} -> ${e.status}
-          </div>
-        `).join('');
-        win.scrollTop = win.scrollHeight;
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    // Vitals Polling
-    async function refreshVitals() {
-      try {
-        const resp = await fetch('/api/v1/state');
-        const data = await resp.json();
-        if (data.pc) {
-          const pc = data.pc;
-          document.getElementById('mon-cpu').textContent = (pc.cpu_percent != null ? pc.cpu_percent.toFixed(1) : 0) + '%';
-          document.getElementById('mon-ram').textContent = (pc.memory_percent != null ? pc.memory_percent.toFixed(1) : 0) + '%';
-          document.getElementById('mon-disk').textContent = (pc.disk_percent != null ? pc.disk_percent.toFixed(1) : 0) + '%';
-          document.getElementById('mon-ram-gb').textContent = `${pc.memory_used_gb || 0} GB / ${pc.memory_total_gb || 0} GB`;
-          document.getElementById('mon-disk-gb').textContent = `${pc.disk_free_gb || 0} GB Free (${pc.disk_total_gb || 0} GB)`;
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    // Voice & Mic
-    function toggleMicrophone() {
-      isListening = !isListening;
-      const btn = document.getElementById('mic-btn');
-      if (isListening) {
-        btn.classList.add('listening'); btn.textContent = '🛑 STOP';
-        startVoiceCapture();
-      } else {
-        btn.classList.remove('listening'); btn.textContent = '🎙️ TALK';
-        stopVoiceCapture();
-      }
-    }
-
-    function toggleVoxMode(enabled) {
-      if (enabled && !isListening) toggleMicrophone();
-      else if (!enabled && isListening) toggleMicrophone();
-    }
-
-    function startVoiceCapture() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      window.recognition = new SpeechRecognition();
-      window.recognition.continuous = false;
 
-      window.recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        document.getElementById('cmd-input').value = transcript;
-        executeUniversalCommand();
-      };
+      if (!isRecording) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
 
-      window.recognition.onend = () => {
-        if (document.getElementById('vox-toggle').checked) window.recognition.start();
-        else {
-          isListening = false;
-          const btn = document.getElementById('mic-btn');
-          btn.classList.remove('listening'); btn.textContent = '🎙️ TALK';
-        }
-      };
-      window.recognition.start();
-    }
+        recognition.onstart = () => {
+          isRecording = true;
+          document.getElementById('mic-toggle-btn').classList.add('listening');
+          document.getElementById('voice-status-caption').textContent = 'Listening...';
+          document.getElementById('talk-hero-subtitle').textContent = 'Listening to your voice...';
+        };
 
-    function stopVoiceCapture() {
-      if (window.recognition) window.recognition.stop();
-    }
+        recognition.onresult = (e) => {
+          const transcript = e.results[0][0].transcript;
+          openCommandModal();
+          document.getElementById('modal-command-input').value = transcript;
+          executeModalCommand();
+        };
 
-    // Stand Down
-    async function toggleEmergencyStandDown() {
-      const btn = document.getElementById('btn-kill-switch');
-      const isFrozen = btn.classList.contains('frozen');
-      const actionType = isFrozen ? 'Resume Operations' : 'Emergency Stand Down';
-      const pass = prompt(`CIRCUIT BREAKER: Authorize ${actionType}.\nEnter Operator Master Passphrase:`);
-      if (!pass) return;
+        recognition.onend = () => {
+          isRecording = false;
+          document.getElementById('mic-toggle-btn').classList.remove('listening');
+          document.getElementById('voice-status-caption').textContent = 'Tap to Speak';
+          document.getElementById('talk-hero-subtitle').textContent = 'I am listening...';
+        };
 
-      if (!isFrozen) {
-        const resp = await fetch('/api/v1/emergency/stand-down', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ passphrase: pass, reason: 'Operator Freeze' })
-        });
-        if (!resp.ok) {
-          alert('Authorization failed: Invalid master passphrase');
-          return;
-        }
-        btn.classList.add('frozen'); btn.textContent = 'RESUME OPERATIONS';
-        appendTerminal('error', 'CRITICAL: EMERGENCY STAND DOWN ACTIVE.');
+        recognition.onerror = () => {
+          isRecording = false;
+          document.getElementById('mic-toggle-btn').classList.remove('listening');
+        };
+
+        recognition.start();
       } else {
-        const resp = await fetch('/api/v1/emergency/resume', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ passphrase: pass, reason: 'Operator Resume' })
-        });
-        if (!resp.ok) {
-          alert('Authorization failed: Invalid master passphrase');
-          return;
-        }
-        btn.classList.remove('frozen'); btn.textContent = 'STAND DOWN';
-        appendTerminal('jarvis', 'Emergency stand down lifted. Resuming operations, sir.');
+        if (recognition) recognition.stop();
       }
     }
 
-    // Approvals
-    async function checkPendingApprovals() {
-      try {
-        const resp = await fetch('/api/v1/policy/approvals');
-        const data = await resp.json();
-        const pending = data.pending_approvals || [];
-        const banner = document.getElementById('approval-banner');
+    function triggerExecutiveBriefing() {
+      openCommandModal('JARVIS, give me an executive briefing on system status and Coimbatore weather');
+    }
 
-        if (pending.length > 0) {
-          const req = pending[0];
-          currentPendingApprovalId = req.approval_id;
-          document.getElementById('approval-title').textContent = `⚠️ APPROVAL REQUIRED: [${req.risk_level}] ${req.action_name}`;
-          document.getElementById('approval-desc').textContent = req.rationale;
-          banner.classList.add('show');
-        } else {
-          banner.classList.remove('show');
-          currentPendingApprovalId = null;
-        }
-      } catch (e) {
-        console.error(e);
+    let focusActive = false;
+    function toggleFocusMode() {
+      focusActive = !focusActive;
+      alert(focusActive ? 'Focus Mode Engaged: Desktop notifications minimized, sir.' : 'Focus Mode Disengaged: Normal operations resumed.');
+    }
+
+    // Keybindings (⌘K / Ctrl+K)
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        openCommandModal();
       }
-    }
-
-    async function approveCurrentAction() {
-      if (!currentPendingApprovalId) return;
-      const token = prompt(`POLICY AUTHORIZATION: Approve action [${currentPendingApprovalId}]\nEnter Master Secret:`);
-      if (!token) return;
-      const resp = await fetch('/api/v1/policy/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approval_id: currentPendingApprovalId, token: token })
-      });
-      const data = await resp.json();
-      if (!resp.ok || !data.authorized) {
-        alert('Authorization Failed: ' + (data.detail || data.rationale || 'Invalid secret token'));
-        return;
+      if (e.key === 'Escape') {
+        closeCommandModal();
       }
-      document.getElementById('approval-banner').classList.remove('show');
-      appendTerminal('jarvis', `Action ${currentPendingApprovalId} authorized and dispatched.`);
-    }
-
-    async function rejectCurrentAction() {
-      if (!currentPendingApprovalId) return;
-      await fetch('/api/v1/policy/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approval_id: currentPendingApprovalId })
-      });
-      document.getElementById('approval-banner').classList.remove('show');
-      appendTerminal('warn', `Action ${currentPendingApprovalId} denied.`);
-    }
-
-    // Mission Control
-    async function loadActiveMission() {
-      try {
-        const resp = await fetch('/api/v1/missions/active');
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const m = data.mission;
-        if (!m) {
-          document.getElementById('m-name').textContent = 'STANDBY: System Idle';
-          document.getElementById('m-obj').textContent = 'Autonomous Mission Engine is on standby. Enter an objective below or select a quick action to dispatch an autonomous agent DAG.';
-          document.getElementById('m-progress').style.width = '0%';
-          document.getElementById('m-phase').textContent = 'IDLE (0%)';
-          document.getElementById('m-agents').textContent = '0 Working';
-          const costEl = document.getElementById('m-cost');
-          if (costEl) costEl.textContent = '$0.00 USD';
-          document.querySelectorAll('.phase-step').forEach(el => el.className = 'phase-step');
-          const tline = document.getElementById('mission-timeline');
-          if (tline && !tline.innerHTML.includes('standby')) {
-            tline.innerHTML = '<div class="terminal-line jarvis">[Autonomous Mission Engine on standby. Awaiting operator objective.]</div>';
-          }
-          return;
-        }
-
-        document.getElementById('m-name').textContent = `🚀 Mission: ${m.name}`;
-        document.getElementById('m-obj').textContent = m.objective;
-        document.getElementById('m-progress').style.width = `${m.progress_percent}%`;
-        document.getElementById('m-phase').textContent = `${m.current_phase.toUpperCase()} (${m.progress_percent}%)`;
-        document.getElementById('m-agents').textContent = `${m.agents_working ? m.agents_working.length : 0} Working`;
-        const costEl = document.getElementById('m-cost');
-        if (costEl) costEl.textContent = `$${(m.cost_usd || 0.0).toFixed(2)} USD`;
-        const blastEl = document.getElementById('m-blast-radius');
-        if (blastEl) blastEl.textContent = `TIER [${m.risk_level || 'LOW'}]`;
-
-        const phases = ['analyze', 'plan', 'authorize', 'execute', 'monitor', 'verify', 'fix', 'report'];
-        const currentIdx = phases.indexOf(m.current_phase);
-        phases.forEach((p, idx) => {
-          const el = document.getElementById('dag-' + p);
-          if (el) {
-            el.className = 'phase-step';
-            if (idx < currentIdx || m.current_phase === 'complete') el.classList.add('done');
-            else if (idx === currentIdx) el.classList.add('active');
-          }
-        });
-
-        const tline = document.getElementById('mission-timeline');
-        if (tline && m.live_actions && m.live_actions.length > 0) {
-          tline.innerHTML = m.live_actions.map(a => 
-            `<div class="terminal-line">[${new Date(a.timestamp * 1000).toLocaleTimeString()}] [${a.agent}] ${a.action} -> ${a.status}</div>`
-          ).join('');
-          tline.scrollTop = tline.scrollHeight;
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function startNewMission() {
-      const name = document.getElementById('new-mission-name').value.trim();
-      const obj = document.getElementById('new-mission-obj').value.trim();
-      if (!name || !obj) { alert('Please enter both mission name and objective.'); return; }
-
-      try {
-        await fetch('/api/v1/missions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, objective: obj, risk_level: 'LOW' })
-        });
-        document.getElementById('new-mission-name').value = '';
-        document.getElementById('new-mission-obj').value = '';
-        loadActiveMission();
-        appendTerminal('jarvis', `Autonomous mission '${name}' ignited, sir.`);
-      } catch (e) {
-        alert('Mission start failed: ' + e.message);
-      }
-    }
-
-    function launchQuickMission(name, obj) {
-      document.getElementById('new-mission-name').value = name;
-      document.getElementById('new-mission-obj').value = obj;
-      switchDomain('mission');
-      startNewMission();
-    }
-
-    async function abortCurrentMission() {
-      try {
-        const resp = await fetch('/api/v1/missions/active');
-        const data = await resp.json();
-        if (data.mission) {
-          await fetch(`/api/v1/missions/${data.mission.id}/abort`, { method: 'POST' });
-          loadActiveMission();
-          appendTerminal('warn', `Mission ${data.mission.name} was aborted.`);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    async function setVolume(val) {
-      await fetch('/api/v1/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: `set volume to ${val}`, speak: false })
-      });
-    }
-
-    // Init
-    window.addEventListener('DOMContentLoaded', () => {
-      initHologram();
-      initSpectrum();
-      loadActiveMission();
-      checkPendingApprovals();
-      loadCloudTopology();
-      loadDockerContainers();
-      loadGitStatus();
-
-      setInterval(loadActiveMission, 4000);
-      setInterval(checkPendingApprovals, 3000);
-      setInterval(refreshVitals, 5000);
     });
+
+    // WebSocket Integration
+    function connectWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.channel === 'chat') {
+            appendModalTerminal('jarvis', data.jarvis);
+          }
+        } catch (e) {
+          console.debug(e);
+        }
+      };
+
+      ws.onclose = () => {
+        setTimeout(connectWebSocket, 4000);
+      };
+    }
+    connectWebSocket();
   </script>
 </body>
 </html>

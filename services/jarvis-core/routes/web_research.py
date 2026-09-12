@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Optional
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
 
-from providers.unified_ai_provider import unified_provider
+from providers.ai_manager import ai_manager
 
 router = APIRouter(prefix="/api/v1/web", tags=["Web & Research"])
 
@@ -31,7 +31,7 @@ async def conduct_web_research(req: ResearchRequest):
         f"Provide a structured executive briefing with: 1. Executive Summary, 2. Key Technical Findings, 3. Strategic Recommendations. "
         f"Address Tony Stark as 'sir'."
     )
-    llm_resp = await unified_provider.generate(prompt=prompt)
+    llm_resp = await ai_manager.generate(prompt=prompt)
     latency_ms = (time.time() - start_time) * 1000
 
     return {
