@@ -1,0 +1,6 @@
+edge-tts>=6.1.10
+pygame>=2.6.0
+speechrecognition>=3.10.0
+Pillow>=10.0.0
+psutil>=5.9.0
+
