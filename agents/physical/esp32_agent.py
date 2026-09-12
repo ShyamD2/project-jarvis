@@ -117,5 +117,9 @@ class ESP32Agent:
             return dev["sensors"][sensor_name]
         return None
 
+    def get_all_device_states(self) -> Dict[str, Any]:
+        """Returns snapshot of all tracked physical device states"""
+        return dict(self.device_states)
+
 
 esp32_agent = ESP32Agent()

@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
 from aws_agent import aws_agent
 from terraform_runner import terraform_agent
 from shared.sdk_python.jarvis_sdk.config import config
+from shared.sdk_python.jarvis_sdk.event_mesh import mesh
 try:
     from finops import finops_tracker
 except ImportError:
@@ -180,11 +181,35 @@ async def get_finops_metrics():
 
 @router.post("/sync-hybrid")
 async def sync_hybrid_cloud():
-    """Synchronizes local events with AWS Cloud EventBridge"""
+    """Synchronizes local events with AWS Cloud EventBridge with real ping and latency measurement"""
+    if mesh and mesh._eventbridge_client:
+        t0 = time.perf_counter()
+        try:
+            resp = mesh._eventbridge_client.describe_event_bus(Name=config.event_bus_name)
+            latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+            return {
+                "status": "synchronized",
+                "connected": True,
+                "cloud_bus": config.event_bus_name,
+                "bus_arn": resp.get("Arn", ""),
+                "latency_ms": latency_ms,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            latency_ms = round((time.perf_counter() - t0) * 1000, 2)
+            return {
+                "status": "unreachable",
+                "connected": False,
+                "cloud_bus": config.event_bus_name,
+                "latency_ms": latency_ms,
+                "error": str(e),
+                "timestamp": time.time()
+            }
     return {
-        "status": "synchronized",
-        "local_events_synced": 42,
-        "cloud_bus": "jarvis-event-bus",
-        "latency_ms": 18.4,
+        "status": "offline",
+        "connected": False,
+        "cloud_bus": config.event_bus_name,
+        "latency_ms": 0.0,
+        "detail": "AWS EventBridge client not configured or boto3 unavailable",
         "timestamp": time.time()
     }
