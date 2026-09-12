@@ -1,0 +1,12 @@
+{
+  "preferences": {
+    "browser": "opera",
+    "workspace_profile": "developer",
+    "default_volume": 60,
+    "preferred_browser": "Opera GX",
+    "test_pref_editor": "neovim"
+  },
+  "corrections": {},
+  "aliases": {},
+  "history": []
+}

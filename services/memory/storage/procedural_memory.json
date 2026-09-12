@@ -1,0 +1,38 @@
+{
+  "deploy_docker": {
+    "steps": [
+      "build_image",
+      "run_container",
+      "verify_healthcheck"
+    ],
+    "last_success": 1789131299.533453,
+    "success_count": 5
+  },
+  "prepare_workspace": {
+    "steps": [
+      "illuminate_desk_lamp",
+      "launch_vscode",
+      "launch_terminal"
+    ],
+    "last_success": 1789131299.5334542,
+    "success_count": 12
+  },
+  "restart_web_service": {
+    "steps": [
+      "check_port_listening",
+      "terminate_existing",
+      "start_uvicorn",
+      "poll_health_200"
+    ],
+    "last_success": 1789131299.5334544,
+    "success_count": 8
+  },
+  "test_deploy": {
+    "steps": [
+      "step1",
+      "step2"
+    ],
+    "last_updated": 1789131299.5335126,
+    "success_count": 1
+  }
+}

@@ -110,6 +110,15 @@ def start_server():
     except Exception as e:
         logger.warning(f"Could not start WakeWordDaemon: {e}")
 
+    # Start Virtual ESP32 Microcontroller Simulator for physical world feedback
+    try:
+        from mocks.virtual_esp32.simulator import VirtualESP32
+        sim = VirtualESP32()
+        sim.start()
+        logger.info("⚡ [IoT Simulator] Virtual ESP32 online and connected to event mesh.")
+    except Exception as e:
+        logger.debug(f"Could not start VirtualESP32: {e}")
+
     url = f"http://{config.host}:{config.port}"
     print(f"\n⚡ Holographic HUD Dashboard available at: \033[94m{url}\033[0m\n")
 

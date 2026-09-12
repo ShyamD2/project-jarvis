@@ -1,0 +1,18 @@
+{
+  "preferences": {
+    "user_title": "sir",
+    "preferred_voice": "en-GB-RyanNeural",
+    "theme": "arc_reactor_cyan",
+    "default_editor": "code",
+    "default_terminal": "powershell",
+    "auto_confirm_tier1": true,
+    "max_autonomous_budget_usd": 5.0,
+    "test_pref_editor": "neovim"
+  },
+  "experiences": {
+    "incident_test_999": {
+      "action": "failover",
+      "success": true
+    }
+  }
+}

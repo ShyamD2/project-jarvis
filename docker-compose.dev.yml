@@ -1,0 +1,36 @@
+services:
+  # Local AWS Emulation (EventBridge, SQS, DynamoDB, S3)
+  localstack:
+    container_name: jarvis-localstack
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      - SERVICES=events,sqs,dynamodb,s3,iot
+      - AWS_DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./mocks/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "./data/localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  # Local Fast-Path MQTT Broker (<30ms reflex messaging)
+  mosquitto:
+    container_name: jarvis-mqtt
+    image: eclipse-mosquitto:2.0
+    ports:
+      - "1883:1883" # Standard MQTT
+      - "9001:9001" # WebSockets MQTT for web dashboard
+    volumes:
+      - "./mocks/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf"
+      - "./data/mosquitto:/mosquitto/data"
+
+  # Ultra-fast short-term memory & presence cache
+  redis:
+    container_name: jarvis-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - "./data/redis:/data"

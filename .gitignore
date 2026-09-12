@@ -67,3 +67,7 @@ logs/
 scratch/
 tmp/
 temp/
+audio_cache/
+vision_cache/
+*.mp3_cache
+
