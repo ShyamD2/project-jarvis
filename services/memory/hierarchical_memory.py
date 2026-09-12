@@ -20,10 +20,12 @@ try:
     from .short_term import short_term_memory
     from .feedback_learning import learner
     from .knowledge_rag import knowledge_rag
+    from .long_term import long_term_memory
 except ImportError:
     from short_term import short_term_memory
     from feedback_learning import learner
     from knowledge_rag import knowledge_rag
+    from long_term import long_term_memory
 
 STORAGE_DIR = os.path.join(os.path.dirname(__file__), "storage")
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -133,11 +135,20 @@ class HierarchicalMemory:
 
     # Tier 6: Preferences & Feedback
     def get_preferences(self) -> Dict[str, Any]:
-        return learner.memory.get("preferences", {})
+        prefs = dict(long_term_memory.preferences)
+        prefs.update(learner.memory.get("preferences", {}))
+        return prefs
 
     def learn_preference(self, key: str, value: Any):
         learner.memory.setdefault("preferences", {})[key] = value
         learner._save_memory()
+        long_term_memory.set_preference(key, value)
+
+    def record_experience(self, incident_id: str, learnings: Dict[str, Any]):
+        long_term_memory.record_experience(incident_id, learnings)
+
+    def get_experiences(self) -> Dict[str, Any]:
+        return long_term_memory.experiences
 
     # Tier 7: Knowledge & RAG
     def search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
@@ -157,6 +168,7 @@ class HierarchicalMemory:
             "recent_turns": short_term_memory.get_recent_history(limit=4),
             "procedural": matched_proc,
             "preferences": self.get_preferences(),
+            "experiences": self.get_experiences(),
             "knowledge": self.search_knowledge(query, limit=2)
         }
 
