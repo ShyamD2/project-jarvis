@@ -78,10 +78,12 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
 
     # 3. Audio Delivery (Authentic Movie Clip or British Neural TTS)
     audio_file = None
+    audio_url = None
     if matched_clip:
         soundboard_url = matched_clip["url"]
         clip_name = matched_clip["clip_name"]
         audio_file = matched_clip["file_path"]
+        audio_url = soundboard_url
         voice_session.transition_to(VoiceState.SPEAKING, {"clip": clip_name})
         if req.play_server_audio:
             soundboard.play_clip(clip_name)
@@ -99,6 +101,10 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
                     voice_synthesizer.speak(response_text, play_audio=req.play_server_audio),
                     timeout=6.0
                 )
+            if audio_file and os.path.exists(audio_file):
+                voice_synthesizer.latest_audio_path = audio_file
+                audio_filename = os.path.basename(audio_file)
+                audio_url = f"/api/v1/query/audio/file/{audio_filename}"
         except asyncio.TimeoutError:
             logger.info("Voice synthesis exceeded 6.0s; completing in background task.")
             background_tasks.add_task(tts_engine.speak, response_text, req.play_server_audio)
@@ -118,7 +124,8 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
             "jarvis": response_text,
             "intent": result.get("intent"),
             "verified": result.get("verified"),
-            "soundboard_clip": clip_name
+            "soundboard_clip": clip_name,
+            "audio_url": audio_url
         }
     )
 
@@ -132,26 +139,60 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
         "verified": result.get("verified", True),
         "latency_ms": result.get("latency_ms", 0.0),
         "has_audio": audio_file is not None and os.path.exists(audio_file),
+        "audio_url": audio_url,
         "soundboard_url": soundboard_url,
         "clip_name": clip_name
     }
 
 
+@router.get("/audio/file/{filename}")
+async def get_audio_file_by_name(filename: str):
+    """Serves a specific synthesized voice audio file by name for immediate web playback."""
+    safe_name = os.path.basename(filename)
+    audio_cache = os.path.join(PROJECT_ROOT, "services/sensory/audio_cache")
+    file_path = os.path.join(audio_cache, safe_name)
+    if os.path.exists(file_path):
+        media_type = "audio/mpeg" if safe_name.endswith(".mp3") else "audio/wav"
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
+    raise HTTPException(status_code=404, detail="Audio file not found")
+
+
 @router.get("/audio/latest")
 async def get_latest_voice_audio():
     """Returns the latest synthesized voice audio file for browser playback"""
+    # 1. Check tts_engine current audio file
+    current_tts = getattr(tts_engine, "_current_audio_file", None)
+    if current_tts and os.path.exists(current_tts):
+        return FileResponse(current_tts, media_type="audio/mpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+    # 2. Check voice_synthesizer latest audio path
     latest = getattr(voice_synthesizer, "latest_audio_path", None)
     if latest and os.path.exists(latest):
-        return FileResponse(latest, media_type="audio/mpeg")
+        return FileResponse(latest, media_type="audio/mpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
+    # 3. Scan audio cache for newest generated file
     audio_cache = os.path.join(PROJECT_ROOT, "services/sensory/audio_cache")
+    if os.path.exists(audio_cache):
+        candidates = [
+            os.path.join(audio_cache, f)
+            for f in os.listdir(audio_cache)
+            if (f.startswith("jarvis_tts_") or f.startswith("jarvis_")) and f.endswith(".mp3") and f != "jarvis_latest.mp3"
+        ]
+        if candidates:
+            newest = max(candidates, key=os.path.getmtime)
+            return FileResponse(newest, media_type="audio/mpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
     mp3_file = os.path.join(audio_cache, "jarvis_latest.mp3")
     wav_file = os.path.join(audio_cache, "jarvis_latest.wav")
 
     if os.path.exists(mp3_file):
-        return FileResponse(mp3_file, media_type="audio/mpeg")
+        return FileResponse(mp3_file, media_type="audio/mpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     elif os.path.exists(wav_file):
-        return FileResponse(wav_file, media_type="audio/wav")
+        return FileResponse(wav_file, media_type="audio/wav", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     else:
         raise HTTPException(status_code=404, detail="No voice audio cached yet")
 
@@ -161,7 +202,7 @@ async def get_soundboard_audio(clip_name: str):
     """Returns authentic J.A.R.V.I.S. movie audio clip for browser playback"""
     clip_path = soundboard.clips.get(clip_name)
     if clip_path and os.path.exists(clip_path):
-        return FileResponse(clip_path, media_type="audio/mpeg")
+        return FileResponse(clip_path, media_type="audio/mpeg", headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
     raise HTTPException(status_code=404, detail=f"Soundboard clip '{clip_name}' not found")
 
 

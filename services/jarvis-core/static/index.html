@@ -1500,8 +1500,8 @@
         const reply = data.response || 'Action completed, sir.';
         appendActivityStream('jarvis', reply);
 
-        if (data.soundboard_url || data.has_audio) {
-          const audioUrl = data.soundboard_url || ('/api/v1/query/audio/latest?t=' + Date.now());
+        if (data.soundboard_url || data.audio_url || data.has_audio) {
+          const audioUrl = data.soundboard_url || data.audio_url || ('/api/v1/query/audio/latest?t=' + Date.now());
           playJarvisVoice(audioUrl, reply);
         } else {
           setJarvisState(JarvisState.IDLE, 'READY');

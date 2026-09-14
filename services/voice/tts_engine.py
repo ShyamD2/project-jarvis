@@ -157,21 +157,19 @@ class TTSEngine:
         if not clean:
             return None
 
-        # Check for matching movie soundboard clip first
-        matched_clip = soundboard.match_audio_clip(clean)
-        if matched_clip:
-            logger.info(f"🎬 [TTS] Playing authentic MCU clip: {matched_clip['clip_name']}")
-            self._current_audio_file = matched_clip["file_path"]
-            if play_audio:
-                self._is_speaking = True
-                soundboard.play_clip(matched_clip["clip_name"])
-            return matched_clip["file_path"]
-
         audio_file = await self.synthesize(clean)
         if not audio_file:
             return None
 
         self._current_audio_file = audio_file
+
+        # Copy to jarvis_latest.mp3 so endpoints and caches are immediately updated
+        try:
+            import shutil
+            latest_copy = os.path.join(self.output_dir, "jarvis_latest.mp3")
+            shutil.copy2(audio_file, latest_copy)
+        except Exception as e_copy:
+            logger.debug(f"[TTS] Failed to update jarvis_latest.mp3: {e_copy}")
 
         if not play_audio:
             return audio_file
