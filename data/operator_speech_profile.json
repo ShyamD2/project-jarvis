@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 29,
-  "average_latency_ms": 3270.92,
+  "total_commands_learned": 33,
+  "average_latency_ms": 3573.99,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -121,6 +121,29 @@
         "mode": "system"
       },
       "hits": 10
+    },
+    "open snapchat.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "web"
+      },
+      "hits": 1
+    },
+    "open snapchat on vimba.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "web"
+      },
+      "hits": 10
+    },
+    "open spotify.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "spotify"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -129,7 +152,10 @@
     "volum": "volume",
     "shov": "show",
     "increse": "increase",
-    "decrese": "decrease"
+    "decrese": "decrease",
+    "vimba": "web",
+    "vimb": "web",
+    "veb": "web"
   },
   "word_frequencies": {
     "what": 5,
@@ -137,16 +163,18 @@
     "my": 5,
     "cpu": 5,
     "usage": 5,
-    "open": 8,
-    "snapchat": 1,
-    "whatsapp": 1,
-    "instagram": 1,
+    "open": 14,
+    "snapchat": 4,
+    "whatsapp": 2,
+    "instagram": 2,
     "up": 5,
     "the": 5,
     "browser": 3,
-    "on": 3,
+    "on": 4,
     "opera": 3,
-    "app": 1
+    "app": 1,
+    "vimba": 1,
+    "spotify": 1
   },
   "history": [
     {
@@ -202,6 +230,30 @@
       "tool": "launch_app",
       "latency_ms": 5031.87,
       "timestamp": 1789382734.5241573
+    },
+    {
+      "query": "open snapchat.",
+      "tool": "launch_app",
+      "latency_ms": 3565.09,
+      "timestamp": 1789383758.1342285
+    },
+    {
+      "query": "open instagram, open snapchat, open whatsapp.",
+      "tool": "launch_app",
+      "latency_ms": 5716.3,
+      "timestamp": 1789383789.187045
+    },
+    {
+      "query": "open snapchat on vimba.",
+      "tool": "launch_app",
+      "latency_ms": 4924.04,
+      "timestamp": 1789384234.292101
+    },
+    {
+      "query": "open spotify.",
+      "tool": "launch_app",
+      "latency_ms": 2618.56,
+      "timestamp": 1789384249.902869
     }
   ]
 }

@@ -269,9 +269,12 @@ class WindowsAgent:
         if not clean_target:
             clean_target = app_raw
 
-        # User Rule: For Snapchat ONLY, default to web (web.snapchat.com) unless explicitly requested for system
-        if clean_target == "snapchat" and mode != "system":
-            mode = "web"
+        # User Rule: For Snapchat ONLY, DEFAULT to web (https://web.snapchat.com).
+        # It must ONLY open on system if the user explicitly specified "system" or "systems".
+        if clean_target == "snapchat":
+            has_explicit_system = any(w in app_raw for w in ["system", "systems", "system's", "desktop app", "locally"])
+            if not has_explicit_system:
+                mode = "web"
 
         logger.info(f"[WindowsAgent] Launching app: '{clean_target}' [mode: {mode}] with args: {args}")
         ensure_interactive_desktop()

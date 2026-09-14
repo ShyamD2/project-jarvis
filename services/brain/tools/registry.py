@@ -557,7 +557,11 @@ class LaunchAppTool(JarvisTool):
         )
 
     async def execute(self, app: str = "notepad", args: list = None, mode: str = "auto", **kwargs) -> Dict[str, Any]:
-        return windows_agent.launch_app(app, args or [], mode=kwargs.get("mode", mode))
+        chosen_mode = kwargs.get("mode", mode)
+        app_clean = str(app).lower()
+        if "snapchat" in app_clean and not any(w in app_clean for w in ["system", "systems", "system's", "desktop app", "locally"]):
+            chosen_mode = "web"
+        return windows_agent.launch_app(app, args or [], mode=chosen_mode)
 
 
 class AudioVolumeTool(JarvisTool):
