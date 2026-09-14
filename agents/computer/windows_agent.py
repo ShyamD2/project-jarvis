@@ -231,13 +231,17 @@ class WindowsAgent:
         # 1. Parse mode & clean target
         if any(w in app_raw for w in ["on web", "on browser", "web version", "online"]):
             mode = "web"
-        elif any(w in app_raw for w in ["on system", "on pc", "on desktop", "system app", "desktop app", "locally"]):
+        elif any(w in app_raw for w in ["on system", "on pc", "on desktop", "system app", "desktop app", "locally", "systems", "system's"]):
             mode = "system"
 
-        clean_target = re.sub(r"\b(on\s+web|on\s+browser|on\s+system|on\s+pc|on\s+desktop|web\s+version|online|system|desktop|locally)\b", "", app_raw).strip()
+        clean_target = re.sub(r"\b(on\s+web|on\s+browser|on\s+system|on\s+pc|on\s+desktop|web\s+version|online|systems|system's|system|desktop|locally)\b", "", app_raw).strip()
         clean_target = re.sub(r"\s+", " ", clean_target).strip()
         if not clean_target:
             clean_target = app_raw
+
+        # User Rule: For Snapchat ONLY, default to web (web.snapchat.com) unless explicitly requested for system
+        if clean_target == "snapchat" and mode != "system":
+            mode = "web"
 
         logger.info(f"[WindowsAgent] Launching app: '{clean_target}' [mode: {mode}] with args: {args}")
         ensure_interactive_desktop()

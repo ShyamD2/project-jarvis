@@ -545,12 +545,13 @@ class LaunchAppTool(JarvisTool):
         super().__init__(
             ToolDefinition(
                 name="launch_app",
-                description="Launches a desktop Windows application or web app (e.g. chrome, notepad, calc, code, terminal, instagram, whatsapp, youtube, spotify)",
+                description="Launches a desktop Windows application or web app (e.g. chrome, notepad, calc, code, terminal, snapchat, instagram, whatsapp, youtube, spotify). Note: For Snapchat, default to mode='web' unless explicitly requested for system.",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
                     "app": {"type": "string", "required": True},
-                    "args": {"type": "array", "default": []}
+                    "args": {"type": "array", "default": []},
+                    "mode": {"type": "string", "description": "Launch mode: 'web' or 'system'. For snapchat: default is 'web' unless user explicitly requests 'system'.", "default": "auto"}
                 }
             )
         )
@@ -926,7 +927,7 @@ class ToolRegistry:
         elif name == "file_manager" and parameters.get("permanent"):
             action_name = "permanent_delete"
 
-        decision = safety_guard.evaluate_request(action_name=action_name, parameters=parameters, approval_id=approval_id)
+        decision = safety_guard.evaluate_request(action_name=action_name, parameters=parameters, approval_id=approval_id, tool_name=name)
         if not decision["authorized"]:
             logger.warning(f"SafetyGuard blocked execution of '{name}': {decision['rationale']}")
             audit_logger.record_entry(

@@ -103,10 +103,10 @@ class MockLLMProvider(BaseLLMProvider):
             mode = "auto"
             if any(w in raw_target for w in ["on web", "on browser", "web version", "online"]):
                 mode = "web"
-            elif any(w in raw_target for w in ["on system", "on pc", "on desktop", "system app", "desktop app", "locally"]):
+            elif any(w in raw_target for w in ["on system", "on pc", "on desktop", "system app", "desktop app", "locally", "systems", "system's"]):
                 mode = "system"
 
-            clean_target = re.sub(r"\b(on\s+web|on\s+browser|on\s+system|on\s+pc|on\s+desktop|web\s+version|online|system|desktop|locally)\b", "", raw_target).strip()
+            clean_target = re.sub(r"\b(on\s+web|on\s+browser|on\s+system|on\s+pc|on\s+desktop|web\s+version|online|systems|system's|system|desktop|locally)\b", "", raw_target).strip()
             clean_target = re.sub(r"\s+", " ", clean_target).strip()
             if not clean_target:
                 clean_target = raw_target
@@ -153,6 +153,10 @@ class MockLLMProvider(BaseLLMProvider):
                 app_name = "mspaint"
             elif "setting" in clean_target:
                 app_name = "settings"
+
+            # Special rule: Snapchat defaults to web unless system is explicitly requested
+            if app_name == "snapchat" and mode != "system":
+                mode = "web"
 
             tool_calls.append(ToolCall(tool_name="launch_app", arguments={"app": app_name, "mode": mode}))
             if mode == "web":

@@ -113,8 +113,11 @@ class AgentRuntime:
                 logger.info(f"[Runtime] Confirmed pending ticket {pending_ticket.approval_id} for {pending_ticket.action_name}")
 
                 # Execute confirmed action immediately
+                target_tool = getattr(pending_ticket, "tool_name", None) or (
+                    "pc_power" if pending_ticket.action_name.startswith("pc_") else pending_ticket.action_name
+                )
                 exec_res = await tool_registry.execute_tool(
-                    name=pending_ticket.action_name,
+                    name=target_tool,
                     parameters=pending_ticket.parameters,
                     caller_agent="jarvis_core_agent",
                     approval_id=pending_ticket.approval_id,
@@ -228,7 +231,9 @@ class AgentRuntime:
             "IMPORTANT OPERATING RULES:\n"
             "1. For general knowledge questions, conversational queries, identity inquiries, greetings, or explanations "
             "(e.g., 'who are you', 'what is the capital of France', 'tell me a joke', 'how are you', 'what is quantum computing'), "
-            "respond directly in natural, intelligent, polite British conversation. DO NOT invoke any tools.\n"
+            "respond directly in natural, intelligent, polite British conversation. "
+            "Keep spoken answers concise, elegant, and punchy (1 to 2 sentences maximum, under 30 words) for ultra-low latency voice synthesis. "
+            "DO NOT invoke any tools.\n"
             "2. ONLY call a tool if the user explicitly instructs you to perform a real workstation or cloud action "
             "(such as launching an app, closing an app, adjusting volume, checking system metrics, locking the screen, or searching the web).\n"
             "3. Understand English, Tamil (Tanglish), and Hindi (Hinglish): "
@@ -236,6 +241,8 @@ class AgentRuntime:
             "- 'ethu' / 'badhao' = increase/raise "
             "- 'moodu' / 'bandh karo' = close application "
             "- 'thoda' / 'konjam' = a little bit.\n"
+            "4. Application Rule (Snapchat only): When instructed to open Snapchat, DEFAULT to opening it on the web (`launch_app` with `app='snapchat'`, `mode='web'`). ONLY open Snapchat on the system (`mode='system'`) if the user explicitly specifies 'on system' or 'systems snapchat'. This rule applies ONLY to Snapchat.\n"
+            "5. Sensitive Operations Rule: Destructive system actions (such as shutdown and restart) always require explicit operator confirmation before execution.\n"
             f"{intent_hint}"
             f"{recent_context}"
         )
@@ -341,8 +348,8 @@ class AgentRuntime:
             return f"Power command executed ({act})"
         elif tool_name == "launch_app":
             app = args.get("app") or args.get("app_name") or result.get("app_name") or result.get("name") or "Application"
-            mode = args.get("mode", "system")
-            if mode == "web":
+            mode = result.get("mode") or args.get("mode", "system")
+            if mode in ["web", "web_fallback"]:
                 return f"Opening {app.title()} on the web, sir."
             elif mode == "system":
                 return f"Opening {app.title()} on your system, sir."
@@ -391,3 +398,4 @@ class AgentRuntime:
 
 
 runtime = AgentRuntime()
+agent_runtime = runtime

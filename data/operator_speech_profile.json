@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 23,
-  "average_latency_ms": 1694.6,
+  "total_commands_learned": 29,
+  "average_latency_ms": 3270.92,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -89,6 +89,38 @@
       "tool": "pc_lock",
       "args": {},
       "hits": 10
+    },
+    "open snapchat": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "web"
+      },
+      "hits": 10
+    },
+    "open snapchat on web": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "web"
+      },
+      "hits": 10
+    },
+    "open snapchat on system": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "system"
+      },
+      "hits": 10
+    },
+    "open systems snapchat": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "system"
+      },
+      "hits": 10
     }
   },
   "phonetic_alignments": {
@@ -100,11 +132,21 @@
     "decrese": "decrease"
   },
   "word_frequencies": {
-    "what": 3,
-    "is": 3,
-    "my": 3,
-    "cpu": 3,
-    "usage": 3
+    "what": 5,
+    "is": 5,
+    "my": 5,
+    "cpu": 5,
+    "usage": 5,
+    "open": 8,
+    "snapchat": 1,
+    "whatsapp": 1,
+    "instagram": 1,
+    "up": 5,
+    "the": 5,
+    "browser": 3,
+    "on": 3,
+    "opera": 3,
+    "app": 1
   },
   "history": [
     {
@@ -124,6 +166,42 @@
       "tool": "query_system_telemetry",
       "latency_ms": 4829.58,
       "timestamp": 1789380700.9662492
+    },
+    {
+      "query": "open snapchat, open whatsapp, open instagram.",
+      "tool": "launch_app",
+      "latency_ms": 4838.56,
+      "timestamp": 1789381792.711248
+    },
+    {
+      "query": "what is my cpu usage?",
+      "tool": "query_system_telemetry",
+      "latency_ms": 2980.21,
+      "timestamp": 1789382254.2133074
+    },
+    {
+      "query": "open up the browser, open up the on opera",
+      "tool": "launch_app",
+      "latency_ms": 7404.0,
+      "timestamp": 1789382284.3159187
+    },
+    {
+      "query": "open up the browser. on opera",
+      "tool": "launch_app",
+      "latency_ms": 2741.5,
+      "timestamp": 1789382327.956149
+    },
+    {
+      "query": "what is my cpu usage?",
+      "tool": "query_system_telemetry",
+      "latency_ms": 6934.35,
+      "timestamp": 1789382577.1814673
+    },
+    {
+      "query": "open up the browser, open up the app on opera",
+      "tool": "launch_app",
+      "latency_ms": 5031.87,
+      "timestamp": 1789382734.5241573
     }
   ]
 }

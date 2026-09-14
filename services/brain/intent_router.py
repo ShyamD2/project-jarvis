@@ -38,7 +38,8 @@ class IntentRouter:
 
         # 2. Confirmation gate patterns (approving pending Tier 2 / Tier 3 actions)
         self.confirmation_patterns = [
-            r"\b(confirm|confirm\s+shutdown|confirm\s+restart|confirm\s+action|yes\s+proceed|proceed|approve|authorized)\b"
+            r"^\s*(yes|yeah|yep|proceed|confirm|approve|authorized|go\s+ahead|do\s+it|yes\s+proceed|yes\s+please)\s*$",
+            r"\b(confirm|confirm\s+shutdown|confirm\s+restart|confirm\s+action|yes\s+proceed|yes\s+please|proceed|approve|authorized)\b"
         ]
 
         # 3. Direct Action patterns with Tanglish & Hinglish normalization
@@ -77,7 +78,7 @@ class IntentRouter:
             (r"\b(check|read)\b.*\b(message|messages|whatsapp|chat)\b", "send_message", {"action": "check_latest"}),
 
             # App Launch & Termination
-            (r"\b(open|launch|start|run)\b.*\b(whatsapp|opera|browser|chrome|edge|notepad|calculator|calc|vs\s*code|code|terminal|wt|spotify|discord|instagram|youtube)\b", "launch_app", None),
+            (r"\b(open|launch|start|run)\b.*\b(whatsapp|opera|browser|chrome|edge|notepad|calculator|calc|vs\s*code|code|terminal|wt|spotify|discord|instagram|youtube|snapchat)\b", "launch_app", None),
             (r"\b(close|shut\s+down|kill|terminate)\b.*\b(all|all\s+apps|all\s+of\s+them|everything)\b", "close_app", {"app_name": "all"}),
             (r"\b(close|kill|terminate|shut\s+down)\b.*\b(opera|browser|chrome|edge|notepad|calculator|calc|code|terminal|whatsapp)\b", "close_app", None),
 

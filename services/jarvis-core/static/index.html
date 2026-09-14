@@ -1221,14 +1221,14 @@
             liveSpeechChunks.push(new Float32Array(inputData));
 
             // Dynamic Endpointing:
-            // 1.6s of sustained quiet required before concluding speech
-            // Prevents cutting off sentences mid-thought while user formulates words
-            const framesForEnd = Math.max(12, Math.round((sampleRate / bufferSize) * 1.6));
+            // 0.75s of sustained quiet required before concluding speech (down from 1.6s)
+            // Ultra-responsive cadence without clipping natural speech
+            const framesForEnd = Math.max(7, Math.round((sampleRate / bufferSize) * 0.75));
             const totalSamples = liveSpeechChunks.reduce((acc, c) => acc + c.length, 0);
 
             if (silenceFrames >= framesForEnd) {
-              // Ensure at least 0.75s of speech audio was captured (ignores throat clearing / clicks)
-              if (totalSamples > sampleRate * 0.75) {
+              // Ensure at least 0.45s of speech audio was captured
+              if (totalSamples > sampleRate * 0.45) {
                 const chunksToProcess = [...liveSpeechChunks];
                 liveSpeechChunks = [];
                 isLiveCapturing = false;

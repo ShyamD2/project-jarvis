@@ -31,6 +31,7 @@ class ApprovalTicket:
     tier: StrictTier
     parameters: Dict[str, Any]
     rationale: str
+    tool_name: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + 120.0) # 2 minutes
     status: str = "PENDING"                         # PENDING, APPROVED, REJECTED, EXPIRED
@@ -45,7 +46,7 @@ class SafetyGuard:
 
         # Regex patterns for strict risk tier mapping
         self.tier3_patterns = [
-            r"\b(shutdown|shut\s+down|power\s+off|turn\s+off\s+pc|reboot|restart\s+(pc|computer|system))\b",
+            r"\b(shutdown|shut\s+down|power\s+off|turn\s+off\s+pc|reboot|pc\s+restart|restart)\b",
             r"\b(terraform\s+destroy|destroy\s+infrastructure|destroy\s+all)\b",
             r"\b(permanent\s+delete|force\s+delete|rm\s+-rf|wipe\s+disk|format\s+[c-z]:|drop\s+database|truncate\s+table)\b",
             r"\b(delete\s+s3\s+bucket|delete\s+bucket|terminate\s+instance|delete\s+database|delete\s+table)\b",
@@ -103,7 +104,8 @@ class SafetyGuard:
         self,
         action_name: str,
         parameters: Optional[Dict[str, Any]] = None,
-        approval_id: Optional[str] = None
+        approval_id: Optional[str] = None,
+        tool_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Evaluates permission to execute.
@@ -141,7 +143,8 @@ class SafetyGuard:
         # Check Tier 3 Destructive
         if tier == StrictTier.TIER_3_DESTRUCTIVE:
             # Generate ticket
-            ticket = self._create_ticket(action_name, tier, params, rationale)
+            ticket = self._create_ticket(action_name, tier, params, rationale, tool_name=tool_name)
+            friendly_name = action_name.replace("pc_", "").replace("_", " ")
             logger.warning(f"[SafetyGuard] Tier 3 Destructive action '{action_name}' blocked pending mandatory confirmation. Ticket: {ticket.approval_id}")
             return {
                 "authorized": False,
@@ -150,12 +153,12 @@ class SafetyGuard:
                 "requires_confirmation": True,
                 "confirmation_level": "TIER_3_DESTRUCTIVE",
                 "ticket_id": ticket.approval_id,
-                "prompt_user": f"Sir, you have requested a critical destructive action ({action_name.replace('_', ' ')}). Please confirm explicitly to proceed."
+                "prompt_user": f"Sir, you have requested a sensitive system action ({friendly_name}). Should I proceed? Please say 'yes' or 'proceed' to confirm."
             }
 
         # Check Tier 2 Disruptive
         if tier == StrictTier.TIER_2_DISRUPTIVE:
-            ticket = self._create_ticket(action_name, tier, params, rationale)
+            ticket = self._create_ticket(action_name, tier, params, rationale, tool_name=tool_name)
             logger.info(f"[SafetyGuard] Tier 2 Disruptive action '{action_name}' held for approval. Ticket: {ticket.approval_id}")
             return {
                 "authorized": False,
@@ -176,14 +179,15 @@ class SafetyGuard:
             "ticket_id": None
         }
 
-    def _create_ticket(self, action_name: str, tier: StrictTier, parameters: Dict[str, Any], rationale: str) -> ApprovalTicket:
+    def _create_ticket(self, action_name: str, tier: StrictTier, parameters: Dict[str, Any], rationale: str, tool_name: Optional[str] = None) -> ApprovalTicket:
         app_id = f"sec_{uuid.uuid4().hex[:8]}"
         ticket = ApprovalTicket(
             approval_id=app_id,
             action_name=action_name,
             tier=tier,
             parameters=parameters,
-            rationale=rationale
+            rationale=rationale,
+            tool_name=tool_name
         )
         self._pending_tickets[app_id] = ticket
         return ticket
