@@ -157,9 +157,9 @@ class AgentRuntime:
                     "latency_ms": (time.time() - start_time) * 1000
                 }
 
-        # Fast-Path Direct Tool Execution for well-defined intents with parameters
-        if routed.intent_type == IntentType.DIRECT_ACTION and routed.target_tool and routed.parameters:
-            logger.info(f"[Runtime] Fast-Path Direct Execution for tool: {routed.target_tool}")
+        # Fast-Path Direct Tool Execution for well-defined intents WITH explicit parameters
+        if routed.intent_type == IntentType.DIRECT_ACTION and routed.target_tool and bool(routed.parameters):
+            logger.info(f"[Runtime] Fast-Path Direct Execution for tool: {routed.target_tool} with params: {routed.parameters}")
             exec_res = await tool_registry.execute_tool(
                 name=routed.target_tool,
                 parameters=routed.parameters,
@@ -191,7 +191,20 @@ class AgentRuntime:
         active_provider = self.deep_provider if routed.recommended_model_tier == "tier_2_deep" else self.fast_provider
 
         # 2. PLAN & SELECT TOOLS
-        tool_specs = tool_registry.to_llm_tool_specs()
+        # For general conversation, questions, greetings, or explanations, do NOT pass tool specs.
+        # This prevents the LLM from hallucinating launch_app or other tool invocations on conversational questions.
+        pass_tools = True
+        if routed.intent_type == IntentType.CONVERSATION:
+            q_clean = query.lower().strip().rstrip(".,!?")
+            action_verbs = [
+                "open", "launch", "close", "shut", "kill", "start", "run", "volume", "mute", "unmute",
+                "turn on", "turn off", "lock", "screenshot", "search", "docker", "deploy", "terraform", "browse"
+            ]
+            has_action = any(v in q_clean for v in action_verbs)
+            if not has_action:
+                pass_tools = False
+
+        tool_specs = tool_registry.to_llm_tool_specs() if pass_tools else None
 
         recent_context = ""
         try:
@@ -203,22 +216,26 @@ class AgentRuntime:
             logger.debug(f"[AgentRuntime] Memory context lookup: {e}")
 
         intent_hint = ""
-        if routed.target_tool:
+        if routed.target_tool and routed.intent_type in [IntentType.DIRECT_ACTION, IntentType.COMPLEX_PLAN]:
             intent_hint = (
                 f"\nDetected Intent Tool: '{routed.target_tool}'. "
-                f"You MUST invoke tool '{routed.target_tool}' with appropriate parameters to fulfill this instruction."
+                f"Invoke tool '{routed.target_tool}' with appropriate parameters to fulfill this instruction."
             )
 
         system_prompt = (
             "You are J.A.R.V.I.S., Tony Stark's brilliant, highly efficient cyber-physical AI assistant. "
-            "Address the user as 'sir'. Execute required tools with precision and return concise, elegant responses. "
-            "You have access to real tools across 3 pillars: Computer (pc_power, audio_media, display_control, mouse_keyboard, file_manager, network_control, launch_app, close_app), "
-            "Cloud (devops_tool, aws_management), and Intelligence (productivity_tool, compound_workflow, analyze_screen). "
-            "Understand English, Tamil (Tanglish), and Hindi (Hinglish): "
+            "Address the user as 'sir'.\n"
+            "IMPORTANT OPERATING RULES:\n"
+            "1. For general knowledge questions, conversational queries, identity inquiries, greetings, or explanations "
+            "(e.g., 'who are you', 'what is the capital of France', 'tell me a joke', 'how are you', 'what is quantum computing'), "
+            "respond directly in natural, intelligent, polite British conversation. DO NOT invoke any tools.\n"
+            "2. ONLY call a tool if the user explicitly instructs you to perform a real workstation or cloud action "
+            "(such as launching an app, closing an app, adjusting volume, checking system metrics, locking the screen, or searching the web).\n"
+            "3. Understand English, Tamil (Tanglish), and Hindi (Hinglish): "
             "- 'kammi pannu' / 'kam karo' = decrease/lower "
             "- 'ethu' / 'badhao' = increase/raise "
             "- 'moodu' / 'bandh karo' = close application "
-            "- 'thoda' / 'konjam' = a little bit. "
+            "- 'thoda' / 'konjam' = a little bit.\n"
             f"{intent_hint}"
             f"{recent_context}"
         )
@@ -296,10 +313,11 @@ class AgentRuntime:
             else:
                 final_response = "At your service, sir. Instructions received."
 
-        # Continuous ML Learning: Record operator command and performance
-        first_tool = executed_actions[0]["tool"] if executed_actions else None
-        first_args = executed_actions[0].get("arguments") if executed_actions else None
-        ml_learner.record_successful_turn(query, first_tool, first_args, total_latency)
+        # Continuous ML Learning: Record operator command ONLY for real executed actions
+        if executed_actions and routed.intent_type == IntentType.DIRECT_ACTION:
+            first_tool = executed_actions[0]["tool"]
+            first_args = executed_actions[0].get("arguments")
+            ml_learner.record_successful_turn(query, first_tool, first_args, total_latency)
 
         return {
             "response": final_response,
@@ -313,6 +331,8 @@ class AgentRuntime:
 
     def _synthesize_tool_response(self, tool_name: str, args: Dict[str, Any], result: Dict[str, Any]) -> str:
         """Helper to create concise, elegant natural language summaries for tool outputs"""
+        if not args:
+            args = {}
         if tool_name in ["control_system_audio", "audio_media"]:
             act = args.get("action", "volume")
             return f"Audio volume adjusted ({act})"
@@ -320,8 +340,32 @@ class AgentRuntime:
             act = args.get("action", "power")
             return f"Power command executed ({act})"
         elif tool_name == "launch_app":
-            app = args.get("app", "Application")
-            return f"{app.capitalize()} has been launched"
+            app = args.get("app") or args.get("app_name") or result.get("app_name") or result.get("name") or "Application"
+            mode = args.get("mode", "system")
+            if mode == "web":
+                return f"Opening {app.title()} on the web, sir."
+            elif mode == "system":
+                return f"Opening {app.title()} on your system, sir."
+            else:
+                return f"Opening {app.title()}, sir."
+        elif tool_name in ["query_system_telemetry", "get_system_telemetry", "system_status_report"]:
+            if "time" in result and "date" in result:
+                return f"The current time is {result['time']} on {result['date']}, sir"
+            elif "percent" in result and "plugged" in result:
+                state = "connected to AC power" if result.get("plugged") else "running on battery"
+                return f"Battery is at {result.get('percent', 100)} percent, {state}, sir"
+            elif "cpu_percent" in result or "cpu_usage" in result:
+                cpu = result.get("cpu_percent") or result.get("cpu_usage")
+                ram = result.get("memory_percent") or result.get("ram_percent") or result.get("ram_usage")
+                if ram:
+                    return f"CPU utilization is at {cpu} percent, and RAM usage is at {ram} percent, sir"
+                return f"CPU utilization is currently at {cpu} percent, sir"
+            elif "free_gb" in result:
+                return f"You have {result.get('free_gb', 0)} gigabytes of free disk space remaining, sir"
+            elif "local_ip" in result or "ip" in result:
+                ip = result.get("local_ip") or result.get("ip")
+                return f"Your local IP address is {ip}, sir"
+            return "System telemetry is operating within nominal parameters, sir"
         elif tool_name == "close_app":
             app = args.get("app_name", "target")
             return f"{app.capitalize()} has been closed"

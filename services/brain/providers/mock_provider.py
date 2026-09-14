@@ -203,7 +203,10 @@ class MockLLMProvider(BaseLLMProvider):
             response_text = f"Workstation '{h}' is online on local IP address {ip}, sir."
 
         # 8. SYSTEM STATUS & TELEMETRY
-        elif any(w in p_lower for w in ["status", "report", "diagnostic", "vitals", "health", "system"]):
+        # NOTE: bare "system" intentionally excluded — too greedy (matches "open X on system", "my system", etc.)
+        elif any(w in p_lower for w in ["system status", "system report", "system diagnostic", "system vitals",
+                                         "run diagnostic", "run diagnostics", "check vitals", "health check",
+                                         "all systems", "full report", "status report"]):
             vitals = system_monitor.collect_telemetry()
             tool_calls.append(ToolCall(tool_name="system_status_report", arguments={}))
             response_text = (

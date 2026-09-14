@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 34,
-  "average_latency_ms": 2857.78,
+  "total_commands_learned": 23,
+  "average_latency_ms": 1694.6,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -24,412 +24,71 @@
       "args": {
         "action": "mute"
       },
-      "hits": 5
+      "hits": 10
     },
     "unmute": {
       "tool": "control_system_audio",
       "args": {
         "action": "unmute"
       },
-      "hits": 5
+      "hits": 10
     },
     "cpu usage": {
       "tool": "query_system_telemetry",
       "args": {
         "query_type": "cpu_usage"
       },
-      "hits": 8
+      "hits": 10
     },
     "ram usage": {
       "tool": "query_system_telemetry",
       "args": {
         "query_type": "ram_usage"
       },
-      "hits": 8
+      "hits": 10
     },
     "memory usage": {
       "tool": "query_system_telemetry",
       "args": {
         "query_type": "ram_usage"
       },
-      "hits": 5
+      "hits": 10
     },
     "disk space": {
       "tool": "query_system_telemetry",
       "args": {
         "query_type": "disk_space"
       },
-      "hits": 5
+      "hits": 10
     },
     "battery status": {
       "tool": "query_system_telemetry",
       "args": {
         "query_type": "battery"
       },
-      "hits": 5
+      "hits": 10
     },
     "my ip address": {
       "tool": "get_ip_address",
       "args": {},
-      "hits": 5
+      "hits": 10
     },
     "wifi status": {
       "tool": "check_wifi_status",
       "args": {},
-      "hits": 5
-    },
-    "open opera": {
-      "tool": "launch_app",
-      "args": {
-        "app": "opera",
-        "mode": "system"
-      },
-      "hits": 5
-    },
-    "open calculator": {
-      "tool": "launch_app",
-      "args": {
-        "app": "calc",
-        "mode": "system"
-      },
-      "hits": 5
+      "hits": 10
     },
     "close tab": {
       "tool": "manage_browser",
       "args": {
         "action": "close_tab"
       },
-      "hits": 5
+      "hits": 10
     },
     "lock screen": {
       "tool": "pc_lock",
       "args": {},
-      "hits": 5
-    },
-    "launch oprah": {
-      "tool": "launch_app",
-      "args": {
-        "name_or_path": "opera"
-      },
-      "hits": 1
-    },
-    "open spotify.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "spotify"
-      },
-      "hits": 1
-    },
-    "play v go on animation music.": {
-      "tool": "audio_media",
-      "args": {
-        "action": "play",
-        "text": "V Go on animation music"
-      },
-      "hits": 1
-    },
-    "volume.": {
-      "tool": "control_system_audio",
-      "args": {
-        "action": "set",
-        "level": 0.0
-      },
-      "hits": 1
-    },
-    "maximize the volume.": {
-      "tool": "audio_media",
-      "args": {
-        "action": "set",
-        "level": 100.0
-      },
-      "hits": 1
-    },
-    "open history.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "chrome",
-        "args": [
-          "--new-tab",
-          "chrome://history/"
-        ]
-      },
-      "hits": 1
-    },
-    "the voice control is just running.": {
-      "tool": "audio_media",
-      "args": {
-        "action": "decrease",
-        "steps": 10.0
-      },
-      "hits": 1
-    },
-    "ezero's.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "ezero"
-      },
-      "hits": 1
-    },
-    "run simulation.": {
-      "tool": "devops_tool",
-      "args": {
-        "subsystem": "docker",
-        "action": "run"
-      },
-      "hits": 1
-    },
-    "create a fight plan.": {
-      "tool": "productivity_tool",
-      "args": {
-        "action": "create fight plan",
-        "message": "Fight Plan",
-        "title": "Fight Strategy",
-        "content": "1. Assess opponent, 2. Choose weapons, 3. Execute attack",
-        "task": "Review and adjust plan"
-      },
-      "hits": 1
-    },
-    "create a flight plan.": {
-      "tool": "productivity_tool",
-      "args": {
-        "action": "create",
-        "content": "flight plan"
-      },
-      "hits": 1
-    },
-    "set an alarm.": {
-      "tool": "productivity_tool",
-      "args": {
-        "action": "reminder",
-        "message": "Wake Up",
-        "delay_seconds": 0.0,
-        "title": "Alarm"
-      },
-      "hits": 1
-    },
-    "open snapchat.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "snapchat"
-      },
-      "hits": 1
-    },
-    "open snap tech.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "Snap Tech"
-      },
-      "hits": 1
-    },
-    "open classroom.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "Classroom"
-      },
-      "hits": 1
-    },
-    "open google classroom.": {
-      "tool": "browse_web",
-      "args": {
-        "url": "https://classroom.google.com/"
-      },
-      "hits": 1
-    },
-    "open task manager.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "Task Manager"
-      },
-      "hits": 1
-    },
-    "click control shift escape.": {
-      "tool": "mouse_keyboard",
-      "args": {
-        "action": "press_keys",
-        "keys": [
-          "Ctrl",
-          "Shift",
-          "Esc"
-        ]
-      },
-      "hits": 1
-    },
-    "click ctrl, control, shift, escape, keys.": {
-      "tool": "mouse_keyboard",
-      "args": {
-        "action": "press_keys",
-        "keys": [
-          "CTRL",
-          "shift",
-          "escape"
-        ]
-      },
-      "hits": 1
-    },
-    "notify.": {
-      "tool": "productivity_tool",
-      "args": {
-        "action": "reminder",
-        "message": "Notification",
-        "delay_seconds": 0.0,
-        "title": "Reminder",
-        "content": "You have been notified, sir."
-      },
-      "hits": 1
-    },
-    "open snapchat on web": {
-      "tool": "launch_app",
-      "args": {
-        "app": "snapchat",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "open snapchat on system": {
-      "tool": "launch_app",
-      "args": {
-        "app": "snapchat",
-        "mode": "system"
-      },
-      "hits": 5
-    },
-    "open snapchat": {
-      "tool": "launch_app",
-      "args": {
-        "app": "snapchat",
-        "mode": "auto"
-      },
-      "hits": 5
-    },
-    "open whatsapp on web": {
-      "tool": "launch_app",
-      "args": {
-        "app": "whatsapp",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "open whatsapp on system": {
-      "tool": "launch_app",
-      "args": {
-        "app": "whatsapp",
-        "mode": "system"
-      },
-      "hits": 5
-    },
-    "open whatsapp": {
-      "tool": "launch_app",
-      "args": {
-        "app": "whatsapp",
-        "mode": "auto"
-      },
-      "hits": 5
-    },
-    "open spotify on web": {
-      "tool": "launch_app",
-      "args": {
-        "app": "spotify",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "open spotify on system": {
-      "tool": "launch_app",
-      "args": {
-        "app": "spotify",
-        "mode": "system"
-      },
-      "hits": 5
-    },
-    "open spotify": {
-      "tool": "launch_app",
-      "args": {
-        "app": "spotify",
-        "mode": "auto"
-      },
-      "hits": 5
-    },
-    "open discord on web": {
-      "tool": "launch_app",
-      "args": {
-        "app": "discord",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "open discord on system": {
-      "tool": "launch_app",
-      "args": {
-        "app": "discord",
-        "mode": "system"
-      },
-      "hits": 5
-    },
-    "open discord": {
-      "tool": "launch_app",
-      "args": {
-        "app": "discord",
-        "mode": "auto"
-      },
-      "hits": 5
-    },
-    "open youtube": {
-      "tool": "launch_app",
-      "args": {
-        "app": "youtube",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "open chatgpt": {
-      "tool": "launch_app",
-      "args": {
-        "app": "chatgpt",
-        "mode": "web"
-      },
-      "hits": 5
-    },
-    "end of audio.": {
-      "tool": "pc_power",
-      "args": {
-        "action": "sleep"
-      },
-      "hits": 1
-    },
-    "open snapchat on web.": {
-      "tool": "browse_web",
-      "args": {
-        "url": "https://web.snapchat.com/"
-      },
-      "hits": 1
-    },
-    "what is my cpu usage?": {
-      "tool": "query_system_telemetry",
-      "args": {
-        "query_type": "cpu_usage"
-      },
-      "hits": 1
-    },
-    "open the chrome open.": {
-      "tool": "launch_app",
-      "args": {
-        "app": "chrome"
-      },
-      "hits": 1
-    },
-    "cpu usage is now...": {
-      "tool": "query_system_telemetry",
-      "args": {
-        "query_type": "cpu_usage"
-      },
-      "hits": 1
-    },
-    "web.": {
-      "tool": "browse_web",
-      "args": {
-        "url": "https://web.snapchat.com/"
-      },
-      "hits": 1
+      "hits": 10
     }
   },
   "phonetic_alignments": {
@@ -441,292 +100,30 @@
     "decrese": "decrease"
   },
   "word_frequencies": {
-    "launch": 1,
-    "oprah": 1,
-    "open": 21,
-    "spotify": 2,
-    "play": 2,
-    "v": 1,
-    "go": 2,
-    "on": 7,
-    "animation": 1,
-    "music": 3,
-    "we": 1,
-    "from": 1,
-    "amazon": 2,
-    "instagram": 1,
-    "snapchat": 3,
-    "up": 6,
-    "the": 14,
-    "browser": 5,
-    "opera": 3,
-    "volume": 2,
-    "maximize": 1,
-    "what": 2,
-    "is": 4,
-    "current": 1,
+    "what": 3,
+    "is": 3,
+    "my": 3,
     "cpu": 3,
-    "and": 2,
-    "ram": 1,
-    "usage": 3,
-    "history": 1,
-    "voice": 1,
-    "control": 3,
-    "just": 1,
-    "running": 1,
-    "ezeros": 1,
-    "run": 1,
-    "simulation": 1,
-    "create": 2,
-    "a": 3,
-    "fight": 1,
-    "plan": 2,
-    "flight": 1,
-    "set": 1,
-    "an": 1,
-    "alarm": 1,
-    "snap": 1,
-    "tech": 1,
-    "classroom": 3,
-    "google": 1,
-    "2024": 1,
-    "to": 1,
-    "2027": 1,
-    "bsc": 1,
-    "networking": 1,
-    "in": 1,
-    "task": 1,
-    "manager": 1,
-    "click": 3,
-    "shift": 2,
-    "escape": 2,
-    "ctrl": 1,
-    "keys": 1,
-    "notify": 1,
-    "computer": 1,
-    "close": 3,
-    "app": 1,
-    "then": 1,
-    "download": 1,
-    "button": 1,
-    "thats": 2,
-    "it": 2,
-    "man": 1,
-    "have": 1,
-    "good": 1,
-    "day": 1,
-    "end": 1,
-    "of": 1,
-    "audio": 1,
-    "web": 2,
-    "my": 1,
-    "chrome": 1,
-    "now": 1
+    "usage": 3
   },
   "history": [
     {
-      "query": "launch oprah",
-      "tool": "launch_app",
-      "latency_ms": 2.5,
-      "timestamp": 1789371303.8969617
-    },
-    {
-      "query": "open spotify.",
-      "tool": "launch_app",
-      "latency_ms": 2669.15,
-      "timestamp": 1789371543.6039634
-    },
-    {
-      "query": "play v go on animation music.",
-      "tool": "audio_media",
-      "latency_ms": 2146.03,
-      "timestamp": 1789371565.3235517
-    },
-    {
-      "query": "play we go on from amazon music.",
-      "tool": "launch_app",
-      "latency_ms": 2485.81,
-      "timestamp": 1789371582.8515959
-    },
-    {
-      "query": "open spotify, open amazon music, open instagram, open snapchat.",
-      "tool": "launch_app",
-      "latency_ms": 4826.81,
-      "timestamp": 1789371606.9266238
-    },
-    {
-      "query": "open up the browser, open up the on opera",
-      "tool": "launch_app",
-      "latency_ms": 2706.04,
-      "timestamp": 1789371652.0091045
-    },
-    {
-      "query": "volume.",
-      "tool": "control_system_audio",
-      "latency_ms": 4972.49,
-      "timestamp": 1789371700.5381277
-    },
-    {
-      "query": "maximize the volume.",
-      "tool": "audio_media",
-      "latency_ms": 4085.51,
-      "timestamp": 1789371716.9422948
-    },
-    {
-      "query": "what is the current cpu and ram usage?",
+      "query": "what is my cpu usage",
       "tool": "query_system_telemetry",
-      "latency_ms": 3469.43,
-      "timestamp": 1789371756.4111636
+      "latency_ms": 4637.97,
+      "timestamp": 1789380603.9028087
     },
     {
-      "query": "open history.",
-      "tool": "launch_app",
-      "latency_ms": 3611.37,
-      "timestamp": 1789371848.2987375
-    },
-    {
-      "query": "the voice control is just running.",
-      "tool": "audio_media",
-      "latency_ms": 7887.82,
-      "timestamp": 1789371923.8028069
-    },
-    {
-      "query": "ezero's.",
-      "tool": "launch_app",
-      "latency_ms": 3792.54,
-      "timestamp": 1789371974.2941623
-    },
-    {
-      "query": "run simulation.",
-      "tool": "devops_tool",
-      "latency_ms": 2491.76,
-      "timestamp": 1789372032.483599
-    },
-    {
-      "query": "create a fight plan.",
-      "tool": "productivity_tool",
-      "latency_ms": 3938.94,
-      "timestamp": 1789372047.8013582
-    },
-    {
-      "query": "create a flight plan.",
-      "tool": "productivity_tool",
-      "latency_ms": 2801.98,
-      "timestamp": 1789372062.6417823
-    },
-    {
-      "query": "set an alarm.",
-      "tool": "productivity_tool",
-      "latency_ms": 2985.13,
-      "timestamp": 1789372073.225691
-    },
-    {
-      "query": "open snapchat.",
-      "tool": "launch_app",
-      "latency_ms": 2054.14,
-      "timestamp": 1789372139.4442034
-    },
-    {
-      "query": "open snap tech.",
-      "tool": "launch_app",
-      "latency_ms": 2245.63,
-      "timestamp": 1789372156.033273
-    },
-    {
-      "query": "open classroom.",
-      "tool": "launch_app",
-      "latency_ms": 1835.87,
-      "timestamp": 1789372213.6230764
-    },
-    {
-      "query": "open google classroom.",
-      "tool": "browse_web",
-      "latency_ms": 2693.82,
-      "timestamp": 1789372236.0399776
-    },
-    {
-      "query": "open 2024 to 2027 bsc networking in classroom.",
-      "tool": "browse_web",
-      "latency_ms": 2015.37,
-      "timestamp": 1789372272.4762573
-    },
-    {
-      "query": "open task manager.",
-      "tool": "launch_app",
-      "latency_ms": 2065.42,
-      "timestamp": 1789372358.2975955
-    },
-    {
-      "query": "click control shift escape.",
-      "tool": "mouse_keyboard",
-      "latency_ms": 1885.49,
-      "timestamp": 1789372375.0898852
-    },
-    {
-      "query": "click ctrl, control, shift, escape, keys.",
-      "tool": "mouse_keyboard",
-      "latency_ms": 3125.86,
-      "timestamp": 1789372398.599619
-    },
-    {
-      "query": "notify.",
-      "tool": "productivity_tool",
-      "latency_ms": 4734.71,
-      "timestamp": 1789372588.4873385
-    },
-    {
-      "query": "open up the browser, open up the computer, close the browser, close the browser, close the on opera",
-      "tool": "launch_app",
-      "latency_ms": 4142.14,
-      "timestamp": 1789372725.9099877
-    },
-    {
-      "query": "open up the browser, open up the app, and then click on the download button. on opera",
-      "tool": "launch_app",
-      "latency_ms": 2029.54,
-      "timestamp": 1789372808.10968
-    },
-    {
-      "query": "that's it. that's it, man. have a good day.",
-      "tool": "lock_screen",
-      "latency_ms": 3100.63,
-      "timestamp": 1789372878.6551807
-    },
-    {
-      "query": "end of audio.",
-      "tool": "pc_power",
-      "latency_ms": 2778.45,
-      "timestamp": 1789373626.129978
-    },
-    {
-      "query": "open snapchat on web.",
-      "tool": "browse_web",
-      "latency_ms": 4033.61,
-      "timestamp": 1789373652.5254638
-    },
-    {
-      "query": "what is my cpu usage?",
+      "query": "what is my cpu usage",
       "tool": "query_system_telemetry",
-      "latency_ms": 2164.18,
-      "timestamp": 1789374857.7351925
+      "latency_ms": 7263.48,
+      "timestamp": 1789380644.579019
     },
     {
-      "query": "open the chrome open.",
-      "tool": "launch_app",
-      "latency_ms": 3719.7,
-      "timestamp": 1789376586.2086911
-    },
-    {
-      "query": "cpu usage is now...",
+      "query": "what is my cpu usage",
       "tool": "query_system_telemetry",
-      "latency_ms": 2085.81,
-      "timestamp": 1789376603.2353747
-    },
-    {
-      "query": "web.",
-      "tool": "browse_web",
-      "latency_ms": 2668.01,
-      "timestamp": 1789376738.6143963
+      "latency_ms": 4829.58,
+      "timestamp": 1789380700.9662492
     }
   ]
 }

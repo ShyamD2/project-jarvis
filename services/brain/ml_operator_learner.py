@@ -195,6 +195,17 @@ class MLOperatorLearner:
         if not q:
             return None
 
+        # Ignore open-ended questions, chit-chat, or queries without explicit action targets
+        conversational_prefixes = (
+            "who", "why", "how", "what is the capital", "what do", "what are", "what can",
+            "tell me", "explain", "describe", "can you tell", "can you explain",
+            "is ", "are ", "do you", "did you", "will you", "would you", "thank", "hello", "hi", "hey"
+        )
+        if any(q.startswith(p) for p in conversational_prefixes):
+            # Only allow telemetry fast-path if it specifically mentions telemetry metrics
+            if not any(k in q for k in ["cpu", "ram", "memory", "disk", "battery", "ip address", "wifi", "status"]):
+                return None
+
         # 1. Exact match check
         lexicon = self.profile.get("fast_path_lexicon", {})
         if q in lexicon:
@@ -220,6 +231,10 @@ class MLOperatorLearner:
         best_score = 0.0
 
         for candidate, entry in lexicon.items():
+            # Only consider reinforced commands
+            if entry.get("hits", 0) < 2:
+                continue
+
             if candidate == clean_q or candidate == norm_q:
                 return entry["tool"], entry["args"], 0.99
 
@@ -245,7 +260,7 @@ class MLOperatorLearner:
                 best_score = total_score
                 best_match = (entry["tool"], entry["args"], total_score)
 
-        if best_match and best_score >= 0.80:
+        if best_match and best_score >= 0.92:
             logger.info(f"⚡ [ML Fast-Path] Intent matched with {best_score*100:.1f}% confidence in <2ms -> {best_match[0]}")
             return best_match
 
@@ -286,17 +301,19 @@ class MLOperatorLearner:
             if clean_w:
                 word_freq[clean_w] = word_freq.get(clean_w, 0) + 1
 
-        # Reinforce fast-path lexicon
+        # Only reinforce existing known entries in lexicon, or strictly verified imperative commands
         lexicon = self.profile.setdefault("fast_path_lexicon", {})
         if q in lexicon:
             lexicon[q]["hits"] = lexicon[q].get("hits", 0) + 1
-        elif len(q.split()) <= 6:
-            # Add short command to fast-path
-            lexicon[q] = {
-                "tool": tool_name,
-                "args": arguments or {},
-                "hits": 1
-            }
+        else:
+            # Only add to fast-path if it is an unambiguous imperative command pattern
+            is_imperative = any(q.startswith(cmd) for cmd in ["open ", "close ", "launch ", "volume ", "mute", "unmute", "turn on", "turn off", "lock screen"])
+            if is_imperative and len(q.split()) <= 4 and "?" not in q and "!" not in q:
+                lexicon[q] = {
+                    "tool": tool_name,
+                    "args": arguments or {},
+                    "hits": 1
+                }
 
         # Update global metrics
         self.profile["total_commands_learned"] = self.profile.get("total_commands_learned", 0) + 1

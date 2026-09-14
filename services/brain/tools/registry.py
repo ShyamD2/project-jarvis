@@ -913,6 +913,9 @@ class ToolRegistry:
                 "error": "Execution halted: Emergency Stand-Down is currently active."
             }
 
+        if parameters is None:
+            parameters = {}
+
         # 2. SAFETY GUARD 4-TIER EVALUATION (Zero Bypass for Tier 3)
         # Check specific action within multi-purpose tools like pc_power or devops_tool
         action_name = parameters.get("action") or parameters.get("workflow") or name
