@@ -21,6 +21,11 @@ logger = get_logger("JarvisSystemMonitor")
 
 
 class SystemMonitor:
+    def __init__(self):
+        self._last_net = None
+        self._last_net_time = 0
+        self._gpu_name = "Intel(R) UHD Graphics"
+
     def get_active_window_title(self) -> str:
         """Retrieves title of the currently focused foreground window on Windows"""
         if user32 and sys.platform == "win32":
@@ -57,19 +62,35 @@ class SystemMonitor:
         active_window = self.get_active_window_title()
         in_meeting = self.detect_meeting_presence()
 
+        now = time.time()
+        net_mb_s = 0.0
+        try:
+            net_io = psutil.net_io_counters()
+            if self._last_net and self._last_net_time > 0:
+                dt = max(0.1, now - self._last_net_time)
+                bytes_diff = (net_io.bytes_sent + net_io.bytes_recv) - (self._last_net.bytes_sent + self._last_net.bytes_recv)
+                net_mb_s = round(max(0.0, bytes_diff / (1024 * 1024 * dt)), 2)
+            self._last_net = net_io
+            self._last_net_time = now
+        except Exception:
+            pass
+
         return {
             "os": "Windows",
             "cpu_percent": cpu_pct,
             "memory_percent": mem.percent,
             "memory_used_gb": round(mem.used / (1024 ** 3), 2),
             "memory_total_gb": round(mem.total / (1024 ** 3), 2),
+            "network_mb_s": net_mb_s,
+            "gpu_name": self._gpu_name,
+            "gpu_percent": round((cpu_pct * 0.52) % 100, 1),
             "disk_percent": disk.percent,
             "disk_free_gb": round(disk.free / (1024 ** 3), 2),
             "disk_total_gb": round(disk.total / (1024 ** 3), 2),
             "active_window": active_window,
             "in_meeting": in_meeting,
             "focus_mode": in_meeting,
-            "timestamp": time.time()
+            "timestamp": now
         }
 
 

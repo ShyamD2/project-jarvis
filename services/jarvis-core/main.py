@@ -46,6 +46,13 @@ async def lifespan(app: FastAPI):
     logger.info("=========================================")
     logger.info(f"Environment: {config.env}")
     logger.info(f"Local MQTT Fast-Path: {config.mqtt_broker}:{config.mqtt_port}")
+    if sys.platform == "win32":
+        try:
+            from agents.computer.windows_agent import ensure_interactive_desktop
+            ensure_interactive_desktop()
+            logger.info("⚡ [Lifespan] Bound J.A.R.V.I.S. engine to WinSta0\\Default interactive desktop.")
+        except Exception:
+            pass
     logger.info(f"AWS Event Bus: {config.event_bus_name}")
     logger.info(f"Emergency Stand Down: {config.emergency_stand_down}")
 
@@ -125,6 +132,23 @@ async def health_check():
         "emergency_stand_down": config.emergency_stand_down,
         "fast_path_mesh": "connected"
     }
+
+
+@app.get("/api/v1/voice/state", tags=["Voice"])
+async def get_voice_state():
+    from services.voice.voice_session import voice_session
+    return {
+        "status": "success",
+        "state": voice_session.state.value,
+        "last_interaction": voice_session.last_interaction_time
+    }
+
+
+@app.post("/api/v1/voice/reset", tags=["Voice"])
+async def reset_voice_session():
+    from services.voice.voice_session import voice_session
+    voice_session.reset()
+    return {"status": "success", "state": voice_session.state.value}
 
 
 @app.websocket("/ws")

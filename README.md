@@ -118,6 +118,32 @@
 * **Phase G (FinOps & Diagnostics):** Real Boto3 AWS cost estimation, eliminated swallowed exceptions across all routes, integrated `PCDaemon` into FastAPI lifespan, **achieved 100% test pass rate (12 out of 12 test suites passing)**.
 * **Real Execution Audit:** Produced `JARVIS_REAL_EXECUTION_AUDIT.md` mapping end-to-end computer control.
 
+### 🔹 Day 5 — September 13, 2026: 20 Advanced Capability Domains & Hardened 4-Tier Security Matrix
+* **3-Pillar Triad Construction:**
+  - **Computer Subsystem (`agents/computer/`):** Full power/sleep/lock/display controls, master volume & device switching, multi-monitor display management, sub-pixel mouse/keyboard control, safe Recycle Bin deletion, and Wi-Fi/network diagnostics.
+  - **Cloud Subsystem (`agents/cloud/`):** Boto3 AWS STS/S3/EC2/Lambda/Cost Explorer, Git VCS staging & push/pull, Docker container lifecycle, Kubernetes pod & rollout restarts, Terraform IaC synthesis, and SOC security Defender/Firewall auditing.
+  - **Intelligence Subsystem (`agents/intelligence/`):** Strict 4-tier blast radius (`safety_guard.py`) with zero-bypass confirmation, sub-millisecond Emergency STOP (`emergency_stop.py`) with global `Ctrl+Shift+J` hotkey, and structured audit trail (`audit_logger.py`).
+* **Detailed Report:** See [reports/DAY_5_REPORT_2026-09-13.md](reports/DAY_5_REPORT_2026-09-13.md).
+
+### 🔹 Day 6 — September 14, 2026: Master Real-Time Conversational Voice Upgrade & 3D Arc Reactor
+* **Full Voice Pipeline (`services/voice/`):**
+  - Continuous wake-word spotting (*"Jarvis"*, *"Hey Jarvis"*) with 8s conversational hold window for follow-up dialogue.
+  - VAD dynamic endpointing (1.4s nominal, 2.0s for trailing conjunctions) and sub-5ms vocal barge-in detection ($\text{RMS} > 0.035$).
+  - Groq Whisper Large v3 integration with multilingual & Indian English / Tanglish normalizer (*"Chrome open pannu"*, *"volume konjam kammi pannu"*, *"Enakku CPU usage sollu"*, *"Terraform plan run pannu"*).
+  - Streaming British neural voice (`en-GB-RyanNeural`, `pitch: -2Hz`, `rate: -2%`) with sentence buffer streaming and authentic MCU soundboard clips.
+  - 7 explicit voice session states (`IDLE`, `LISTENING`, `THINKING`, `EXECUTING`, `SPEAKING`, `SUCCESS`, `ERROR`) broadcasting live over `/ws`.
+* **Conversational Brain Layer (`services/brain/`):**
+  - Bounded multi-turn context (last 15 turns) with reference resolution for pronouns (*"close it"*), telemetry follow-ups (*"And RAM?"*), and search ordinals (*"open the first result"*).
+  - Authentic J.A.R.V.I.S. personality generator eliminating robotic boilerplate (*"Operation completed successfully"*).
+  - Compound command decomposition and safety confirmation tickets for Tier 3 destructive operations.
+* **3D WebGL Holographic Arc Reactor & Observability HUD:**
+  - 7-layer procedural 3D Arc Reactor with real-time audio reactivity and state synchronization.
+  - Progressive partial transcription display beneath the reactor.
+  - Developer Observability Drawer (`Ctrl+D`) displaying real-time STT, LLM, Tool, and TTS latencies.
+* **Bug Fixes:** Echo eliminated via single-channel HTML5 player; Opera GX "MENU" dropdown eliminated via Win32 thread attachment; universal Web/System application discovery.
+* **Verification:** 100% pass rate (37/37 tests passing in `scratch/test_master_voice_upgrade.py`).
+* **Detailed Report:** See [reports/DAY_6_REPORT_2026-09-14.md](reports/DAY_6_REPORT_2026-09-14.md).
+
 ---
 
 ## ⚡ 35-Phase Build Matrix
@@ -132,9 +158,9 @@
 | **6** | Master Planner + Orchestrator | `READY` | Task DAG parallel dependency execution |
 | **7** | Security + Permission Engine | `READY` | 4-Tier blast radius & Stand Down breaker |
 | **8** | Tool/Action Framework | `READY` | Multi-world action dispatching |
-| **9** | Voice + Wake Word | `READY` | Wake-word detection engine |
+| **9** | Voice + Wake Word | `READY` | Real-time voice pipeline & 8s wake-word hold |
 | **10** | Clap / Sound Engine | `READY` | Waveform energy double-clap reflex (<30ms) |
-| **11** | JARVIS Voice Response | `READY` | Neural British TTS with Barge-In interruption |
+| **11** | JARVIS Voice Response | `READY` | Streaming British Neural TTS + <5ms Barge-In |
 | **12** | Windows Local Agent | `READY` | CPU, RAM, active window, meeting presence |
 | **13** | Windows App Control | `READY` | Window focus, minimize, maximize, launch |
 | **14** | File/System Automation | `READY` | Search, preview, audio volume, lock screen |
@@ -143,7 +169,7 @@
 | **17** | AWS Cloud Agent | `READY` | Cloud health & LocalStack integration |
 | **18** | Terraform Agent | `READY` | Terraform validate and plan automation |
 | **19** | Docker Agent | `READY` | Container inspection and restart |
-| **20** | Kubernetes Agent | `PLANNED` | Scoped out for future cloud cluster expansion (not implemented) |
+| **20** | Kubernetes Agent | `READY` | Cluster connectivity, pods, rollouts & services |
 | **21** | Git / CI/CD Agent | `READY` | Git repository staging and commit tracking |
 | **22** | Cloud Operations Agent | `READY` | SQS queue and telemetry checks |
 | **23** | Cloud Security / SOC Agent | `READY` | IAM least-privilege wildcard policy auditing |
@@ -155,7 +181,7 @@
 | **29** | Unified Physical/Digital World | `READY` | Cross-domain single instruction routing |
 | **30** | Multi-Agent Autonomous JARVIS | `READY` | Master agent coordination loop |
 | **31** | Verification + Recovery | `READY` | Dual-channel logical + sensory check |
-| **32** | JARVIS Hologram Dashboard | `READY` | Arc-Reactor cybernetic web HUD |
+| **32** | JARVIS Hologram Dashboard | `READY` | 7-Layer Procedural 3D WebGL Arc Reactor + Observability HUD |
 | **33** | Mobile / Remote Interface | `READY` | Responsive mobile dashboard over WebSocket |
 | **34** | FinOps & Resource Optimization| `READY` | Token budget tracking & frugal mode |
 | **35** | Final JARVIS 1.0 Integration | `READY` | Master CLI `jarvis.py` |

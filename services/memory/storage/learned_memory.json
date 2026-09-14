@@ -8,5 +8,10 @@
   },
   "corrections": {},
   "aliases": {},
-  "history": []
+  "history": [
+    {
+      "query": "you are only telling opening but no system was currently open any of the tablet Opera on any tablet",
+      "corrected_to": "any of the tablet opera on any tablet"
+    }
+  ]
 }

@@ -1,12 +1,15 @@
 """
 AIManager for Project J.A.R.V.I.S.
-Central nervous system coordinating Primary AI (Google Gemini) and Secondary Fallback (Groq).
+Central nervous system coordinating Primary AI (OpenRouter / Groq / Google Gemini)
+with intelligent cascading and offline cognitive reflex fallback.
 All JARVIS components communicate through AIManager.
 """
 
 import os
+import asyncio
 from typing import List, Dict, Any, Optional, AsyncGenerator
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
+from services.brain.providers.openrouter_provider import OpenRouterProvider
 from services.brain.providers.gemini_provider import GeminiProvider
 from services.brain.providers.groq_provider import GroqProvider
 from services.brain.providers.mock_provider import MockLLMProvider
@@ -17,46 +20,74 @@ logger = get_logger("JarvisAIManager")
 
 class AIManager(BaseLLMProvider):
     def __init__(self):
+        self.openrouter = OpenRouterProvider()
         self.gemini = GeminiProvider()
         self.groq = GroqProvider()
         self.local = MockLLMProvider("jarvis-local-cognitive-brain")
+        default_pref = "openrouter" if self.openrouter.is_configured else "groq"
+        self.preferred_provider = os.getenv("JARVIS_PRIMARY_AI", default_pref).strip().lower()
+
+    def set_primary_provider(self, name: str):
+        name_clean = name.strip().lower()
+        if name_clean in ["openrouter", "groq", "gemini"]:
+            self.preferred_provider = name_clean
+            logger.info(f"[AIManager] Primary AI engine set to: {name_clean}")
 
     def refresh_keys(self):
         """Refreshes API keys dynamically from environment or .env."""
+        self.openrouter.api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        self.openrouter.model = os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct").strip()
         self.gemini.api_key = os.getenv("GEMINI_API_KEY", "").strip()
         self.groq.api_key = os.getenv("GROQ_API_KEY", "").strip()
+        env_pref = os.getenv("JARVIS_PRIMARY_AI", "").strip().lower()
+        if env_pref:
+            self.preferred_provider = env_pref
 
     def get_key_status(self) -> Dict[str, Any]:
         """
         Evaluates key presence without exposing raw key secrets.
-        Returns:
-        Both: 'JARVIS AI systems online.'
-        Only Gemini: 'JARVIS online. Gemini is active.'
-        Only Groq: 'JARVIS online. Groq is active.'
-        Neither: 'AI API keys are not configured. Please add your Gemini or Groq key.'
         """
         self.refresh_keys()
+        has_openrouter = self.openrouter.is_configured
         has_gemini = self.gemini.is_configured
         has_groq = self.groq.is_configured
 
-        if has_gemini and has_groq:
-            status_message = "JARVIS AI systems online."
-        elif has_gemini:
-            status_message = "JARVIS online. Gemini is active."
-        elif has_groq:
-            status_message = "JARVIS online. Groq is active."
+        configured = []
+        if has_openrouter:
+            configured.append(f"OpenRouter ({self.openrouter.model})")
+        if has_groq:
+            configured.append("Groq")
+        if has_gemini:
+            configured.append("Gemini")
+
+        if configured:
+            status_message = f"JARVIS AI systems online ({self.preferred_provider.upper()} active). Configured: {', '.join(configured)}."
         else:
-            status_message = "AI API keys are not configured. Please add your Gemini or Groq key."
+            status_message = "AI API keys are not configured. Please add your OpenRouter, Groq, or Gemini key."
+
+        if self.preferred_provider == "openrouter" and has_openrouter:
+            active_label = f"openrouter-{self.openrouter.model} (primary)"
+        elif self.preferred_provider == "groq" and has_groq:
+            active_label = f"groq-{getattr(self.groq, 'model', 'default')} (high-speed)"
+        elif self.preferred_provider == "gemini" and has_gemini:
+            active_label = "google-gemini-flash (primary)"
+        elif has_openrouter:
+            active_label = f"openrouter-{self.openrouter.model}"
+        elif has_groq:
+            active_label = f"groq-{getattr(self.groq, 'model', 'default')}"
+        elif has_gemini:
+            active_label = "google-gemini-flash"
+        else:
+            active_label = "local-cognitive-reflex (offline)"
 
         return {
             "status_message": status_message,
+            "openrouter_status": "Configured" if has_openrouter else "Not configured",
+            "openrouter_model": self.openrouter.model,
             "gemini_status": "Configured" if has_gemini else "Not configured",
             "groq_status": "Configured" if has_groq else "Not configured",
-            "active_provider": (
-                f"google-gemini-flash (primary)" if has_gemini else (
-                    f"groq-{getattr(self.groq, 'model', 'default')} (fallback)" if has_groq else "local-cognitive-reflex (offline)"
-                )
-            )
+            "preferred_provider": self.preferred_provider,
+            "active_provider": active_label
         }
 
     async def generate(
@@ -67,34 +98,28 @@ class AIManager(BaseLLMProvider):
         temperature: float = 0.7
     ) -> LLMResponse:
         """
-        Coordinates primary and fallback AI generation:
-        JARVIS -> AIManager -> Gemini -> (if failure) -> Groq -> JARVIS
+        Coordinates primary and fallback AI generation with resilient multi-tier routing:
+        Preferred Provider -> Fallbacks -> Local Cognitive Reflex
         """
         self.refresh_keys()
-        gemini_attempted = False
-        gemini_failed = False
 
-        # 1. Primary: Google Gemini
-        if self.gemini.is_configured:
-            gemini_attempted = True
+        # 1. Preferred Provider Attempt
+        if self.preferred_provider == "openrouter" and self.openrouter.is_configured:
             try:
-                gemini_model = getattr(self.gemini, "model", "gemini-flash")
-                logger.info(f"[AIManager] Invoking Primary AI Provider: Google Gemini ({gemini_model})")
-                return await self.gemini.generate(
+                logger.info(f"[AIManager] Invoking OpenRouter ({self.openrouter.model})...")
+                return await self.openrouter.generate(
                     prompt=prompt,
                     system_prompt=system_prompt,
                     tools=tools,
                     temperature=temperature
                 )
             except Exception as e:
-                gemini_failed = True
-                logger.warning(f"[AIManager] Primary AI (Gemini) failed: {e}. Cascading to fallback provider...")
+                logger.warning(f"[AIManager] OpenRouter failed: {e}. Cascading to fallback providers...")
 
-        # 2. Secondary / Fallback: Groq
-        if self.groq.is_configured:
+        elif self.preferred_provider == "groq" and self.groq.is_configured:
             try:
                 groq_model = getattr(self.groq, "model", "groq")
-                logger.info(f"[AIManager] Invoking Fallback AI Provider: Groq ({groq_model})")
+                logger.info(f"[AIManager] Invoking Groq High-Speed Provider: ({groq_model})")
                 return await self.groq.generate(
                     prompt=prompt,
                     system_prompt=system_prompt,
@@ -102,27 +127,74 @@ class AIManager(BaseLLMProvider):
                     temperature=temperature
                 )
             except Exception as e:
-                logger.error(f"[AIManager] Fallback AI (Groq) failed: {e}")
-                if gemini_attempted:
-                    return LLMResponse(
-                        content="Both primary (Gemini) and fallback (Groq) AI providers are currently unavailable. Please check your network connection or API limits, sir.",
-                        model="error-fallback"
-                    )
+                logger.warning(f"[AIManager] Groq Provider failed: {e}. Cascading to fallback providers...")
 
-        # 3. Handle cases where Gemini failed and Groq was not configured
-        if gemini_failed:
-            return LLMResponse(
-                content="The primary AI provider (Gemini) encountered an error, and secondary provider (Groq) is not configured, sir.",
-                model="error-gemini-only"
-            )
+        elif self.preferred_provider == "gemini" and self.gemini.is_configured:
+            try:
+                gemini_model = getattr(self.gemini, "model", "gemini-flash")
+                logger.info(f"[AIManager] Invoking Google Gemini Provider: ({gemini_model})")
+                return await asyncio.wait_for(
+                    self.gemini.generate(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        tools=tools,
+                        temperature=temperature
+                    ),
+                    timeout=4.0
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] Gemini failed: {e}. Cascading to fallback providers...")
 
-        # 4. Neither key is configured: Offline / Local Cognitive Reflex
-        logger.info("[AIManager] No cloud API keys configured. Engaging local cognitive reflex engine.")
-        # If user asks conversational questions without keys, give helpful guidance
+        # 2. Resilient Cascades (Try any remaining configured providers)
+        # Try OpenRouter if not already attempted
+        if self.preferred_provider != "openrouter" and self.openrouter.is_configured:
+            try:
+                logger.info(f"[AIManager] Fallback to OpenRouter ({self.openrouter.model})...")
+                return await self.openrouter.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    temperature=temperature
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] OpenRouter fallback failed: {e}")
+
+        # Try Groq if not already attempted
+        if self.preferred_provider != "groq" and self.groq.is_configured:
+            try:
+                groq_model = getattr(self.groq, "model", "groq")
+                logger.info(f"[AIManager] Fallback to Groq ({groq_model})...")
+                return await self.groq.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    temperature=temperature
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] Groq fallback failed: {e}")
+
+        # Try Gemini if not already attempted
+        if self.preferred_provider != "gemini" and self.gemini.is_configured:
+            try:
+                logger.info(f"[AIManager] Fallback to Google Gemini...")
+                return await asyncio.wait_for(
+                    self.gemini.generate(
+                        prompt=prompt,
+                        system_prompt=system_prompt,
+                        tools=tools,
+                        temperature=temperature
+                    ),
+                    timeout=4.0
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] Gemini fallback failed: {e}")
+
+        # 3. No cloud provider succeeded -> Local Cognitive Reflex
+        logger.info("[AIManager] Engaging local cognitive reflex engine.")
         p_clean = prompt.strip().lower()
         if p_clean in ["hello", "hello jarvis", "hi", "hey jarvis"]:
             return LLMResponse(
-                content="AI API keys are not configured. Please add your Gemini or Groq key into your .env file to enable cloud reasoning, sir.",
+                content="AI API keys are not configured. Please add your OpenRouter, Groq, or Gemini key into your .env file to enable cloud reasoning, sir.",
                 model="local-reflex-advisory"
             )
 
@@ -134,8 +206,42 @@ class AIManager(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         temperature: float = 0.7
     ) -> AsyncGenerator[str, None]:
-        """Streams text chunks through Gemini -> Groq fallback cascade."""
+        """Streams text chunks through OpenRouter -> Groq -> Gemini fallback cascade."""
         self.refresh_keys()
+
+        # Preferred Provider
+        if self.preferred_provider == "openrouter" and self.openrouter.is_configured:
+            try:
+                async for chunk in self.openrouter.stream(prompt, system_prompt, temperature):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"[AIManager Stream] OpenRouter failed: {e}. Falling back...")
+
+        elif self.preferred_provider == "groq" and self.groq.is_configured:
+            try:
+                async for chunk in self.groq.stream(prompt, system_prompt, temperature):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"[AIManager Stream] Groq failed: {e}. Falling back...")
+
+        # Fallbacks
+        if self.preferred_provider != "openrouter" and self.openrouter.is_configured:
+            try:
+                async for chunk in self.openrouter.stream(prompt, system_prompt, temperature):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"[AIManager Stream] OpenRouter fallback failed: {e}")
+
+        if self.preferred_provider != "groq" and self.groq.is_configured:
+            try:
+                async for chunk in self.groq.stream(prompt, system_prompt, temperature):
+                    yield chunk
+                return
+            except Exception as e:
+                logger.warning(f"[AIManager Stream] Groq fallback failed: {e}")
 
         if self.gemini.is_configured:
             try:
@@ -143,17 +249,9 @@ class AIManager(BaseLLMProvider):
                     yield chunk
                 return
             except Exception as e:
-                logger.warning(f"[AIManager Stream] Primary (Gemini) failed: {e}. Falling back to Groq...")
+                logger.warning(f"[AIManager Stream] Gemini fallback failed: {e}")
 
-        if self.groq.is_configured:
-            try:
-                async for chunk in self.groq.stream(prompt, system_prompt, temperature):
-                    yield chunk
-                return
-            except Exception as e:
-                logger.error(f"[AIManager Stream] Fallback (Groq) failed: {e}")
-
-        yield "AI API keys are not configured. Please add your Gemini or Groq key into your .env file."
+        yield "AI API keys are not configured. Please add your OpenRouter, Groq, or Gemini key into your .env file."
 
 
 ai_manager = AIManager()

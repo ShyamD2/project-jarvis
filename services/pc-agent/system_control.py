@@ -8,6 +8,7 @@ import os
 import sys
 import subprocess
 import glob
+import time
 from typing import Dict, Any, List, Optional
 
 try:
@@ -29,6 +30,27 @@ class SystemControl:
             res = user32.LockWorkStation()
             return {"success": bool(res), "action": "lock_screen", "channel_1_logical": True}
         return {"success": False, "error": "Not running on Windows"}
+
+    def adjust_volume(self, direction: str = "up", steps: int = 5) -> Dict[str, Any]:
+        """Adjusts master audio volume relatively (up, down, mute) using native Windows virtual key events."""
+        logger.info(f"[SystemControl] Adjusting volume: direction={direction}, steps={steps}")
+        if not user32 or sys.platform != "win32":
+            return {"success": False, "error": "Not running on Windows"}
+
+        direction_lower = direction.lower().strip()
+        if "mute" in direction_lower:
+            user32.keybd_event(0xAD, 0, 0, 0)
+            user32.keybd_event(0xAD, 0, 2, 0)
+            return {"success": True, "action": "toggle_mute", "channel_1_logical": True}
+
+        vk = 0xAF if any(w in direction_lower for w in ["up", "increase", "raise", "higher"]) else 0xAE
+        for _ in range(max(1, steps)):
+            user32.keybd_event(vk, 0, 0, 0)
+            user32.keybd_event(vk, 0, 2, 0)
+            time.sleep(0.04)
+
+        action_name = "volume_up" if vk == 0xAF else "volume_down"
+        return {"success": True, "action": action_name, "steps": steps, "channel_1_logical": True}
 
     def set_volume(self, level_percent: int) -> Dict[str, Any]:
         """Sets Windows master audio volume (0 to 100) via PowerShell Audio endpoint"""

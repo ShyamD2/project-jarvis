@@ -13,8 +13,12 @@ from typing import Dict, Any, Optional
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/sensory"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/voice"))
 
 from services.brain.agent_runtime import runtime as brain_runtime
+from services.brain.conversation_engine import conversation_engine
+from services.voice.voice_session import voice_session, VoiceState
+from services.voice.tts_engine import tts_engine
 from services.sensory.voice_synthesizer import voice_synthesizer
 from services.sensory.soundboard import soundboard
 from services.memory.short_term import short_term_memory
@@ -34,25 +38,32 @@ router = APIRouter(prefix="/api/v1/query", tags=["Query"])
 class QueryRequest(BaseModel):
     query: str = Field(..., description="User instruction or question")
     speak: bool = Field(default=True, description="Whether to generate voice audio")
-    play_server_audio: bool = Field(default=False, description="Whether server plays audio locally")
+    play_server_audio: bool = Field(default=True, description="Whether server plays audio locally")
 
 
 @router.post("")
 async def process_user_query(req: QueryRequest, background_tasks: BackgroundTasks):
     """
-    Processes natural language instruction through the full J.A.R.V.I.S. Brain loop:
-    UNDERSTAND -> PLAN -> AUTHORIZE -> EXECUTE -> VERIFY -> RESPOND
+    Processes natural language instruction through the real-time Conversational Brain loop:
+    UNDERSTAND -> CONTEXT RESOLVE -> PLAN -> AUTHORIZE -> EXECUTE -> VERIFY -> RESPOND
     """
     logger.info(f"Received query: '{req.query}'")
     short_term_memory.add_turn(role="user", content=req.query)
+
+    # Transition to THINKING state
+    voice_session.transition_to(VoiceState.THINKING, {"query": req.query})
 
     # 1. Check for Authentic Movie Soundboard Clip Match
     matched_clip = soundboard.match_audio_clip(req.query)
     soundboard_url = None
     clip_name = None
 
-    # 2. Execute Brain Turn
-    result = await brain_runtime.execute_turn(req.query)
+    # 2. Execute Conversational Brain Turn
+    result = await conversation_engine.process_turn(req.query)
+
+    actions_executed = result.get("actions_executed", [])
+    if actions_executed:
+        voice_session.transition_to(VoiceState.EXECUTING, {"actions": [a.get("tool") for a in actions_executed]})
 
     response_text = result.get("response")
     if not response_text or not response_text.strip():
@@ -62,22 +73,41 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
         role="jarvis",
         content=response_text,
         intent=result.get("intent"),
-        actions_taken=[a.get("tool") for a in result.get("actions_executed", [])]
+        actions_taken=[a.get("tool") for a in actions_executed]
     )
 
-    # 3. Audio Delivery (Authentic Movie Clip or Neural TTS)
+    # 3. Audio Delivery (Authentic Movie Clip or British Neural TTS)
     audio_file = None
     if matched_clip:
         soundboard_url = matched_clip["url"]
         clip_name = matched_clip["clip_name"]
         audio_file = matched_clip["file_path"]
+        voice_session.transition_to(VoiceState.SPEAKING, {"clip": clip_name})
         if req.play_server_audio:
             soundboard.play_clip(clip_name)
     elif req.speak and response_text and response_text.strip():
         try:
-            audio_file = await voice_synthesizer.speak(response_text, play_audio=req.play_server_audio)
+            import asyncio
+            voice_session.transition_to(VoiceState.SPEAKING, {"text_preview": response_text[:40]})
+            audio_file = await asyncio.wait_for(
+                tts_engine.speak(response_text, play_audio=req.play_server_audio),
+                timeout=6.0
+            )
+            # Fallback to voice_synthesizer if tts_engine produced no audio
+            if not audio_file:
+                audio_file = await asyncio.wait_for(
+                    voice_synthesizer.speak(response_text, play_audio=req.play_server_audio),
+                    timeout=6.0
+                )
+        except asyncio.TimeoutError:
+            logger.info("Voice synthesis exceeded 6.0s; completing in background task.")
+            background_tasks.add_task(tts_engine.speak, response_text, req.play_server_audio)
         except Exception as e:
             logger.warning(f"Voice synthesis error: {e}")
+
+    # If not speaking audio, transition to SUCCESS
+    if not req.speak and not matched_clip:
+        voice_session.transition_to(VoiceState.SUCCESS)
 
     # 4. Broadcast to Live HUD Terminal
     background_tasks.add_task(
@@ -98,7 +128,7 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
         "response": response_text,
         "intent": result.get("intent"),
         "model": result.get("model"),
-        "actions_executed": result.get("actions_executed", []),
+        "actions_executed": actions_executed,
         "verified": result.get("verified", True),
         "latency_ms": result.get("latency_ms", 0.0),
         "has_audio": audio_file is not None and os.path.exists(audio_file),
@@ -110,6 +140,10 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
 @router.get("/audio/latest")
 async def get_latest_voice_audio():
     """Returns the latest synthesized voice audio file for browser playback"""
+    latest = getattr(voice_synthesizer, "latest_audio_path", None)
+    if latest and os.path.exists(latest):
+        return FileResponse(latest, media_type="audio/mpeg")
+
     audio_cache = os.path.join(PROJECT_ROOT, "services/sensory/audio_cache")
     mp3_file = os.path.join(audio_cache, "jarvis_latest.mp3")
     wav_file = os.path.join(audio_cache, "jarvis_latest.wav")
@@ -129,3 +163,39 @@ async def get_soundboard_audio(clip_name: str):
     if clip_path and os.path.exists(clip_path):
         return FileResponse(clip_path, media_type="audio/mpeg")
     raise HTTPException(status_code=404, detail=f"Soundboard clip '{clip_name}' not found")
+
+
+class SwitchEngineRequest(BaseModel):
+    engine: str = Field(..., description="openrouter, groq, or gemini")
+
+
+@router.post("/engine")
+async def switch_ai_engine(req: SwitchEngineRequest):
+    """Switches active primary AI engine between OpenRouter, Groq, and Gemini"""
+    from services.brain.providers.ai_manager import ai_manager
+    ai_manager.set_primary_provider(req.engine.lower())
+    return {"status": "success", "primary_engine": ai_manager.preferred_provider}
+
+
+@router.get("/engine")
+async def get_ai_engine():
+    """Returns current active AI engine and provider health"""
+    from services.brain.providers.ai_manager import ai_manager
+    return ai_manager.get_key_status()
+
+
+@router.post("/interrupt")
+async def interrupt_speech():
+    """
+    Immediate Barge-In Interrupt endpoint.
+    Halts all active audio playback, TTS synthesis, and soundboard clips.
+    """
+    try:
+        voice_session.handle_barge_in()
+        tts_engine.interrupt()
+        voice_synthesizer.interrupt()
+        logger.info("⚡ [QueryAPI] Barge-in interrupt triggered: vocal playback halted.")
+        return {"status": "success", "interrupted": True, "message": "Speech playback halted immediately."}
+    except Exception as e:
+        logger.warning(f"Error executing vocal interrupt: {e}")
+        return {"status": "error", "message": str(e)}

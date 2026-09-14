@@ -1,21 +1,54 @@
 """
 Central Tool Registry for J.A.R.V.I.S. Brain.
-Registers, discovers, and delivers 100% real, functioning tools to autonomous agent runtimes.
+Registers, discovers, and delivers 100% real, functioning tools across Computer, Cloud, and Intelligence pillars.
+Enforces strict 4-tier safety gates, timeout limits, emergency stops, and structured audit logging.
 """
 
 import os
 import sys
+import time
+import asyncio
 from typing import Dict, List, Optional, Any
+
 from services.brain.tools.base import JarvisTool, ToolDefinition
-from shared.schemas.action_envelope import ActionTier, TargetWorld
+from shared.schemas.action_envelope import ActionTier, TargetWorld, ActionEnvelope
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "agents"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
 
+# Pillar 1: Computer Agents
 from agents.computer.windows_agent import windows_agent
+from agents.computer.power_agent import power_agent
+from agents.computer.audio_agent import audio_agent
+from agents.computer.display_agent import display_agent
+from agents.computer.mouse_agent import mouse_agent
+from agents.computer.keyboard_agent import keyboard_agent
+from agents.computer.file_agent import file_agent
+from agents.computer.screen_agent import screen_agent
+from agents.computer.network_agent import network_agent
+
+# Pillar 2: Cloud Agents
+from agents.cloud.aws_agent import aws_agent
+from agents.cloud.git_agent import git_agent
+from agents.cloud.docker_agent import docker_agent
+from agents.cloud.k8s_agent import k8s_agent
+from agents.cloud.terraform_agent import terraform_agent
+from agents.cloud.soc_security_agent import soc_agent
+
+# Pillar 3: Intelligence Agents
+from agents.intelligence.safety_guard import safety_guard
+from agents.intelligence.emergency_stop import emergency_stop
+from agents.intelligence.audit_logger import audit_logger
+from agents.intelligence.vision_agent import vision_agent
+from agents.intelligence.productivity_agent import productivity_agent
+from agents.intelligence.planner import planner
+
+# Physical IoT
 from agents.physical.esp32_agent import esp32_agent
+
 try:
     from system_control import system_control
     from system_monitor import system_monitor
@@ -26,7 +59,435 @@ except ImportError:
 logger = get_logger("JarvisToolRegistry")
 
 
-# 1. Physical Device Control Tool
+# ==============================================================================
+# TOOL IMPLEMENTATIONS (PILLAR 1: COMPUTER)
+# ==============================================================================
+
+class PCPowerTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="pc_power",
+                description="Controls PC power states: shutdown, restart, sleep, hibernate, sign out, display off, cancel scheduled shutdown, power plans, and temperatures",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_3_DESTRUCTIVE, # Default for shutdown/restart; safety guard verifies action parameter
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["shutdown", "restart", "sleep", "hibernate", "sign_out", "display_off", "cancel_shutdown", "power_plan", "temperatures", "disk_space"], "required": True},
+                    "timer_seconds": {"type": "integer", "default": 0},
+                    "mode": {"type": "string", "default": "balanced"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "temperatures", timer_seconds: int = 0, mode: str = "balanced", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: PCPower] Executing action: {act}")
+        if act == "shutdown":
+            return power_agent.shutdown_pc(timer_seconds=timer_seconds)
+        elif act == "restart":
+            return power_agent.restart_pc(timer_seconds=timer_seconds)
+        elif act in ["cancel_shutdown", "cancel"]:
+            return power_agent.cancel_scheduled_shutdown()
+        elif act == "sleep":
+            return power_agent.sleep_pc()
+        elif act == "hibernate":
+            return power_agent.hibernate_pc()
+        elif act == "sign_out":
+            return power_agent.sign_out()
+        elif act in ["display_off", "turn_off_display"]:
+            return power_agent.turn_off_display()
+        elif act in ["power_plan", "power_mode"]:
+            return power_agent.set_power_mode(mode=mode)
+        elif act in ["temperatures", "temps"]:
+            return power_agent.get_hardware_temperatures()
+        elif act in ["disk_space", "disk"]:
+            return power_agent.get_free_disk_space()
+        return {"success": False, "error": f"Unknown power action: {action}"}
+
+
+class AudioMediaTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="audio_media",
+                description="Controls Windows audio volume (increase, decrease, mute, unmute, set %) and media controls (play, pause, next track, previous track, stop, mic status)",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["increase", "decrease", "mute", "unmute", "set_volume", "play_pause", "next", "previous", "stop", "mic_status"], "required": True},
+                    "steps": {"type": "integer", "default": 5},
+                    "level": {"type": "integer", "default": 50}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "play_pause", steps: int = 5, level: int = 50, **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: AudioMedia] Executing: {act}")
+        if act in ["increase", "up", "raise"]:
+            return audio_agent.adjust_volume("up", steps=steps)
+        elif act in ["decrease", "down", "lower"]:
+            return audio_agent.adjust_volume("down", steps=steps)
+        elif act in ["mute", "unmute", "toggle_mute"]:
+            return audio_agent.adjust_volume("mute")
+        elif act in ["set_volume", "set"]:
+            return audio_agent.set_volume_percent(level)
+        elif act in ["play", "pause", "play_pause", "next", "previous", "stop"]:
+            return audio_agent.control_media(act)
+        elif act in ["mic_status", "microphone"]:
+            return audio_agent.get_microphone_status()
+        return {"success": False, "error": f"Unknown audio/media action: {action}"}
+
+
+class DisplayControlTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="display_control",
+                description="Controls screen brightness (0-100), multi-monitor display switching (extend, duplicate, internal, external), and night light",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["set_brightness", "get_brightness", "switch_mode", "night_light"], "required": True},
+                    "level": {"type": "integer", "default": 80},
+                    "mode": {"type": "string", "default": "extend"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "get_brightness", level: int = 80, mode: str = "extend", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        if act == "set_brightness":
+            return display_agent.set_brightness(level)
+        elif act == "get_brightness":
+            return display_agent.get_brightness()
+        elif act == "switch_mode":
+            return power_agent.switch_display_mode(mode)
+        elif act == "night_light":
+            return display_agent.toggle_night_light(True)
+        return {"success": False, "error": f"Unknown display action: {action}"}
+
+
+class MouseKeyboardTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="mouse_keyboard",
+                description="Automates mouse movements, clicks, scrolling, text typing, key presses, and shortcuts (e.g. Ctrl+Shift+Esc, Alt+Tab, Win+D, screenshot)",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["move", "click", "double_click", "right_click", "scroll", "type", "press_key", "shortcut", "screenshot"], "required": True},
+                    "x": {"type": "integer"},
+                    "y": {"type": "integer"},
+                    "text": {"type": "string"},
+                    "key": {"type": "string"},
+                    "keys": {"type": "array"},
+                    "clicks": {"type": "integer", "default": 3},
+                    "direction": {"type": "string", "default": "down"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "screenshot", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: MouseKeyboard] Executing action: {act}")
+        if act == "move":
+            return mouse_agent.move_cursor(kwargs.get("x", 500), kwargs.get("y", 500), smooth=True)
+        elif act in ["click", "left_click"]:
+            return mouse_agent.click("left")
+        elif act in ["double_click", "double"]:
+            return mouse_agent.click("double")
+        elif act in ["right_click", "right"]:
+            return mouse_agent.click("right")
+        elif act == "scroll":
+            return mouse_agent.scroll(clicks=kwargs.get("clicks", 3), direction=kwargs.get("direction", "down"))
+        elif act == "type":
+            return keyboard_agent.type_text(kwargs.get("text", ""))
+        elif act == "press_key":
+            return keyboard_agent.press_key(kwargs.get("key", "enter"))
+        elif act == "shortcut":
+            keys = kwargs.get("keys") or [kwargs.get("key", "enter")]
+            return keyboard_agent.press_shortcut(keys)
+        elif act == "screenshot":
+            return screen_agent.capture_screenshot()
+        return {"success": False, "error": f"Unknown mouse/keyboard action: {action}"}
+
+
+class FileManagerTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="file_manager",
+                description="Manages files and folders: open, create folder, create file, rename, move, copy, search, zip, unzip, safe delete to Recycle Bin, or empty Recycle Bin",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_2_MUTATING,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["open", "create_folder", "create_file", "rename", "move", "copy", "delete", "search", "zip", "unzip", "empty_recycle_bin"], "required": True},
+                    "path": {"type": "string"},
+                    "source": {"type": "string"},
+                    "destination": {"type": "string"},
+                    "content": {"type": "string", "default": ""},
+                    "new_name": {"type": "string"},
+                    "pattern": {"type": "string"},
+                    "permanent": {"type": "boolean", "default": False}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "search", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: FileManager] Executing: {act}")
+        if act == "open":
+            return file_agent.open_path(kwargs.get("path", "workspace"))
+        elif act == "create_folder":
+            return file_agent.create_folder(kwargs.get("path", "new_folder"))
+        elif act == "create_file":
+            return file_agent.create_file(kwargs.get("path", "test.txt"), kwargs.get("content", ""))
+        elif act == "rename":
+            return file_agent.rename_item(kwargs.get("source", ""), kwargs.get("new_name", ""))
+        elif act == "move":
+            return file_agent.move_item(kwargs.get("source", ""), kwargs.get("destination", ""))
+        elif act == "copy":
+            return file_agent.copy_item(kwargs.get("source", ""), kwargs.get("destination", ""))
+        elif act == "delete":
+            return file_agent.delete_item(kwargs.get("path", ""), permanent=kwargs.get("permanent", False))
+        elif act == "search":
+            return file_agent.search_files(pattern=kwargs.get("pattern", "*"), directory=kwargs.get("path", "workspace"))
+        elif act == "zip":
+            return file_agent.zip_archive(kwargs.get("source", ""), kwargs.get("destination"))
+        elif act == "unzip":
+            return file_agent.extract_zip(kwargs.get("source", ""), kwargs.get("destination"))
+        elif act == "empty_recycle_bin":
+            return file_agent.empty_recycle_bin()
+        return {"success": False, "error": f"Unknown file manager action: {action}"}
+
+
+class NetworkControlTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="network_control",
+                description="Queries Wi-Fi connection, local and public IP addresses, network health, ping test, DNS resolution, and network adapters",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["wifi_status", "ip_addresses", "ping", "internet_status", "dns", "adapters"], "default": "ip_addresses"},
+                    "host": {"type": "string", "default": "8.8.8.8"},
+                    "domain": {"type": "string", "default": "google.com"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "ip_addresses", host: str = "8.8.8.8", domain: str = "google.com", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        if act == "wifi_status":
+            return network_agent.get_wifi_status()
+        elif act in ["ip_addresses", "ip"]:
+            return network_agent.get_ip_addresses()
+        elif act == "ping":
+            return network_agent.ping_host(host=host)
+        elif act == "internet_status":
+            return network_agent.check_internet_status()
+        elif act == "dns":
+            return network_agent.dns_lookup(domain=domain)
+        elif act == "adapters":
+            return network_agent.list_network_adapters()
+        return network_agent.get_ip_addresses()
+
+
+# ==============================================================================
+# TOOL IMPLEMENTATIONS (PILLAR 2: CLOUD)
+# ==============================================================================
+
+class DevOpsTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="devops_tool",
+                description="DevOps suite: Git (status, commit, push, pull, log), Docker (list, start, stop, restart, logs, build), Kubernetes (cluster-info, pods, nodes), Terraform (validate, plan, apply, destroy)",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_2_MUTATING,
+                parameters_schema={
+                    "subsystem": {"type": "string", "enum": ["git", "docker", "k8s", "terraform"], "required": True},
+                    "action": {"type": "string", "required": True},
+                    "args": {"type": "object", "default": {}}
+                }
+            )
+        )
+
+    async def execute(self, subsystem: str = "git", action: str = "status", args: Optional[Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+        sub = subsystem.lower().strip()
+        act = action.lower().strip()
+        params = args or {}
+        logger.info(f"[Tool: DevOps] subsystem={sub}, action={act}")
+
+        if sub == "git":
+            if act == "status":
+                return git_agent.get_status()
+            elif act == "commit":
+                return git_agent.stage_and_commit(params.get("message", "automated commit"))
+            elif act == "push":
+                return git_agent.push(params.get("remote", "origin"), params.get("branch"))
+            elif act == "pull":
+                return git_agent.pull(params.get("remote", "origin"), params.get("branch"))
+            elif act == "branch":
+                return git_agent.list_branches()
+            elif act == "log":
+                return git_agent.get_log(params.get("count", 5))
+            elif act == "clone":
+                return git_agent.clone(params.get("repo_url", ""), params.get("destination"))
+        elif sub == "docker":
+            if act in ["list", "ps"]:
+                return {"success": True, "containers": docker_agent.list_containers(params.get("all", False))}
+            elif act == "start":
+                return docker_agent.start_container(params.get("container", ""))
+            elif act == "stop":
+                return docker_agent.stop_container(params.get("container", ""))
+            elif act == "restart":
+                return docker_agent.restart_container(params.get("container", ""))
+            elif act == "logs":
+                return docker_agent.get_container_logs(params.get("container", ""), params.get("tail", 50))
+            elif act == "build":
+                return docker_agent.build_image(params.get("path", "."), params.get("tag", "latest"))
+        elif sub == "k8s":
+            if act == "cluster_info":
+                return k8s_agent.get_cluster_info()
+            elif act == "get_pods":
+                return k8s_agent.get_pods(params.get("namespace", "default"))
+            elif act == "get_nodes":
+                return k8s_agent.get_nodes()
+            elif act == "get_deployments":
+                return k8s_agent.get_deployments(params.get("namespace", "default"))
+            elif act == "restart_deployment":
+                return k8s_agent.restart_deployment(params.get("deployment", ""), params.get("namespace", "default"))
+        elif sub == "terraform":
+            if act == "validate":
+                return terraform_agent.validate()
+            elif act == "plan":
+                return terraform_agent.plan()
+            elif act == "apply":
+                return terraform_agent.apply()
+            elif act == "destroy":
+                return terraform_agent.destroy(params.get("ticket_id"))
+        return {"success": False, "error": f"Unknown devops subsystem/action: {subsystem}/{action}"}
+
+
+class AWSManagementTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="aws_management",
+                description="AWS Cloud operations: STS Caller Identity, S3 buckets list/upload/download, EC2 instances list/start/stop, Lambda, and Cost Explorer",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["caller_identity", "cloud_health", "list_s3", "list_ec2", "start_ec2", "stop_ec2", "upload_s3", "download_s3", "list_lambda", "costs", "switch_region"], "required": True},
+                    "instance_id": {"type": "string"},
+                    "bucket_name": {"type": "string"},
+                    "local_file": {"type": "string"},
+                    "object_name": {"type": "string"},
+                    "region": {"type": "string"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "cloud_health", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: AWSManagement] Executing: {act}")
+        if act in ["caller_identity", "sts"]:
+            return aws_agent.get_caller_identity()
+        elif act in ["cloud_health", "health"]:
+            return aws_agent.check_cloud_health()
+        elif act in ["list_s3", "s3"]:
+            buckets = aws_agent.list_s3_buckets()
+            return {"success": True, "count": len(buckets), "buckets": buckets}
+        elif act in ["list_ec2", "ec2"]:
+            instances = aws_agent.list_ec2_instances()
+            return {"success": True, "count": len(instances), "instances": instances}
+        elif act == "start_ec2":
+            return aws_agent.start_ec2_instance(kwargs.get("instance_id", ""))
+        elif act == "stop_ec2":
+            return aws_agent.stop_ec2_instance(kwargs.get("instance_id", ""))
+        elif act == "upload_s3":
+            return aws_agent.upload_to_s3(kwargs.get("local_file", ""), kwargs.get("bucket_name", ""), kwargs.get("object_name"))
+        elif act == "download_s3":
+            return aws_agent.download_from_s3(kwargs.get("bucket_name", ""), kwargs.get("object_name", ""), kwargs.get("local_file", ""))
+        elif act == "list_lambda":
+            return aws_agent.list_lambda_functions()
+        elif act in ["costs", "cost"]:
+            return aws_agent.get_aws_cost_and_usage()
+        elif act == "switch_region":
+            return aws_agent.switch_aws_region(kwargs.get("region", "us-east-1"))
+        return aws_agent.check_cloud_health()
+
+
+# ==============================================================================
+# TOOL IMPLEMENTATIONS (PILLAR 3: INTELLIGENCE & PRODUCTIVITY)
+# ==============================================================================
+
+class ProductivityTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="productivity_tool",
+                description="Productivity features: reminders with native Windows toast notifications, timers, quick notes, and task checklists",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["remind", "save_note", "read_notes", "add_task", "list_tasks", "complete_task"], "required": True},
+                    "message": {"type": "string"},
+                    "delay_seconds": {"type": "integer", "default": 60},
+                    "title": {"type": "string"},
+                    "content": {"type": "string"},
+                    "task": {"type": "string"},
+                    "task_id": {"type": "integer"},
+                    "keyword": {"type": "string"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "list_tasks", **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        logger.info(f"[Tool: Productivity] Executing: {act}")
+        if act in ["remind", "reminder", "timer"]:
+            return productivity_agent.create_reminder(kwargs.get("message", "Timer expired"), kwargs.get("delay_seconds", 60))
+        elif act == "save_note":
+            return productivity_agent.save_note(kwargs.get("title", "Quick Note"), kwargs.get("content", ""))
+        elif act == "read_notes":
+            return productivity_agent.read_notes(kwargs.get("keyword"))
+        elif act == "add_task":
+            return productivity_agent.add_task(kwargs.get("task", ""))
+        elif act == "list_tasks":
+            return productivity_agent.list_tasks()
+        elif act == "complete_task":
+            return productivity_agent.complete_task(kwargs.get("task_id", 1))
+        return productivity_agent.list_tasks()
+
+
+class CompoundWorkflowTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="compound_workflow",
+                description="Executes compound multi-step automation pipelines: 'dev_environment' (VS Code, Terminal, Docker, Server, Browser), 'aws_workspace' (STS, Cloud resources, AWS Console), 'movie_mode' (Volume 50%, Media launch), and 'shutdown_prep' (Save notes, verify tasks, prompt confirmation)",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_2_MUTATING,
+                parameters_schema={
+                    "workflow": {"type": "string", "enum": ["dev_environment", "aws_workspace", "movie_mode", "shutdown_prep"], "required": True}
+                }
+            )
+        )
+
+    async def execute(self, workflow: str = "dev_environment", **kwargs) -> Dict[str, Any]:
+        logger.info(f"[Tool: CompoundWorkflow] Running pipeline: {workflow}")
+        return await planner.execute_workflow(workflow, parameters=kwargs)
+
+
+# ==============================================================================
+# LEGACY & SPECIALIZED TOOLS (Preserved for compatibility)
+# ==============================================================================
+
 class PhysicalDeviceTool(JarvisTool):
     def __init__(self):
         super().__init__(
@@ -44,12 +505,9 @@ class PhysicalDeviceTool(JarvisTool):
         )
 
     async def execute(self, device_id: str = "esp32_lab_01", target: str = "desk_lamp", state: bool = True, **kwargs) -> Dict[str, Any]:
-        logger.info(f"[Tool: Physical] Setting device {device_id} relay {target} to {state}")
-        result = esp32_agent.set_relay(device_id, target, state)
-        return result
+        return esp32_agent.set_relay(device_id, target, state)
 
 
-# 2. Real Windows Workspace Preparation Tool
 class PrepareWorkspaceTool(JarvisTool):
     def __init__(self):
         super().__init__(
@@ -58,36 +516,14 @@ class PrepareWorkspaceTool(JarvisTool):
                 description="Prepares Windows developer workspace: launches VS Code, Windows Terminal, and illuminates workstation",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
-                parameters_schema={
-                    "profile": {"type": "string", "default": "developer"}
-                }
+                parameters_schema={"profile": {"type": "string", "default": "developer"}}
             )
         )
 
     async def execute(self, profile: str = "developer", **kwargs) -> Dict[str, Any]:
-        logger.info(f"[Tool: Computer] Preparing real workspace for profile: {profile}")
-        
-        # 1. Turn on physical/virtual workstation lighting
-        esp32_agent.set_relay("esp32_lab_01", "desk_lamp", True)
-
-        # 2. Launch Visual Studio Code at project root
-        code_res = windows_agent.launch_app("code", [PROJECT_ROOT])
-
-        # 3. Launch Windows Terminal / PowerShell
-        wt_res = windows_agent.launch_app("wt", [])
-
-        return {
-            "success": True,
-            "profile": profile,
-            "vscode": code_res.get("status", "launched"),
-            "terminal": wt_res.get("status", "launched"),
-            "desk_lamp": "illuminated",
-            "channel_1_logical": True,
-            "channel_2_sensory": True
-        }
+        return await planner.execute_workflow("dev_environment")
 
 
-# 3. Real Screen Lock Tool
 class LockScreenTool(JarvisTool):
     def __init__(self):
         super().__init__(
@@ -101,18 +537,15 @@ class LockScreenTool(JarvisTool):
         )
 
     async def execute(self, **kwargs) -> Dict[str, Any]:
-        logger.info("[Tool: Computer] Locking workstation screen.")
-        res = system_control.lock_workstation()
-        return res
+        return system_control.lock_workstation()
 
 
-# 4. App Launch Tool
 class LaunchAppTool(JarvisTool):
     def __init__(self):
         super().__init__(
             ToolDefinition(
                 name="launch_app",
-                description="Launches a desktop Windows application (e.g. chrome, notepad, calc, code, terminal)",
+                description="Launches a desktop Windows application or web app (e.g. chrome, notepad, calc, code, terminal, instagram, whatsapp, youtube, spotify)",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
@@ -122,34 +555,37 @@ class LaunchAppTool(JarvisTool):
             )
         )
 
-    async def execute(self, app: str = "notepad", args: list = None, **kwargs) -> Dict[str, Any]:
-        logger.info(f"[Tool: Computer] Launching application: {app}")
-        res = windows_agent.launch_app(app, args or [])
-        return res
+    async def execute(self, app: str = "notepad", args: list = None, mode: str = "auto", **kwargs) -> Dict[str, Any]:
+        return windows_agent.launch_app(app, args or [], mode=kwargs.get("mode", mode))
 
 
-# 5. Volume Control Tool
 class AudioVolumeTool(JarvisTool):
     def __init__(self):
         super().__init__(
             ToolDefinition(
                 name="control_system_audio",
-                description="Controls Windows audio volume (0 to 100) or mute/unmute",
+                description="Controls Windows audio volume: increase volume, decrease volume, mute/unmute, or set exact percentage (0 to 100)",
                 target_world=TargetWorld.COMPUTER,
-                tier=ActionTier.TIER_0_REFLEX,
+                tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
+                    "action": {"type": "string", "enum": ["increase", "decrease", "mute", "unmute", "set"], "default": "set"},
+                    "steps": {"type": "integer", "default": 5},
                     "level": {"type": "integer", "default": 50}
                 }
             )
         )
 
-    async def execute(self, level: int = 50, **kwargs) -> Dict[str, Any]:
-        logger.info(f"[Tool: Computer] Setting master audio volume to {level}%")
-        res = system_control.set_volume(level)
-        return res
+    async def execute(self, action: str = "set", steps: int = 5, level: int = 50, **kwargs) -> Dict[str, Any]:
+        act = action.lower().strip()
+        if act in ["increase", "up", "raise"]:
+            return audio_agent.adjust_volume("up", steps=steps)
+        elif act in ["decrease", "down", "lower"]:
+            return audio_agent.adjust_volume("down", steps=steps)
+        elif act in ["mute", "unmute"]:
+            return audio_agent.adjust_volume("mute")
+        return audio_agent.set_volume_percent(level)
 
 
-# 6. Live Status Report Tool
 class SystemStatusReportTool(JarvisTool):
     def __init__(self):
         super().__init__(
@@ -167,70 +603,42 @@ class SystemStatusReportTool(JarvisTool):
         return {
             "success": True,
             "os": "Windows",
-            "cpu_percent": vitals["cpu_percent"],
-            "memory_percent": vitals["memory_percent"],
-            "active_window": vitals["active_window"],
-            "in_meeting": vitals["in_meeting"],
+            "cpu_percent": vitals.get("cpu_percent", 0),
+            "memory_percent": vitals.get("memory_percent", 0),
+            "active_window": vitals.get("active_window", "Unknown"),
             "physical_devices": "online",
             "cloud": "nominal",
             "channel_1_logical": True
         }
 
 
-# 7. Browser & Web Navigation Tool
 class BrowseWebTool(JarvisTool):
     def __init__(self):
         super().__init__(
             ToolDefinition(
                 name="browse_web",
-                description="Navigates to URLs, opens new browser tabs (Opera, Chrome, Edge), or performs Google searches",
+                description="Navigates to URLs, opens browser tabs, or performs Google searches",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
-                    "url": {"type": "string", "required": False},
-                    "browser": {"type": "string", "required": False},
-                    "search_query": {"type": "string", "required": False}
+                    "url": {"type": "string"},
+                    "search_query": {"type": "string"}
                 }
             )
         )
 
-    async def execute(self, url: str = "https://google.com", browser: Optional[str] = None, search_query: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        import subprocess
-        import urllib.parse
-
-        target_url = url or "https://google.com"
+    async def execute(self, url: str = "https://google.com", search_query: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         if search_query:
-            target_url = f"https://www.google.com/search?q={urllib.parse.quote(search_query)}"
-
-        b_lower = (browser or "").lower()
-        if not b_lower or b_lower in ["browser", "default"]:
-            try:
-                from services.memory.feedback_learning import learner
-                b_lower = learner.memory.get("preferences", {}).get("browser", "opera")
-            except Exception:
-                b_lower = "opera"
-
-        # Check if browser executable is registered
-        browser_exe = windows_agent.find_app_path(b_lower)
-        if browser_exe and os.path.exists(browser_exe):
-            logger.info(f"[Tool: Browser] Launching {browser_exe} with '{target_url}'")
-            subprocess.Popen([browser_exe, target_url], shell=False)
-            return {"success": True, "url": target_url, "browser": b_lower, "channel_1_logical": True}
-
-        # Fallback using Windows default protocol handler
-        cmd = f'cmd.exe /c start "" "{target_url}"'
-        logger.info(f"[Tool: Browser] Executing default browser: {cmd}")
-        subprocess.Popen(cmd, shell=True)
-        return {"success": True, "url": target_url, "browser": browser or "default", "channel_1_logical": True}
+            return windows_agent.search_google(search_query)
+        return windows_agent.open_url(url)
 
 
-# 8. Close Process / App Tool
 class CloseAppTool(JarvisTool):
     def __init__(self):
         super().__init__(
             ToolDefinition(
                 name="close_app",
-                description="Closes or terminates running desktop applications (e.g. notepad, calc, chrome, opera)",
+                description="Closes running desktop applications, windows, or tabs (e.g. notepad, calc, chrome, opera, tab, window, all)",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_2_MUTATING,
                 parameters_schema={
@@ -240,22 +648,64 @@ class CloseAppTool(JarvisTool):
         )
 
     async def execute(self, app_name: str, **kwargs) -> Dict[str, Any]:
-        import psutil
-        logger.info(f"[Tool: Computer] Closing application: {app_name}")
-        terminated = []
-        target = app_name.lower().replace(".exe", "")
-        for p in psutil.process_iter(['pid', 'name']):
-            try:
-                name = (p.info['name'] or '').lower()
-                if target in name:
-                    p.terminate()
-                    terminated.append(p.info['name'])
-            except (psutil.NoSuchProcess, psutil.AccessDenied) as proc_err:
-                logger.debug(f"Process access error during terminate: {proc_err}")
-        return {"success": len(terminated) > 0, "closed_processes": terminated, "channel_1_logical": True}
+        app_lower = app_name.lower().strip()
+        if app_lower in ["all", "all apps", "everything"]:
+            return windows_agent.close_all_user_apps()
+        elif "tab" in app_lower:
+            return windows_agent.close_active_tab("opera")
+        elif "window" in app_lower:
+            return windows_agent.close_active_window()
+        return windows_agent.close_active_window(app_name)
 
 
-# 9. Hardware & System Telemetry Query Tool
+class ManageBrowserTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="manage_browser",
+                description="Controls browser tabs and navigation (close active tab, open bookmarks, close window)",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["close_tab", "open_bookmarks", "close_window"], "required": True}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "close_tab", browser: str = "opera", **kwargs) -> Dict[str, Any]:
+        act = (action or "").lower().strip()
+        if "bookmark" in act:
+            return windows_agent.open_browser_bookmarks(browser)
+        elif "tab" in act:
+            return windows_agent.close_active_tab(browser)
+        elif "window" in act:
+            return windows_agent.close_active_window(browser)
+        return {"success": False, "error": f"Unknown browser action: {action}"}
+
+
+class SendMessageTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="send_message",
+                description="Sends or drafts WhatsApp messages or checks latest incoming conversations",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["send", "check_latest"], "default": "send"},
+                    "recipient": {"type": "string"},
+                    "message": {"type": "string"}
+                }
+            )
+        )
+
+    async def execute(self, action: str = "send", recipient: Optional[str] = None, message: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+        act = (action or "").lower().strip()
+        if "check" in act or "read" in act or not message:
+            return windows_agent.check_latest_messages(platform="whatsapp")
+        return windows_agent.send_whatsapp_message(message=message, recipient=recipient or "brother")
+
+
 class SystemQueryTool(JarvisTool):
     def __init__(self):
         super().__init__(
@@ -271,61 +721,114 @@ class SystemQueryTool(JarvisTool):
         )
 
     async def execute(self, query_type: str = "general", **kwargs) -> Dict[str, Any]:
-        import psutil
-        import socket
-        from datetime import datetime
-
-        data = {"query_type": query_type}
-        if query_type in ["time", "date"]:
-            now = datetime.now()
-            data["time"] = now.strftime("%I:%M %p")
-            data["date"] = now.strftime("%A, %B %d, %Y")
-        elif query_type in ["battery", "power"]:
-            batt = psutil.sensors_battery()
-            if batt:
-                data["percent"] = round(batt.percent, 1)
-                data["power_plugged"] = batt.power_plugged
-            else:
-                data["percent"] = 100
-                data["power_plugged"] = True
-        elif query_type in ["disk", "storage"]:
-            d = psutil.disk_usage('C:\\')
-            data["total_gb"] = round(d.total / (1024**3), 1)
-            data["free_gb"] = round(d.free / (1024**3), 1)
-            data["percent"] = d.percent
-        elif query_type in ["network", "ip"]:
-            hostname = socket.gethostname()
-            ip = socket.gethostbyname(hostname)
-            data["hostname"] = hostname
-            data["ip"] = ip
-        return data
+        qt = query_type.lower()
+        if qt in ["time", "date"]:
+            from datetime import datetime
+            return {"success": True, "time": datetime.now().strftime("%I:%M %p"), "date": datetime.now().strftime("%A, %B %d, %Y")}
+        elif qt in ["battery", "power"]:
+            import psutil
+            b = psutil.sensors_battery()
+            return {"success": True, "percent": b.percent if b else 100, "plugged": b.power_plugged if b else True}
+        elif qt in ["disk", "storage"]:
+            return power_agent.get_free_disk_space()
+        elif qt in ["network", "ip"]:
+            return network_agent.get_ip_addresses()
+        return system_monitor.collect_telemetry()
 
 
-import asyncio
-import time
-from shared.schemas.action_envelope import ActionEnvelope
-try:
-    from services.permission_engine.engine import permission_engine
-except ImportError:
-    try:
-        sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/permission-engine"))
-        from engine import permission_engine
-    except Exception:
-        permission_engine = None
+class AnalyzeScreenTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="analyze_screen",
+                description="Captures current Windows desktop screen and analyzes visible windows, errors, code, or documents using Gemini Multimodal Vision",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={
+                    "query": {"type": "string", "default": "What is visible on the screen?"}
+                }
+            )
+        )
 
-try:
-    from services.observability import obs_audit, obs_metrics, obs_tracer
-except ImportError:
-    obs_audit = None
-    obs_metrics = None
-    obs_tracer = None
+    async def execute(self, query: str = "What is visible on the screen?", **kwargs) -> Dict[str, Any]:
+        return await vision_agent.analyze_screen(prompt=query)
 
 
-# Central Registry Class
+class AWSCloudHealthTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="aws_cloud_health",
+                description="Checks real AWS Cloud connectivity, account identity, active region, S3 buckets, and EC2 topology",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={}
+            )
+        )
+
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        return aws_agent.check_cloud_health()
+
+
+class AWSListS3Tool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="aws_list_s3_buckets",
+                description="Lists real S3 storage buckets in the user's AWS account",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={}
+            )
+        )
+
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        buckets = aws_agent.list_s3_buckets()
+        return {"success": True, "buckets": buckets, "count": len(buckets)}
+
+
+class AWSListEC2Tool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="aws_list_ec2",
+                description="Lists active EC2 virtual compute instances in configured AWS region",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={}
+            )
+        )
+
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        instances = aws_agent.list_ec2_instances()
+        return {"success": True, "instances": instances, "count": len(instances)}
+
+
+# ==============================================================================
+# CENTRAL TOOL REGISTRY CLASS WITH RESILIENCE BUS
+# ==============================================================================
+
 class ToolRegistry:
     def __init__(self):
         self._tools: Dict[str, JarvisTool] = {}
-        # Register all functioning tools
+
+        # Register Pillar 1: Computer Tools
+        self.register(PCPowerTool())
+        self.register(AudioMediaTool())
+        self.register(DisplayControlTool())
+        self.register(MouseKeyboardTool())
+        self.register(FileManagerTool())
+        self.register(NetworkControlTool())
+
+        # Register Pillar 2: Cloud Tools
+        self.register(DevOpsTool())
+        self.register(AWSManagementTool())
+
+        # Register Pillar 3: Intelligence Tools
+        self.register(ProductivityTool())
+        self.register(CompoundWorkflowTool())
+
+        # Register Compatibility & Reflex Tools
         self.register(PhysicalDeviceTool())
         self.register(PrepareWorkspaceTool())
         self.register(LockScreenTool())
@@ -334,11 +837,18 @@ class ToolRegistry:
         self.register(SystemStatusReportTool())
         self.register(BrowseWebTool())
         self.register(CloseAppTool())
+        self.register(ManageBrowserTool())
+        self.register(SendMessageTool())
         self.register(SystemQueryTool())
+        self.register(AnalyzeScreenTool())
+        self.register(AWSCloudHealthTool())
+        self.register(AWSListS3Tool())
+        self.register(AWSListEC2Tool())
+
+        logger.info(f"Initialized ToolRegistry with {len(self._tools)} registered domain tools.")
 
     def register(self, tool: JarvisTool):
         self._tools[tool.name] = tool
-        logger.debug(f"Registered tool: {tool.name} [{tool.target_world.value}]")
 
     def get_tool(self, name: str) -> Optional[JarvisTool]:
         return self._tools.get(name)
@@ -361,64 +871,101 @@ class ToolRegistry:
         name: str,
         parameters: Dict[str, Any],
         caller_agent: str = "master_orchestrator",
-        approval_token: Optional[str] = None
+        approval_id: Optional[str] = None,
+        raw_query: str = ""
     ) -> Dict[str, Any]:
         """
         Executes a tool through the strict architectural pipeline:
-        Agent -> Tool Registry -> Policy Engine -> Risk Classification -> Permission Check -> Approval Queue -> Tool -> Result
+        Emergency Check -> SafetyGuard 4-Tier Check -> Confirmation Gate -> Timeout Manager -> Execution -> Audit Logger -> Result
         """
+        start_time = time.time()
         tool = self.get_tool(name)
         if not tool:
+            err_msg = f"Tool '{name}' not found in registry"
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent="unknown",
+                tool=name,
+                parameters=parameters,
+                risk_tier="UNKNOWN",
+                result="NOT_FOUND",
+                duration_ms=0.0,
+                details={"error": err_msg}
+            )
+            return {"success": False, "error": err_msg, "status": "not_found"}
+
+        # 1. EMERGENCY STOP CHECK
+        if emergency_stop.is_stopped:
+            logger.warning(f"Execution of '{name}' blocked: Emergency Stop is active.")
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent="emergency_blocked",
+                tool=name,
+                parameters=parameters,
+                risk_tier=tool.risk_level,
+                result="EMERGENCY_HALTED",
+                duration_ms=0.0,
+                details={"reason": "Emergency stand-down is active"}
+            )
             return {
                 "success": False,
-                "error": f"Tool '{name}' not found in registry",
-                "status": "not_found"
+                "status": "emergency_halted",
+                "error": "Execution halted: Emergency Stand-Down is currently active."
             }
 
-        action = ActionEnvelope(
-            name=tool.name,
-            target_world=tool.target_world,
-            target_agent=caller_agent,
-            tier=tool.tier,
-            parameters=parameters,
-            timeout_seconds=tool.timeout_seconds
-        )
+        # 2. SAFETY GUARD 4-TIER EVALUATION (Zero Bypass for Tier 3)
+        # Check specific action within multi-purpose tools like pc_power or devops_tool
+        action_name = parameters.get("action") or parameters.get("workflow") or name
+        if name == "pc_power":
+            action_name = f"pc_{parameters.get('action', 'power')}"
+        elif name == "devops_tool" and parameters.get("action") == "destroy":
+            action_name = "terraform_destroy"
+        elif name == "file_manager" and parameters.get("permanent"):
+            action_name = "permanent_delete"
 
-        # 1. Evaluate with Policy Engine
-        if permission_engine:
-            decision = permission_engine.evaluate(action, approval_token=approval_token)
-            if not decision.authorized:
-                logger.warning(f"Policy Engine blocked execution of '{name}': {decision.rationale}")
-                return {
-                    "success": False,
-                    "status": "permission_blocked",
-                    "tier": decision.tier.value,
-                    "risk_level": decision.risk_level,
-                    "rationale": decision.rationale,
-                    "requires_approval": decision.requires_explicit_approval,
-                    "requires_mfa": decision.requires_mfa,
-                    "approval_id": decision.approval_id
-                }
+        decision = safety_guard.evaluate_request(action_name=action_name, parameters=parameters, approval_id=approval_id)
+        if not decision["authorized"]:
+            logger.warning(f"SafetyGuard blocked execution of '{name}': {decision['rationale']}")
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent=action_name,
+                tool=name,
+                parameters=parameters,
+                risk_tier=decision["tier"],
+                result="BLOCKED_CONFIRMATION_REQUIRED",
+                confirmation_state="REQUIRED",
+                duration_ms=0.0,
+                details={"ticket_id": decision.get("ticket_id"), "rationale": decision["rationale"]}
+            )
+            return {
+                "success": False,
+                "status": "confirmation_required",
+                "tier": decision["tier"],
+                "rationale": decision["rationale"],
+                "requires_confirmation": True,
+                "ticket_id": decision.get("ticket_id"),
+                "prompt_user": decision.get("prompt_user", "Confirmation required to proceed, sir.")
+            }
 
-        # 2. Execute within timeout and sandbox
-        start_time = time.time()
+        # 3. EXECUTE WITHIN TIMEOUT MANAGER
+        timeout = float(tool.timeout_seconds)
         try:
-            if obs_audit:
-                obs_audit.record_event(
-                    event_type="TOOL_INVOCATION",
-                    actor=caller_agent,
-                    target=tool.name,
-                    risk_level=getattr(tool, "risk_level", "LOW"),
-                    status="EXECUTING",
-                    details=parameters
-                )
-
-            tool_result = await asyncio.wait_for(tool.execute(**parameters), timeout=float(tool.timeout_seconds))
+            tool_result = await asyncio.wait_for(tool.execute(**parameters), timeout=timeout)
             duration_ms = (time.time() - start_time) * 1000
 
-            if obs_metrics:
-                obs_metrics.increment("tools.executions_total")
-                obs_metrics.record_latency(f"tool.{tool.name}", duration_ms)
+            # Record success in execution audit log
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent=action_name,
+                tool=name,
+                parameters=parameters,
+                risk_tier=decision.get("tier", "TIER_1_REVERSIBLE"),
+                result="SUCCESS" if tool_result.get("success", True) else "FAILED",
+                confirmation_state="CONFIRMED" if approval_id else "NONE",
+                duration_ms=duration_ms,
+                caller=caller_agent,
+                details={"result_keys": list(tool_result.keys()) if isinstance(tool_result, dict) else []}
+            )
 
             return {
                 "success": tool_result.get("success", True),
@@ -427,18 +974,45 @@ class ToolRegistry:
                 "duration_ms": round(duration_ms, 2)
             }
         except asyncio.TimeoutError:
-            logger.error(f"Tool '{name}' execution timed out after {tool.timeout_seconds}s")
+            duration_ms = (time.time() - start_time) * 1000
+            err_msg = f"Tool '{name}' timed out after {timeout} seconds"
+            logger.error(err_msg)
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent=action_name,
+                tool=name,
+                parameters=parameters,
+                risk_tier=decision.get("tier", "TIER_1_REVERSIBLE"),
+                result="TIMEOUT",
+                duration_ms=duration_ms,
+                caller=caller_agent,
+                details={"error": err_msg}
+            )
             return {
                 "success": False,
                 "status": "timeout",
-                "error": f"Execution timed out after {tool.timeout_seconds} seconds"
+                "error": err_msg,
+                "duration_ms": round(duration_ms, 2)
             }
         except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
             logger.error(f"Error executing tool '{name}': {e}")
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent=action_name,
+                tool=name,
+                parameters=parameters,
+                risk_tier=decision.get("tier", "TIER_1_REVERSIBLE"),
+                result="ERROR",
+                duration_ms=duration_ms,
+                caller=caller_agent,
+                details={"error": str(e)}
+            )
             return {
                 "success": False,
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+                "duration_ms": round(duration_ms, 2)
             }
 
 

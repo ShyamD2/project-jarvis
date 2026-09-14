@@ -32,10 +32,15 @@ async def get_all_agents():
     }
 
 
-@router.post("/dispatch")
-async def dispatch_agent_task(req: DispatchTaskRequest):
-    """Dispatches a task to a specialized agent"""
-    success = swarm_manager.dispatch_task(req.agent_id, req.task)
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Agent '{req.agent_id}' not found")
-    return {"status": "dispatched", "agent_id": req.agent_id, "task": req.task}
+class RunAgentRequest(BaseModel):
+    agent_id: str
+    task: Optional[str] = None
+
+
+@router.post("/run")
+async def run_agent_job(req: RunAgentRequest):
+    """Executes a real agent operation and returns genuine results"""
+    res = await swarm_manager.execute_agent_job(req.agent_id, req.task)
+    if not res.get("success"):
+        raise HTTPException(status_code=500, detail=res.get("error", "Agent execution failed"))
+    return res

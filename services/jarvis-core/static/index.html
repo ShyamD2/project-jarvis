@@ -6,33 +6,32 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>JARVIS COMMAND CENTER</title>
+  <title>J.A.R.V.I.S. // AUTONOMOUS OPERATING SYSTEM</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;700&family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Three.js 3D WebGL Library & J.A.R.V.I.S. Procedural Holographic Reactor Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/static/jarvis_reactor_3d.js"></script>
   <style>
     :root {
-      --bg-base: #050b16;
-      --bg-card: rgba(8, 19, 38, 0.88);
-      --bg-card-hover: rgba(11, 26, 52, 0.95);
-      --border-card: rgba(0, 229, 255, 0.16);
-      --border-card-hover: rgba(0, 240, 255, 0.42);
+      --bg-void: #02050b;
+      --bg-panel: rgba(4, 10, 24, 0.76);
       --cyan: #00f0ff;
-      --cyan-dim: rgba(0, 240, 255, 0.65);
-      --cyan-glow: rgba(0, 240, 255, 0.45);
-      --cyan-subtle: rgba(0, 240, 255, 0.08);
-      --blue-accent: #38bdf8;
+      --cyan-dim: rgba(0, 240, 255, 0.5);
+      --gold: #ffaa00;
+      --gold-bright: #ffd700;
+      --gold-glow: 0 0 35px rgba(255, 170, 0, 0.55);
+      --amber: #ff7700;
+      --text-main: #e2f1ff;
+      --text-muted: #829cb5;
+      --text-dim: #486178;
       --green: #10b981;
-      --green-glow: rgba(16, 185, 129, 0.5);
-      --purple: #a855f7;
-      --amber: #f59e0b;
-      --red: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-dim: #64748b;
-      --font-main: 'Inter', -apple-system, sans-serif;
+      --border-hud: rgba(0, 240, 255, 0.22);
+      --border-gold: rgba(255, 170, 0, 0.35);
+      --font-hud: 'Orbitron', -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --font-sci: 'Orbitron', sans-serif;
+      --font-ui: 'Inter', sans-serif;
     }
 
     * {
@@ -40,2200 +39,1423 @@
       margin: 0;
       padding: 0;
       user-select: none;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 170, 0, 0.3) transparent;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 170, 0, 0.3); border-radius: 2px; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-main);
+      font-family: var(--font-ui);
     }
 
     body {
-      background-color: var(--bg-base);
-      background-image: 
-        radial-gradient(circle at 50% 30%, rgba(2, 132, 199, 0.12) 0%, transparent 60%),
-        linear-gradient(to right, rgba(0, 240, 255, 0.018) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(0, 240, 255, 0.018) 1px, transparent 1px);
-      background-size: 100% 100%, 34px 34px, 34px 34px;
-      color: var(--text-main);
-      font-family: var(--font-main);
-      height: 100vh;
+      background: radial-gradient(circle at 50% 50%, #061224 0%, #030814 55%, #01040a 100%);
+      position: relative;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background-image:
+        radial-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px),
+        radial-gradient(rgba(255, 170, 0, 0.05) 1px, transparent 1px);
+      background-size: 40px 40px, 80px 80px;
+      background-position: 0 0, 20px 20px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .hud-workspace-grid {
+      display: grid;
+      grid-template-rows: 64px 1fr 42px;
+      grid-template-columns: 310px 1fr 340px;
+      grid-template-areas:
+        "topbar topbar topbar"
+        "leftside center rightside"
+        "bottombar bottombar bottombar";
       width: 100vw;
-      display: flex;
-      overflow: hidden;
-    }
-
-    /* Scrollbars */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
-
-    /* ==========================================================================
-       LEFT SIDEBAR
-       ========================================================================== */
-    .sidebar {
-      width: 245px;
-      min-width: 245px;
       height: 100vh;
-      background: rgba(5, 12, 25, 0.96);
-      border-right: 1px solid var(--border-card);
-      display: flex;
-      flex-direction: column;
-      padding: 12px;
-      gap: 10px;
-      z-index: 40;
-    }
-
-    /* LOGO CARD */
-    .logo-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 12px;
-      padding: 11px 14px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
-    }
-
-    .reactor-icon {
-      width: 36px;
-      height: 36px;
       position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      z-index: 5;
     }
 
-    .reactor-ring {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 2px dashed var(--cyan);
-      animation: spin 14s linear infinite;
-    }
-
-    .reactor-core {
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #fff 0%, var(--cyan) 75%);
-      box-shadow: 0 0 14px var(--cyan);
-      animation: pulse 2.2s ease-in-out infinite;
-    }
-
-    .logo-text h1 {
-      font-family: var(--font-sci);
-      font-size: 18px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      color: #fff;
-      line-height: 1.1;
-      text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-    }
-
-    .logo-text span {
-      font-size: 8.5px;
-      font-weight: 700;
-      letter-spacing: 2.2px;
-      color: var(--cyan);
-      text-transform: uppercase;
-    }
-
-    /* NAVIGATION MENU */
-    .nav-list {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      overflow-y: auto;
-      flex: 1;
-      padding-right: 2px;
-    }
-
-    .nav-item {
+    .hud-topbar {
+      grid-area: topbar;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 7px 11px;
-      border-radius: 8px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border-hud);
+      background: linear-gradient(180deg, rgba(4, 12, 28, 0.88) 0%, rgba(2, 5, 12, 0.5) 100%);
+      backdrop-filter: blur(12px);
+      z-index: 20;
     }
 
-    .nav-item-left {
+    .hud-brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 16px;
     }
 
-    .nav-item:hover {
-      color: #fff;
-      background: rgba(0, 240, 255, 0.06);
-    }
-
-    .nav-item.active {
-      background: linear-gradient(90deg, rgba(0, 240, 255, 0.16) 0%, rgba(2, 132, 199, 0.24) 100%);
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      color: #fff;
-      font-weight: 600;
-      box-shadow: 0 0 14px rgba(0, 240, 255, 0.15);
-    }
-
-    .nav-item.active svg {
-      color: var(--cyan);
-      filter: drop-shadow(0 0 4px var(--cyan));
-    }
-
-    .nav-badge {
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 10px;
-      background: rgba(0, 240, 255, 0.14);
-      color: var(--cyan);
-      font-weight: 600;
-      font-family: var(--font-mono);
-    }
-
-    /* VOICE STATUS WIDGET */
-    .voice-widget {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 12px;
-      padding: 11px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      margin-top: auto;
-    }
-
-    .voice-widget-header {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-    }
-
-    .voice-wave-canvas {
-      width: 100%;
-      height: 22px;
-    }
-
-    .mic-button-wrapper {
-      position: relative;
-      width: 62px;
-      height: 62px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-
-    .mic-outer-ring {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 1px solid var(--cyan);
-      opacity: 0.35;
-      animation: ripple 2.8s linear infinite;
-    }
-
-    .mic-center-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: radial-gradient(circle, #0284c7 0%, #0369a1 100%);
-      border: 2px solid var(--cyan);
-      box-shadow: 0 0 16px rgba(0, 240, 255, 0.45);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #fff;
-      transition: all 0.25s;
-    }
-
-    .mic-button-wrapper:hover .mic-center-btn {
-      transform: scale(1.06);
-      box-shadow: 0 0 22px var(--cyan);
-    }
-
-    .mic-button-wrapper.listening .mic-center-btn {
-      background: radial-gradient(circle, #ef4444 0%, #b91c1c 100%);
-      border-color: #f87171;
-      box-shadow: 0 0 24px rgba(239, 68, 68, 0.7);
-      animation: pulse 1.2s infinite;
-    }
-
-    .voice-caption {
-      font-size: 10px;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-
-    .focus-mode-btn {
-      width: 100%;
-      padding: 6px 0;
-      border-radius: 7px;
-      background: rgba(0, 240, 255, 0.08);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      color: var(--cyan);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-
-    .focus-mode-btn:hover {
-      background: rgba(0, 240, 255, 0.18);
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-    }
-
-    /* ==========================================================================
-       MAIN WORKSPACE
-       ========================================================================== */
-    .main-workspace {
-      flex: 1;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      padding: 10px 16px;
-      gap: 10px;
-      overflow: hidden;
-      background: transparent;
-    }
-
-    /* TOP HEADER BAR */
-    .top-bar {
-      height: 44px;
-      min-height: 44px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 5px 12px;
-      border-radius: 20px;
-      background: rgba(10, 22, 42, 0.85);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      animation: pulse 2s infinite;
-    }
-
-    .clock-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .date-text {
-      font-size: 10.5px;
-      color: var(--text-muted);
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-
-    .clock-text {
-      font-family: var(--font-sci);
-      font-size: 19px;
-      font-weight: 700;
-      color: var(--cyan);
-      text-shadow: 0 0 14px var(--cyan-glow);
-      letter-spacing: 1.5px;
-    }
-
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .search-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(10, 22, 42, 0.75);
-      border: 1px solid rgba(0, 240, 255, 0.16);
-      border-radius: 8px;
-      padding: 5px 12px;
-      font-size: 11.5px;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .search-box:hover {
-      border-color: var(--cyan);
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-    }
-
-    .search-shortcut {
-      background: rgba(0, 240, 255, 0.12);
-      padding: 1px 5px;
-      border-radius: 4px;
-      font-size: 9.5px;
-      color: var(--cyan);
-      font-family: var(--font-mono);
-    }
-
-    .action-icon-btn {
+    .brand-mark {
       width: 32px;
       height: 32px;
-      border-radius: 8px;
+      border: 1px solid var(--gold);
+      border-radius: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(10, 22, 42, 0.75);
-      border: 1px solid rgba(0, 240, 255, 0.16);
-      color: var(--text-muted);
-      cursor: pointer;
+      background: rgba(255, 170, 0, 0.08);
+      box-shadow: 0 0 16px rgba(255, 170, 0, 0.4);
       position: relative;
-      transition: all 0.2s;
     }
 
-    .action-icon-btn:hover {
-      color: var(--cyan);
-      border-color: var(--cyan);
+    .brand-mark::after {
+      content: '';
+      width: 10px;
+      height: 10px;
+      background: var(--gold-bright);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--gold-bright);
     }
 
-    .badge-dot {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      width: 5px;
-      height: 5px;
+    .brand-title-group h1 {
+      font-family: var(--font-hud);
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: var(--text-main);
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+    }
+
+    .brand-title-group p {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--gold);
+      text-transform: uppercase;
+    }
+
+    .hud-top-telemetry {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .top-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 2px;
+    }
+
+    .top-pill .status-dot {
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: var(--cyan);
-      box-shadow: 0 0 5px var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      animation: pulse-dot 2s infinite ease-in-out;
     }
 
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 3px 10px 3px 5px;
-      background: rgba(10, 22, 42, 0.75);
-      border: 1px solid rgba(0, 240, 255, 0.16);
-      border-radius: 20px;
-      cursor: pointer;
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.6; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
     }
 
-    .user-avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #1e3a8a, #0284c7);
-      border: 1.5px solid var(--cyan);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .user-meta {
+    .hud-leftside {
+      grid-area: leftside;
+      padding: 18px 20px;
       display: flex;
       flex-direction: column;
-    }
-
-    .user-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: #fff;
-      line-height: 1.1;
-    }
-
-    .user-role {
-      font-size: 9.5px;
-      color: var(--cyan);
-      font-weight: 500;
-    }
-
-    /* ==========================================================================
-       DASHBOARD ASYMMETRIC 3-ROW LAYOUT
-       ========================================================================== */
-    .dashboard-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      gap: 16px;
+      border-right: 1px solid var(--border-hud);
+      background: linear-gradient(90deg, rgba(4, 11, 24, 0.8) 0%, rgba(2, 6, 15, 0.35) 100%);
+      backdrop-filter: blur(8px);
+      z-index: 15;
       overflow-y: auto;
-      min-height: 0;
     }
 
-    .dash-row {
-      display: flex;
-      gap: 10px;
-      min-height: 0;
-    }
-
-    .dash-row-1 {
-      flex: 1.18;
-    }
-
-    .dash-row-2 {
-      flex: 0.95;
-    }
-
-    .dash-row-3 {
-      flex: 0.95;
-    }
-
-    /* GLASS CARD COMMON */
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-card);
-      border-radius: 12px;
-      backdrop-filter: blur(14px);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
+    .hud-panel-box {
+      background: rgba(3, 10, 24, 0.65);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      padding: 14px 16px;
+      border-radius: 2px;
       position: relative;
-      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
-    .card:hover {
-      border-color: var(--border-card-hover);
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
-    }
-
-    .card-header {
-      padding: 8px 13px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(0, 240, 255, 0.07);
-    }
-
-    .card-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .card-action-link {
+    .panel-header {
+      font-family: var(--font-hud);
       font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
       color: var(--cyan);
-      text-decoration: none;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .card-action-link:hover {
-      text-decoration: underline;
-    }
-
-    .card-body {
-      padding: 9px 12px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    /* ROW 1: AI CORE OVERVIEW | HERO GLOBE | LIVE INTELLIGENCE FEED */
-    .card-ai-overview {
-      flex: 0 0 215px;
-    }
-
-    .card-hero-globe {
-      flex: 1;
-    }
-
-    .card-intel-feed {
-      flex: 0 0 295px;
-    }
-
-    /* Card 1: AI Core Overview Vitals */
-    .vitals-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .vital-row {
+      text-transform: uppercase;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 4px 8px;
-      background: rgba(12, 23, 44, 0.55);
-      border: 1px solid rgba(0, 240, 255, 0.06);
-      border-radius: 7px;
-      cursor: pointer;
-      transition: all 0.2s;
     }
 
-    .vital-row:hover {
-      border-color: var(--cyan);
-      background: rgba(0, 240, 255, 0.08);
-    }
-
-    .vital-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 11px;
-      color: var(--text-main);
-      font-weight: 500;
-    }
-
-    .vital-icon {
-      width: 20px;
-      height: 20px;
-      border-radius: 5px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-    }
-
-    .vital-val {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--cyan);
+    .panel-header .tag {
       font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--gold);
     }
 
-    /* Card 2: Hero Holographic Globe */
-    .hero-hologram-card {
+    .metric-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .metric-row:last-child { margin-bottom: 0; }
+
+    .metric-label-val {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+    }
+
+    .metric-label { color: var(--text-muted); }
+    .metric-val { color: var(--text-main); font-weight: 600; }
+
+    .metric-bar-track {
+      width: 100%;
+      height: 3px;
+      background: rgba(0, 240, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      border-radius: 1px;
+    }
+
+    .metric-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--gold));
+      box-shadow: 0 0 8px rgba(255, 170, 0, 0.6);
+      transition: width 0.4s ease;
+    }
+
+    .telemetry-state-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: rgba(0, 240, 255, 0.04);
+      border-left: 2px solid var(--cyan);
+      margin-top: 6px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+    }
+
+    .telemetry-state-badge.gold-accent {
+      border-left-color: var(--gold);
+      background: rgba(255, 170, 0, 0.05);
+    }
+
+    .hud-rightside {
+      grid-area: rightside;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border-hud);
+      background: linear-gradient(270deg, rgba(4, 11, 24, 0.8) 0%, rgba(2, 6, 15, 0.35) 100%);
+      backdrop-filter: blur(8px);
+      z-index: 15;
+      overflow: hidden;
+    }
+
+    .activity-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .activity-stream {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+
+    .stream-entry {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 8px 10px;
+      border-left: 2px solid transparent;
+      background: rgba(3, 10, 24, 0.4);
+      border-radius: 0 2px 2px 0;
+      animation: fadeInMsg 0.3s ease forwards;
+    }
+
+    @keyframes fadeInMsg {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .stream-entry.jarvis {
+      border-left-color: var(--gold);
+      background: linear-gradient(90deg, rgba(255, 170, 0, 0.08) 0%, transparent 100%);
+    }
+
+    .stream-entry.user {
+      border-left-color: var(--cyan);
+      background: linear-gradient(90deg, rgba(0, 240, 255, 0.08) 0%, transparent 100%);
+    }
+
+    .stream-entry.system {
+      border-left-color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 10px;
+    }
+
+    .stream-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .stream-entry.jarvis .stream-header { color: var(--gold-bright); }
+    .stream-entry.user .stream-header { color: var(--cyan); }
+    .stream-entry.system .stream-header { color: var(--text-muted); }
+
+    .stream-content {
+      line-height: 1.45;
+      color: var(--text-main);
+      word-break: break-word;
+    }
+
+    /* CENTER AREA: THE PHOTOREALISTIC HOLOGRAPHIC AI CORE */
+    .hud-center {
+      grid-area: center;
       position: relative;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
-      background: radial-gradient(circle at 50% 50%, rgba(2, 132, 199, 0.16) 0%, rgba(6, 12, 24, 0.85) 75%);
-    }
-
-    #holo-globe-canvas {
-      position: absolute;
       width: 100%;
       height: 100%;
+      overflow: hidden;
+    }
+
+    .hologram-stage-container {
+      position: relative;
+      width: 680px;
+      height: 680px;
+      max-width: 90vw;
+      max-height: 88vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+    }
+
+    .hologram-stage-container:active {
+      cursor: grabbing;
+    }
+
+    .hologram-volumetric-glow {
+      position: absolute;
+      width: 620px;
+      height: 620px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 170, 0, 0.22) 0%, rgba(255, 100, 0, 0.08) 40%, rgba(0, 240, 255, 0.02) 65%, transparent 80%);
+      pointer-events: none;
+      z-index: 10;
+      mix-blend-mode: screen;
+      filter: blur(22px);
+    }
+
+    #jarvis-core-canvas {
+      position: absolute;
       top: 0;
       left: 0;
-      pointer-events: none;
-    }
-
-    .hero-overlay {
-      position: relative;
-      z-index: 10;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      pointer-events: none;
-    }
-
-    .hero-title {
-      font-family: var(--font-sci);
-      font-size: 40px;
-      font-weight: 900;
-      letter-spacing: 6px;
-      color: #fff;
-      text-shadow: 0 0 22px rgba(0, 240, 255, 0.85), 0 0 45px rgba(0, 240, 255, 0.4);
-      line-height: 1;
-    }
-
-    .hero-subtitle {
-      font-family: var(--font-sci);
-      font-size: 13.5px;
-      font-weight: 700;
-      letter-spacing: 7px;
-      color: var(--cyan);
-      text-shadow: 0 0 10px var(--cyan);
-    }
-
-    .hero-badge {
-      margin-top: 3px;
-      padding: 3px 12px;
-      border-radius: 16px;
-      background: rgba(0, 240, 255, 0.12);
-      border: 1px solid rgba(0, 240, 255, 0.35);
-      font-size: 9.5px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: 1px;
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
-    }
-
-    /* Card 3: Live Intelligence Feed */
-    .feed-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      overflow-y: auto;
-      max-height: 165px;
-      padding-right: 2px;
-    }
-
-    .feed-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 5px 8px;
-      background: rgba(12, 23, 44, 0.5);
-      border: 1px solid rgba(0, 240, 255, 0.08);
-      border-radius: 6px;
-      font-size: 10.5px;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-
-    .feed-item:hover {
-      border-color: var(--cyan);
-      background: rgba(0, 240, 255, 0.05);
-    }
-
-    .feed-text {
-      color: var(--text-main);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .feed-tag {
-      font-size: 8.5px;
-      font-weight: 700;
-      padding: 2px 5px;
-      border-radius: 4px;
-      text-transform: uppercase;
-      font-family: var(--font-mono);
-      white-space: nowrap;
-    }
-
-    .tag-info { background: rgba(59, 130, 246, 0.22); color: #60a5fa; }
-    .tag-warn { background: rgba(245, 158, 11, 0.22); color: #fbbf24; }
-    .tag-tip { background: rgba(16, 185, 129, 0.22); color: #34d399; }
-    .tag-live { background: rgba(0, 240, 255, 0.22); color: var(--cyan); }
-
-    /* ROW 2: ACTIVE AGENTS | MISSION TIMELINE | QUICK COMMANDS */
-    .card-active-agents {
-      flex: 1.25;
-    }
-
-    .card-timeline {
-      flex: 0.72;
-    }
-
-    .card-quick-cmds {
-      flex: 0.58;
-    }
-
-    /* Card 4: Active Agents (3 cols x 2 rows) */
-    .agents-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: 1fr 1fr;
-      gap: 7px;
+      width: 100%;
       height: 100%;
+      z-index: 14;
     }
 
-    .agent-pill {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 9px;
-      background: rgba(12, 23, 44, 0.55);
-      border: 1px solid rgba(0, 240, 255, 0.1);
-      border-radius: 7px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .agent-pill:hover {
-      border-color: var(--cyan);
-      background: rgba(0, 240, 255, 0.08);
-    }
-
-    .agent-meta {
+    .core-status-hud {
+      position: absolute;
+      bottom: 24px;
       display: flex;
       flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      z-index: 20;
+      pointer-events: none;
     }
 
-    .agent-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: #fff;
+    .core-state-label {
+      font-family: var(--font-hud);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: var(--gold-bright);
+      text-shadow: 0 0 16px rgba(255, 170, 0, 0.85), 0 0 32px rgba(255, 170, 0, 0.45);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s ease;
     }
 
-    .agent-status {
-      font-size: 9px;
-      color: var(--text-muted);
+    .state-pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gold-bright);
+      box-shadow: 0 0 12px var(--gold-bright);
+      animation: pulse-indicator 1.4s infinite ease-in-out;
+    }
+
+    @keyframes pulse-indicator {
+      0%, 100% { transform: scale(0.85); opacity: 0.6; }
+      50% { transform: scale(1.3); opacity: 1; }
+    }
+
+    .core-waveform-strip {
       display: flex;
       align-items: center;
       gap: 3px;
+      height: 18px;
     }
 
-    .agent-status.active { color: var(--green); }
-    .agent-wave { width: 44px; height: 14px; }
-
-    /* Card 5: Mission Timeline */
-    .timeline-list {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      height: 100%;
-      justify-content: center;
+    .wave-bar {
+      width: 2px;
+      height: 4px;
+      background: var(--gold);
+      box-shadow: 0 0 6px var(--gold);
+      border-radius: 1px;
+      transition: height 0.08s ease;
     }
 
-    .timeline-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      cursor: pointer;
+    .core-telemetry-tag {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 1.5px;
+      color: var(--text-dim);
+      text-transform: uppercase;
     }
 
-    .timeline-top {
+    .hud-bottombar {
+      grid-area: bottombar;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 10.5px;
-    }
-
-    .timeline-time {
+      padding: 0 28px;
+      border-top: 1px solid var(--border-hud);
+      background: linear-gradient(0deg, rgba(4, 12, 28, 0.88) 0%, rgba(2, 5, 12, 0.5) 100%);
+      backdrop-filter: blur(12px);
+      z-index: 20;
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--cyan);
-    }
-
-    .timeline-title {
-      font-weight: 500;
-      color: var(--text-main);
-      margin-left: 6px;
-    }
-
-    .timeline-due {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--text-muted);
     }
 
-    .timeline-bar-bg {
-      width: 100%;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.06);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .timeline-bar-fill { height: 100%; border-radius: 2px; }
-    .fill-cyan { background: var(--cyan); width: 100%; box-shadow: 0 0 5px var(--cyan); }
-    .fill-blue { background: #38bdf8; width: 68%; }
-    .fill-orange { background: var(--amber); width: 38%; }
-    .fill-purple { background: var(--purple); width: 18%; }
-
-    /* Card 6: Quick Commands */
-    .quick-cmd-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 5px;
-      height: 100%;
-      justify-content: center;
-    }
-
-    .cmd-btn {
+    .bottom-ticker-left {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      background: rgba(12, 23, 44, 0.55);
-      border: 1px solid rgba(0, 240, 255, 0.12);
-      border-radius: 7px;
+      gap: 24px;
+    }
+
+    .bottom-stat strong {
+      color: var(--cyan);
+      font-weight: 600;
+    }
+
+    .bottom-prompt-hint {
+      color: var(--gold);
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .bottom-prompt-hint:hover {
+      color: var(--gold-bright);
+      text-shadow: 0 0 8px var(--gold);
+    }
+
+    .hud-live-vox-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 16px;
+      border: 1px solid rgba(0, 240, 255, 0.45);
+      background: rgba(0, 240, 255, 0.08);
+      border-radius: 3px;
+      font-family: var(--font-hud);
       font-size: 11px;
       font-weight: 600;
-      color: var(--text-main);
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .cmd-btn:hover {
-      background: rgba(0, 240, 255, 0.12);
-      border-color: var(--cyan);
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-    }
-
-    /* ROW 3: SYSTEM MONITOR | MEMORY INSIGHTS | LLM STATUS */
-    .card-sys-monitor {
-      flex: 0.68;
-    }
-
-    .card-memory-insights {
-      flex: 0.64;
-    }
-
-    .card-llm-status {
-      flex: 1.25;
-    }
-
-    /* Card 7: System Monitor Radial Gauges */
-    .gauges-container {
-      display: flex;
-      align-items: center;
-      justify-content: space-around;
-      padding: 2px 0;
-    }
-
-    .gauge-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      position: relative;
-    }
-
-    .gauge-svg {
-      width: 60px;
-      height: 60px;
-      transform: rotate(-90deg);
-    }
-
-    .gauge-bg {
-      fill: none;
-      stroke: rgba(255, 255, 255, 0.06);
-      stroke-width: 5.5;
-    }
-
-    .gauge-bar {
-      fill: none;
-      stroke: var(--cyan);
-      stroke-width: 5.5;
-      stroke-linecap: round;
-      stroke-dasharray: 176;
-      stroke-dashoffset: 176;
-      transition: stroke-dashoffset 0.8s ease;
-      filter: drop-shadow(0 0 4px var(--cyan));
-    }
-
-    .gauge-val-text {
-      position: absolute;
-      top: 16px;
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 700;
-      color: #fff;
-    }
-
-    .gauge-label {
-      margin-top: 3px;
-      font-size: 9.5px;
-      font-weight: 700;
-      color: var(--text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    /* Card 8: Memory Insights */
-    .memory-body {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      height: 100%;
-    }
-
-    #constellation-canvas {
-      flex: 1;
-      height: 75px;
-      border-radius: 7px;
-      background: rgba(12, 23, 44, 0.35);
-    }
-
-    .memory-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 88px;
-    }
-
-    .m-stat-label {
-      font-size: 9px;
-      color: var(--text-dim);
-    }
-
-    .m-stat-val {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 700;
       color: var(--cyan);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+      transition: all 0.3s ease;
+      cursor: default;
+      user-select: none;
+    }
+    .hud-live-vox-pill.capturing {
+      border-color: var(--gold-bright);
+      background: rgba(255, 170, 0, 0.2);
+      color: var(--gold-bright);
+      box-shadow: 0 0 20px rgba(255, 170, 0, 0.6);
+    }
+    .live-vox-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: voxPulse 2s infinite ease-in-out;
+    }
+    .hud-live-vox-pill.capturing .live-vox-dot {
+      background: var(--gold-bright);
+      box-shadow: 0 0 14px var(--gold-bright);
+      animation: voxPulseFast 0.8s infinite ease-in-out;
+    }
+    @keyframes voxPulse {
+      0%, 100% { opacity: 0.6; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
+    @keyframes voxPulseFast {
+      0%, 100% { opacity: 0.7; transform: scale(0.95); }
+      50% { opacity: 1; transform: scale(1.3); }
     }
 
-    /* Card 9: LLM Status (3 cols x 3 rows) */
-    .llm-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      gap: 5px;
-      height: 100%;
+    .command-hud-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(1, 4, 8, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
     }
 
-    .llm-chip {
-      padding: 4px 6px;
-      background: rgba(12, 23, 44, 0.55);
-      border: 1px solid rgba(0, 240, 255, 0.08);
-      border-radius: 5px;
+    .command-hud-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .command-hud-box {
+      width: 580px;
+      background: rgba(4, 12, 28, 0.96);
+      border: 1px solid var(--gold);
+      box-shadow: 0 0 35px rgba(255, 170, 0, 0.3), inset 0 0 15px rgba(255, 170, 0, 0.08);
+      padding: 24px 28px;
+      border-radius: 2px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 1px;
-    }
-
-    .llm-chip.active {
-      border-color: rgba(0, 240, 255, 0.3);
-      background: rgba(0, 240, 255, 0.06);
-    }
-
-    .llm-name {
-      font-size: 9.5px;
-      font-weight: 700;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .llm-status {
-      font-size: 8px;
-      color: var(--text-dim);
-    }
-
-    .llm-status.conn {
-      color: var(--green);
-      font-weight: 600;
-    }
-
-    /* BOTTOM FLOATING COMMAND BAR */
-    .bottom-bar {
-      height: 48px;
-      min-height: 48px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 4px;
-    }
-
-    .bottom-meta {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 10.5px;
-      color: var(--text-muted);
-      background: rgba(10, 22, 42, 0.8);
-      padding: 6px 14px;
-      border-radius: 20px;
-      border: 1px solid rgba(0, 240, 255, 0.16);
-    }
-
-    .bottom-meta-item {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-
-    /* HERO TALK BUTTON */
-    .talk-hero-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
       gap: 14px;
-      padding: 7px 32px;
-      border-radius: 28px;
-      background: linear-gradient(90deg, rgba(0, 240, 255, 0.18) 0%, rgba(2, 132, 199, 0.36) 50%, rgba(0, 240, 255, 0.18) 100%);
-      border: 1.5px solid var(--cyan);
-      box-shadow: 0 0 28px rgba(0, 240, 255, 0.45), inset 0 0 16px rgba(0, 240, 255, 0.22);
-      cursor: pointer;
-      transition: all 0.25s;
     }
 
-    .talk-hero-btn:hover {
-      transform: scale(1.03);
-      box-shadow: 0 0 38px rgba(0, 240, 255, 0.7), inset 0 0 22px rgba(0, 240, 255, 0.3);
-    }
-
-    .wave-bars {
+    .command-hud-header {
       display: flex;
       align-items: center;
-      gap: 2px;
-      height: 16px;
-    }
-
-    .w-bar {
-      width: 2.5px;
-      background: var(--cyan);
-      border-radius: 2px;
-      animation: waveAnimation 1.2s ease-in-out infinite;
-    }
-
-    .w-bar:nth-child(2) { animation-delay: 0.15s; }
-    .w-bar:nth-child(3) { animation-delay: 0.3s; }
-    .w-bar:nth-child(4) { animation-delay: 0.45s; }
-    .w-bar:nth-child(5) { animation-delay: 0.6s; }
-
-    .talk-text-block {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .talk-title {
-      font-family: var(--font-sci);
-      font-size: 12.5px;
-      font-weight: 800;
+      justify-content: space-between;
+      font-family: var(--font-hud);
+      font-size: 12px;
       letter-spacing: 2px;
-      color: #fff;
-      text-shadow: 0 0 8px var(--cyan);
+      color: var(--gold-bright);
     }
 
-    .talk-subtitle {
-      font-size: 9px;
-      color: var(--cyan);
-      font-weight: 500;
+    .command-hud-input {
+      width: 100%;
+      background: rgba(2, 7, 18, 0.8);
+      border: 1px solid var(--cyan-dim);
+      padding: 14px 18px;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      outline: none;
+      border-radius: 2px;
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.08);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .briefing-btn {
+    .command-hud-input:focus {
+      border-color: var(--gold-bright);
+      box-shadow: 0 0 14px rgba(255, 215, 0, 0.3), inset 0 0 10px rgba(255, 215, 0, 0.1);
+    }
+
+    .command-hud-footer {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 20px;
-      background: rgba(10, 22, 42, 0.8);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
     }
 
-    .briefing-btn:hover {
-      border-color: var(--cyan);
-      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    .command-hud-footer span strong {
+      color: var(--text-muted);
     }
 
-    /* COMMAND MODAL TERMINAL */
-    .modal-overlay {
+    .observability-drawer {
       position: fixed;
       top: 0;
-      left: 0;
-      width: 100vw;
+      right: -380px;
+      width: 360px;
       height: 100vh;
-      background: rgba(3, 7, 18, 0.85);
-      backdrop-filter: blur(10px);
+      background: rgba(3, 8, 18, 0.96);
+      border-left: 1px solid var(--border-gold);
+      box-shadow: -10px 0 35px rgba(0, 0, 0, 0.85);
       z-index: 100;
-      display: none;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .modal-overlay.open {
-      display: flex;
-    }
-
-    .command-modal {
-      width: 700px;
-      max-width: 90vw;
-      background: rgba(8, 17, 34, 0.96);
-      border: 1.5px solid var(--cyan);
-      box-shadow: 0 0 45px rgba(0, 240, 255, 0.4);
-      border-radius: 14px;
+      padding: 24px;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
-    }
-
-    .modal-header {
-      padding: 12px 18px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
-      background: rgba(5, 11, 22, 0.6);
-    }
-
-    .modal-header h3 {
-      font-family: var(--font-sci);
-      font-size: 13px;
-      letter-spacing: 2px;
-      color: var(--cyan);
-    }
-
-    .modal-close {
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 16px;
-    }
-
-    .modal-close:hover { color: #fff; }
-
-    .modal-terminal {
-      height: 260px;
-      overflow-y: auto;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
+      gap: 16px;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       font-family: var(--font-mono);
-      font-size: 11.5px;
-      background: rgba(3, 7, 18, 0.65);
+      backdrop-filter: blur(12px);
     }
-
-    .term-msg {
-      padding: 7px 11px;
-      border-radius: 6px;
-      line-height: 1.4;
+    .observability-drawer.open {
+      right: 0;
     }
-
-    .term-user {
-      background: rgba(59, 130, 246, 0.15);
-      border-left: 3px solid #3b82f6;
-      color: #93c5fd;
-      align-self: flex-end;
-      max-width: 85%;
-    }
-
-    .term-jarvis {
-      background: rgba(0, 240, 255, 0.1);
-      border-left: 3px solid var(--cyan);
-      color: #e0f2fe;
-      align-self: flex-start;
-      max-width: 85%;
-    }
-
-    .modal-chips {
+    .obs-row {
       display: flex;
-      gap: 6px;
-      padding: 8px 14px;
-      overflow-x: auto;
-      background: rgba(5, 11, 22, 0.4);
-      border-top: 1px solid rgba(0, 240, 255, 0.08);
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255, 170, 0, 0.1);
     }
-
-    .modal-chip {
-      padding: 4px 9px;
-      border-radius: 12px;
-      background: rgba(0, 240, 255, 0.08);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      font-size: 10.5px;
+    .obs-val {
       color: var(--cyan);
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .modal-chip:hover {
-      background: rgba(0, 240, 255, 0.2);
-    }
-
-    .modal-input-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border-top: 1px solid rgba(0, 240, 255, 0.15);
-      background: rgba(5, 11, 22, 0.7);
-    }
-
-    .modal-input {
-      flex: 1;
-      background: rgba(12, 23, 44, 0.8);
-      border: 1px solid rgba(0, 240, 255, 0.2);
-      border-radius: 7px;
-      padding: 9px 12px;
-      color: #fff;
-      font-family: var(--font-main);
-      font-size: 12.5px;
-      outline: none;
-    }
-
-    .modal-input:focus {
-      border-color: var(--cyan);
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
-    }
-
-    .modal-send-btn {
-      padding: 9px 18px;
-      background: var(--cyan);
-      border: none;
-      border-radius: 7px;
-      color: #030712;
-      font-weight: 700;
-      font-family: var(--font-sci);
-      letter-spacing: 1px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .modal-send-btn:hover {
-      background: #38bdf8;
-      box-shadow: 0 0 14px var(--cyan);
-    }
-
-    /* KEYFRAMES */
-    @keyframes spin { 100% { transform: rotate(360deg); } }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-    @keyframes ripple {
-      0% { transform: scale(0.9); opacity: 0.8; }
-      100% { transform: scale(1.32); opacity: 0; }
-    }
-    @keyframes waveAnimation {
-      0%, 100% { height: 3px; }
-      50% { height: 14px; }
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
 
-  <!-- LEFT SIDEBAR -->
-  <aside class="sidebar">
-    <!-- LOGO CARD -->
-    <div class="logo-card">
-      <div class="reactor-icon">
-        <div class="reactor-ring"></div>
-        <div class="reactor-core"></div>
-      </div>
-      <div class="logo-text">
-        <h1>JARVIS</h1>
-        <span>COMMAND CENTER</span>
-      </div>
-    </div>
+  <!-- Audio Player for Voice Output -->
+  <audio id="jarvis-audio-player" preload="auto"></audio>
 
-    <!-- NAVIGATION MENU -->
-    <nav class="nav-list">
-      <div class="nav-item active" onclick="location.reload()">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          <span>Command Center</span>
+  <div class="hud-workspace-grid">
+    <header class="hud-topbar">
+      <div class="hud-brand">
+        <div class="brand-mark"></div>
+        <div class="brand-title-group">
+          <h1>J.A.R.V.I.S.</h1>
+          <p>Autonomous Cognitive Engine // Mk VII</p>
         </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('Show AI Core operational status')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>
-          <span>AI Core</span>
-        </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('List all active swarm persona agents')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
-          <span>Agents</span>
-        </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('Show active mission queue and tasks')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
-          <span>Tasks</span>
-        </div>
-        <span class="nav-badge">3</span>
-      </div>
-      <div class="nav-item" onclick="openCalendarApp()">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          <span>Calendar</span>
-        </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('Search hierarchical memory for user preferences')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
-          <span>Memory</span>
-        </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal()">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-          <span>Conversations</span>
-        </div>
-        <span class="nav-badge">12</span>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('Search knowledge base for operating runbooks')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-          <span>Knowledge Base</span>
-        </div>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('List active computer control tools and skills')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-          <span>Tools & Skills</span>
-        </div>
-        <span class="nav-badge">18</span>
-      </div>
-      <div class="nav-item" onclick="openCommandModal('JARVIS, prepare my workspace')">
-        <div class="nav-item-left">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
-          <span>Workflows</span>
-        </div>
-      </div>
-    </nav>
-
-    <!-- VOICE STATUS WIDGET -->
-    <div class="voice-widget">
-      <div class="voice-widget-header">
-        <span>Voice Status</span>
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </div>
-      <canvas class="voice-wave-canvas" id="voice-sidebar-canvas"></canvas>
-      <div class="mic-button-wrapper" id="mic-toggle-btn" onclick="toggleVoiceCapture()">
-        <div class="mic-outer-ring"></div>
-        <div class="mic-center-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-        </div>
-      </div>
-      <div class="voice-caption" id="voice-status-caption">Tap to Speak</div>
-      <button class="focus-mode-btn" onclick="toggleFocusMode()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-        <span>Focus Mode</span>
-      </button>
-    </div>
-  </aside>
-
-  <!-- RIGHT MAIN WORKSPACE -->
-  <main class="main-workspace">
-    <!-- TOP BAR -->
-    <header class="top-bar">
-      <div class="status-pill">
-        <span>SYSTEM STATUS</span>
-        <div class="status-dot" id="system-status-dot"></div>
-        <span id="system-status-text" style="color:var(--green); font-weight:700;">OPTIMAL</span>
       </div>
 
-      <div class="clock-block">
-        <div class="date-text" id="live-date">Saturday, 12 September 2026</div>
-        <div class="clock-text" id="live-clock">11:30:00 pm</div>
-      </div>
-
-      <div class="top-actions">
-        <div class="search-box" onclick="openCommandModal()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <span>Search...</span>
-          <span class="search-shortcut">⌘K</span>
+      <div class="hud-top-telemetry">
+        <div class="top-pill">
+          <div class="status-dot"></div>
+          <span>NEURAL VOX // ALWAYS-ON</span>
         </div>
-        <div class="action-icon-btn" title="Apps Grid" onclick="openCommandModal('Open Opera GX')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        <div class="top-pill" style="border-color: var(--border-gold);">
+          <span style="color: var(--gold);">SEC-LEVEL:</span>
+          <span style="color: var(--text-main);">UNRESTRICTED</span>
         </div>
-        <div class="action-icon-btn" title="Notifications" onclick="openCommandModal('Show recent system notifications')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-          <div class="badge-dot"></div>
-        </div>
-        <div class="action-icon-btn" title="Settings" onclick="openCommandModal('System diagnostic report')">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </div>
-        <div class="user-profile" onclick="openCommandModal('Who are you?')">
-          <div class="user-avatar">O</div>
-          <div class="user-meta">
-            <div class="user-title">Operator</div>
-            <div class="user-role">Commander ⌄</div>
-          </div>
+        <div class="top-pill">
+          <span style="color: var(--cyan);">SYS TIME:</span>
+          <span id="hud-clock">00:00:00</span>
         </div>
       </div>
     </header>
 
-    <!-- ASYMMETRIC 3-ROW DASHBOARD CONTAINER -->
-    <div class="dashboard-container">
+    <aside class="hud-leftside">
+      <div class="hud-panel-box">
+        <div class="panel-header">
+          <span>System Vitals</span>
+          <span class="tag">REAL-TIME</span>
+        </div>
 
-      <!-- ====================================================================
-           ROW 1: AI CORE OVERVIEW | HERO GLOBE | LIVE INTELLIGENCE FEED
-           ==================================================================== -->
-      <div class="dash-row dash-row-1">
-
-        <!-- CARD 1: AI CORE OVERVIEW -->
-        <div class="card card-ai-overview">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m10 15 5-3-5-3v6Z"></path></svg>
-              <span>AI Core Overview</span>
-            </div>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">CPU LOAD</span>
+            <span class="metric-val" id="cpu-val">0%</span>
           </div>
-          <div class="card-body">
-            <div class="vitals-list">
-              <div class="vital-row" onclick="openCommandModal('Show AI Core configuration and model details')">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(0,240,255,0.15); color:var(--cyan);">🌐</div>
-                  <span>AI Core</span>
-                </div>
-                <div class="vital-val" id="vital-ai-val" style="color:var(--cyan);">Active</div>
-              </div>
-              <div class="vital-row" onclick="openCommandModal('Memory status and vector store stats')">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(59,130,246,0.15); color:#60a5fa;">💾</div>
-                  <span>Memory</span>
-                </div>
-                <div class="vital-val" id="vital-mem-val">3,380 Stored</div>
-              </div>
-              <div class="vital-row" onclick="toggleVoiceCapture()">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(16,185,129,0.15); color:var(--green);">🎙</div>
-                  <span>Voice</span>
-                </div>
-                <div class="vital-val" id="vital-voice-val" style="color:var(--green);">Online</div>
-              </div>
-              <div class="vital-row" onclick="openCommandModal('List all 12 swarm agents')">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(168,85,247,0.15); color:var(--purple);">🤖</div>
-                  <span>Agents</span>
-                </div>
-                <div class="vital-val" id="vital-agents-val">2 Running</div>
-              </div>
-              <div class="vital-row" onclick="openCommandModal('Show active LLM provider connections')">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(245,158,11,0.15); color:var(--amber);">⚡</div>
-                  <span>LLMs</span>
-                </div>
-                <div class="vital-val" id="vital-llms-val">4 Connected</div>
-              </div>
-              <div class="vital-row" onclick="openCommandModal('Run full system health check')">
-                <div class="vital-label">
-                  <div class="vital-icon" style="background:rgba(20,184,166,0.15); color:#2dd4bf;">🛡</div>
-                  <span>System</span>
-                </div>
-                <div class="vital-val" id="vital-sys-val" style="color:var(--green);">Optimal</div>
-              </div>
-            </div>
+          <div class="metric-bar-track">
+            <div class="metric-bar-fill" id="cpu-bar" style="width: 0%"></div>
           </div>
         </div>
 
-        <!-- CARD 2: HERO HOLOGRAPHIC GLOBE -->
-        <div class="card card-hero-globe hero-hologram-card">
-          <canvas id="holo-globe-canvas"></canvas>
-          <div class="hero-overlay">
-            <div class="hero-title">JARVIS</div>
-            <div class="hero-subtitle">AI CORE</div>
-            <div class="hero-badge">v3.0.0</div>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">RAM USAGE</span>
+            <span class="metric-val" id="ram-val">0%</span>
+          </div>
+          <div class="metric-bar-track">
+            <div class="metric-bar-fill" id="ram-bar" style="width: 0%"></div>
           </div>
         </div>
 
-        <!-- CARD 3: LIVE INTELLIGENCE FEED -->
-        <div class="card card-intel-feed">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-              <span>Live Intelligence Feed</span>
-            </div>
-            <span class="feed-tag tag-live">● LIVE</span>
-          </div>
-          <div class="card-body">
-            <div class="feed-list" id="intel-feed-container">
-              <div class="feed-item">
-                <div class="feed-text">Coimbatore Station online - Weather 22°C Overcast</div>
-                <span class="feed-tag tag-live">Live</span>
-              </div>
-              <div class="feed-item">
-                <div class="feed-text" id="feed-cpu-text">CPU usage at 15% - System nominal</div>
-                <span class="feed-tag tag-live">Live</span>
-              </div>
-              <div class="feed-item">
-                <div class="feed-text">Gemini 2.5 Flash primary + Groq fallback operational</div>
-                <span class="feed-tag tag-info">Info</span>
-              </div>
-              <div class="feed-item">
-                <div class="feed-text">Git branch main synced with remote origin</div>
-                <span class="feed-tag tag-tip">Github</span>
-              </div>
-              <div class="feed-item">
-                <div class="feed-text">Deep-work block active in IST timezone</div>
-                <span class="feed-tag tag-tip">Focus</span>
-              </div>
-              <div class="feed-item">
-                <div class="feed-text">Zero-Trust policy engine verified across all endpoints</div>
-                <span class="card-action-link" onclick="openCommandModal('Security policy status')">View Tasks</span>
-              </div>
-            </div>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">NETWORK I/O</span>
+            <span class="metric-val" id="net-val">0.0 MB/s</span>
           </div>
         </div>
 
-      </div>
-
-      <!-- ====================================================================
-           ROW 2: ACTIVE AGENTS | MISSION TIMELINE | QUICK COMMANDS
-           ==================================================================== -->
-      <div class="dash-row dash-row-2">
-
-        <!-- CARD 4: ACTIVE AGENTS (3 COLS X 2 ROWS) -->
-        <div class="card card-active-agents">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="m12 6 4 6-4 6-4-6 4-6Z"></path></svg>
-              <span>Active Agents</span>
-            </div>
-            <a class="card-action-link" onclick="openCommandModal('List all swarm persona agents')">View All ></a>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">GPU PROCESSOR</span>
+            <span class="metric-val" id="gpu-val">0%</span>
           </div>
-          <div class="card-body">
-            <div class="agents-grid">
-              <div class="agent-pill" onclick="openCommandModal('Coding Agent: inspect repository status and code quality')">
-                <div class="agent-meta">
-                  <div class="agent-name">&lt;/&gt; Coding Agent</div>
-                  <div class="agent-status active">● Active</div>
-                </div>
-                <canvas class="agent-wave" data-color="#10b981"></canvas>
-              </div>
-              <div class="agent-pill" onclick="openCommandModal('Research Agent: search web for latest AI news')">
-                <div class="agent-meta">
-                  <div class="agent-name">🔍 Research Agent</div>
-                  <div class="agent-status active">● Active</div>
-                </div>
-                <canvas class="agent-wave" data-color="#00f0ff"></canvas>
-              </div>
-              <div class="agent-pill" onclick="openCommandModal('Memory Agent: query working memory context')">
-                <div class="agent-meta">
-                  <div class="agent-name">🗄 Memory Agent</div>
-                  <div class="agent-status">● Standby</div>
-                </div>
-                <canvas class="agent-wave" data-color="#a855f7"></canvas>
-              </div>
-              <div class="agent-pill" onclick="openCommandModal('Open Opera GX')">
-                <div class="agent-meta">
-                  <div class="agent-name">🌐 Browser Agent</div>
-                  <div class="agent-status">● Standby</div>
-                </div>
-                <canvas class="agent-wave" data-color="#f59e0b"></canvas>
-              </div>
-              <div class="agent-pill" onclick="openCommandModal('Task Agent: list active mission queue')">
-                <div class="agent-meta">
-                  <div class="agent-name">☑ Task Agent</div>
-                  <div class="agent-status">● Standby</div>
-                </div>
-                <canvas class="agent-wave" data-type="dots" data-color="#38bdf8"></canvas>
-              </div>
-              <div class="agent-pill" onclick="openCommandModal('System Agent: run hardware vitals check')">
-                <div class="agent-meta">
-                  <div class="agent-name">✓ System Agent</div>
-                  <div class="agent-status">● Standby</div>
-                </div>
-                <div style="color:var(--green); font-size:16px; margin-right:8px;">✓</div>
-              </div>
-            </div>
+          <div class="metric-bar-track">
+            <div class="metric-bar-fill" id="gpu-bar" style="width: 0%"></div>
           </div>
         </div>
 
-        <!-- CARD 5: MISSION TIMELINE -->
-        <div class="card card-timeline">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span>Mission Timeline</span>
-            </div>
-            <span style="font-size:10.5px; color:var(--cyan); cursor:pointer;">Today ⌄</span>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">CORE UPTIME</span>
+            <span class="metric-val" id="uptime-val">00:00:00</span>
           </div>
-          <div class="card-body">
-            <div class="timeline-list">
-              <div class="timeline-item" onclick="openCommandModal('Status of Daily Standup')">
-                <div class="timeline-top">
-                  <div><span class="timeline-time">09:30 am</span><span class="timeline-title">Daily Standup</span></div>
-                  <div class="timeline-due" style="color:var(--cyan); font-weight:600;">Done</div>
-                </div>
-                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-cyan"></div></div>
-              </div>
-              <div class="timeline-item" onclick="openCommandModal('Status of HUD panel spacing')">
-                <div class="timeline-top">
-                  <div><span class="timeline-time">12:00 pm</span><span class="timeline-title">Finalize HUD panel spacing</span></div>
-                  <div class="timeline-due">In 42 min</div>
-                </div>
-                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-blue"></div></div>
-              </div>
-              <div class="timeline-item" onclick="openCommandModal('Deep-work block: Voice pipeline')">
-                <div class="timeline-top">
-                  <div><span class="timeline-time">02:00 pm</span><span class="timeline-title">Deep-work block: Voice pipeline</span></div>
-                  <div class="timeline-due">In 2h 42m</div>
-                </div>
-                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-orange"></div></div>
-              </div>
-              <div class="timeline-item" onclick="openCommandModal('Design Review status')">
-                <div class="timeline-top">
-                  <div><span class="timeline-time">04:30 pm</span><span class="timeline-title">Design Review — Command Center V1</span></div>
-                  <div class="timeline-due">In 5h 12m</div>
-                </div>
-                <div class="timeline-bar-bg"><div class="timeline-bar-fill fill-purple"></div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 6: QUICK COMMANDS -->
-        <div class="card card-quick-cmds">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-              <span>Quick Commands</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="quick-cmd-grid">
-              <div class="cmd-btn" onclick="openCommandModal('Start new task: ')">
-                <span style="color:var(--cyan);">➕</span><span>Start New Task</span>
-              </div>
-              <div class="cmd-btn" onclick="openCalendarApp()">
-                <span style="color:#60a5fa;">📅</span><span>Open Calendar</span>
-              </div>
-              <div class="cmd-btn" onclick="toggleVoiceCapture()">
-                <span style="color:var(--green);">🎙</span><span>Start Voice Chat</span>
-              </div>
-              <div class="cmd-btn" onclick="openCommandModal('JARVIS, prepare my workspace')">
-                <span style="color:var(--amber);">▶</span><span>Run Workflow</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ====================================================================
-           ROW 3: SYSTEM MONITOR | MEMORY INSIGHTS | LLM STATUS
-           ==================================================================== -->
-      <div class="dash-row dash-row-3">
-
-        <!-- CARD 7: SYSTEM MONITOR (RADIAL GAUGES) -->
-        <div class="card card-sys-monitor">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-              <span>System Monitor</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="gauges-container">
-              <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 64 64">
-                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
-                  <circle class="gauge-bar" id="gauge-cpu-bar" cx="32" cy="32" r="28"></circle>
-                </svg>
-                <div class="gauge-val-text" id="gauge-cpu-val">15%</div>
-                <div class="gauge-label">CPU</div>
-              </div>
-              <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 64 64">
-                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
-                  <circle class="gauge-bar" id="gauge-ram-bar" cx="32" cy="32" r="28"></circle>
-                </svg>
-                <div class="gauge-val-text" id="gauge-ram-val">54%</div>
-                <div class="gauge-label">RAM</div>
-              </div>
-              <div class="gauge-wrapper">
-                <svg class="gauge-svg" viewBox="0 0 64 64">
-                  <circle class="gauge-bg" cx="32" cy="32" r="28"></circle>
-                  <circle class="gauge-bar" id="gauge-disk-bar" cx="32" cy="32" r="28"></circle>
-                </svg>
-                <div class="gauge-val-text" id="gauge-disk-val">40%</div>
-                <div class="gauge-label">DISK</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 8: MEMORY INSIGHTS -->
-        <div class="card card-memory-insights">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-              <span>Memory Insights</span>
-            </div>
-            <a class="card-action-link" onclick="openCommandModal('Search hierarchical memory map')">View Memory Map ></a>
-          </div>
-          <div class="card-body">
-            <div class="memory-body">
-              <canvas id="constellation-canvas"></canvas>
-              <div class="memory-stats">
-                <div class="m-stat-label">Memories</div>
-                <div class="m-stat-val" id="memories-count-val">3,380</div>
-                <div class="m-stat-label">Session Turns</div>
-                <div class="m-stat-val" id="session-turns-val">24</div>
-                <div class="m-stat-label">Tool Calls</div>
-                <div class="m-stat-val" id="tool-calls-val">16</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 9: LLM STATUS (3 COLS X 3 ROWS) -->
-        <div class="card card-llm-status">
-          <div class="card-header">
-            <div class="card-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-              <span>LLM Status</span>
-            </div>
-            <span style="font-size:10.5px; color:var(--cyan); font-weight:600;" id="llm-connected-header">4 Connected</span>
-          </div>
-          <div class="card-body">
-            <div class="llm-grid">
-              <div class="llm-chip" id="chip-claude">
-                <div class="llm-name">Claude</div>
-                <div class="llm-status">Not Linked</div>
-              </div>
-              <div class="llm-chip" id="chip-openai">
-                <div class="llm-name">OpenAI</div>
-                <div class="llm-status">Not Linked</div>
-              </div>
-              <div class="llm-chip active" id="chip-gemini">
-                <div class="llm-name">Gemini <span style="color:var(--green);">●</span></div>
-                <div class="llm-status conn">Connected</div>
-              </div>
-              <div class="llm-chip active" id="chip-groq">
-                <div class="llm-name">Groq <span style="color:var(--green);">●</span></div>
-                <div class="llm-status conn">Connected</div>
-              </div>
-              <div class="llm-chip" id="chip-openrouter">
-                <div class="llm-name">OpenRouter</div>
-                <div class="llm-status">Not Linked</div>
-              </div>
-              <div class="llm-chip" id="chip-ollama">
-                <div class="llm-name">Ollama</div>
-                <div class="llm-status">No Models</div>
-              </div>
-              <div class="llm-chip active" id="chip-claudecode">
-                <div class="llm-name">Claude Code</div>
-                <div class="llm-status conn">Connected</div>
-              </div>
-              <div class="llm-chip active" id="chip-cursor">
-                <div class="llm-name">Cursor</div>
-                <div class="llm-status conn">Connected</div>
-              </div>
-              <div class="llm-chip active" id="chip-copilot">
-                <div class="llm-name">Copilot</div>
-                <div class="llm-status conn">Connected</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-
-    <!-- BOTTOM FLOATING COMMAND BAR -->
-    <footer class="bottom-bar">
-      <div class="bottom-meta">
-        <div class="bottom-meta-item">
-          <span>📍</span>
-          <span id="geo-location-text">Coimbatore, India</span>
-        </div>
-        <div class="bottom-meta-item">
-          <span>⛅</span>
-          <span id="geo-weather-text">22°C Overcast</span>
-        </div>
-        <div class="bottom-meta-item">
-          <span>📶</span>
-          <span id="geo-network-text" style="color:var(--green); font-weight:600;">Excellent (12ms)</span>
         </div>
       </div>
 
-      <!-- HERO TALK BUTTON -->
-      <div class="talk-hero-btn" onclick="toggleVoiceCapture()">
-        <div class="wave-bars">
-          <div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div>
+      <div class="hud-panel-box">
+        <div class="panel-header">
+          <span>Sensory Fabric</span>
+          <span class="tag">VOX</span>
         </div>
-        <div class="talk-text-block">
-          <div class="talk-title">TALK TO JARVIS</div>
-          <div class="talk-subtitle" id="talk-hero-subtitle">I am listening...</div>
+
+        <div class="telemetry-state-badge">
+          <span>VOICE LISTENER</span>
+          <span style="color: var(--green);" id="vox-status-badge">● ACTIVE</span>
         </div>
-        <div class="wave-bars">
-          <div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div><div class="w-bar"></div>
+
+        <div class="telemetry-state-badge gold-accent">
+          <span>ACOUSTIC WAKE</span>
+          <span style="color: var(--gold);" id="wake-status-badge">● 'JARVIS'</span>
+        </div>
+
+        <div class="telemetry-state-badge">
+          <span>AI COGNITION</span>
+          <span style="color: var(--cyan);" id="ai-engine-badge">GROQ + GEMINI</span>
+        </div>
+
+        <div class="telemetry-state-badge">
+          <span>DESKTOP FOCUS</span>
+          <span style="color: var(--text-main);" id="focus-window-label">OPERA GX</span>
         </div>
       </div>
 
-      <button class="briefing-btn" onclick="triggerExecutiveBriefing()">
-        <span>▶</span>
-        <span>Executive Briefing</span>
-      </button>
+      <div class="hud-panel-box">
+        <div class="panel-header">
+          <span>Security Matrix</span>
+          <span class="tag">4-TIER</span>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">STAND DOWN</span>
+            <span class="metric-val" style="color: var(--green);">NOMINAL</span>
+          </div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label-val">
+            <span class="metric-label">BLAST RADIUS</span>
+            <span class="metric-val">ENFORCED</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="hud-center">
+      <div class="hologram-stage-container" id="hologram-stage" title="Click anywhere to speak or tap for instant command">
+        <div class="hologram-volumetric-glow"></div>
+        <canvas id="jarvis-core-canvas"></canvas>
+      </div>
+
+      <div class="core-status-hud">
+        <div class="core-state-label" id="core-state-text">
+          <div class="state-pulse-indicator" id="state-indicator-dot"></div>
+          <span id="state-caption">READY</span>
+        </div>
+
+        <div class="core-waveform-strip" id="core-waveform"></div>
+
+        <div class="partial-transcript-display" id="partial-transcript-display" style="display:none; margin: 8px auto; font-family: var(--font-mono); font-size: 13px; color: var(--cyan); text-shadow: 0 0 10px var(--cyan); letter-spacing: 1px; max-width: 90%; text-align: center; background: rgba(0, 240, 255, 0.06); padding: 6px 14px; border-radius: 4px; border: 1px solid rgba(0, 240, 255, 0.25);">
+          <span style="opacity: 0.7;">&gt; </span><span id="partial-transcript-text"></span><span style="animation: pulse 1s infinite;">_</span>
+        </div>
+
+        <div class="core-telemetry-tag" id="core-telemetry-tag">
+          PROCEDURAL HOLOGRAPHIC REACTOR // 7 LAYERS // 60 FPS
+        </div>
+      </div>
+    </main>
+
+    <aside class="hud-rightside">
+      <div class="activity-container">
+        <div class="panel-header">
+          <span>Activity Stream</span>
+          <span class="tag">HUD FEED</span>
+        </div>
+
+        <div class="activity-stream" id="activity-stream">
+          <div class="stream-entry jarvis">
+            <div class="stream-header">
+              <span>J.A.R.V.I.S.</span>
+              <span>INIT</span>
+            </div>
+            <div class="stream-content">
+              Good evening, sir. All core subroutines are online and listening for voice commands.
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <footer class="hud-bottombar">
+      <div class="bottom-ticker-left">
+        <div class="bottom-stat">VOICE: <strong>ISOLATED / ZERO-ECHO</strong></div>
+        <div class="bottom-stat">AI CORE: <strong>ONLINE</strong></div>
+        <div class="bottom-stat">SECURITY: <strong>ENABLED</strong></div>
+        <div class="bottom-stat">PROTOCOL: <strong>MARK VII</strong></div>
+        <div class="bottom-stat">NETWORK: <strong id="net-status-text">ONLINE</strong></div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <div id="live-vox-indicator" class="hud-live-vox-pill">
+          <div class="live-vox-dot"></div>
+          <span id="live-vox-label">ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)</span>
+        </div>
+        <div class="bottom-prompt-hint" onclick="document.getElementById('observability-drawer').classList.toggle('open')">
+          [ CTRL+D: LATENCY METRICS ]
+        </div>
+        <div class="bottom-prompt-hint" onclick="openSilentHUD()">
+          [ SPACE: DIRECT HUD ]
+        </div>
+      </div>
     </footer>
-  </main>
+  </div>
 
-  <!-- INTERACTIVE COMMAND MODAL -->
-  <div class="modal-overlay" id="command-modal-overlay" onclick="closeModalOnBg(event)">
-    <div class="command-modal" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <h3>JARVIS COMMAND INTERFACE</h3>
-        <span class="modal-close" onclick="closeCommandModal()">✕</span>
+  <div class="command-hud-overlay" id="command-hud-overlay" onclick="closeSilentHUDOnBg(event)">
+    <div class="command-hud-box">
+      <div class="command-hud-header">
+        <span>// DIRECT SYSTEM INSTRUCTION</span>
+        <span style="font-size: 9px; color: var(--text-dim); cursor: pointer;" onclick="closeSilentHUD()">[ESC TO DISMISS]</span>
       </div>
-      <div class="modal-terminal" id="modal-terminal-stream">
-        <div class="term-msg term-jarvis">[JARVIS]: Systems fully operational, sir. Station Coimbatore online. How may I assist you?</div>
-      </div>
-      <div class="modal-chips">
-        <div class="modal-chip" onclick="executeFromChip('Open Opera GX')">🚀 Open Opera GX</div>
-        <div class="modal-chip" onclick="openCalendarApp()">📅 Open Calendar</div>
-        <div class="modal-chip" onclick="executeFromChip('System hardware vitals')">⚡ Hardware Vitals</div>
-        <div class="modal-chip" onclick="executeFromChip('JARVIS, prepare my workspace')">💼 Prepare Workspace</div>
-        <div class="modal-chip" onclick="executeFromChip('Show active swarm agents')">🤖 Active Agents</div>
-        <div class="modal-chip" onclick="executeFromChip('Give me an executive briefing')">🎙 Executive Briefing</div>
-      </div>
-      <div class="modal-input-row">
-        <input type="text" class="modal-input" id="modal-command-input" placeholder="Enter command or speak naturally (e.g., 'Open Opera GX', 'Hardware vitals')..." onkeydown="if(event.key==='Enter') executeModalCommand()">
-        <button class="modal-send-btn" onclick="executeModalCommand()">EXECUTE</button>
+      <input type="text" class="command-hud-input" id="silent-cmd-input" placeholder="Type instruction (e.g. 'open calc', 'launch chatgpt on opera')..." autocomplete="off" onkeydown="handleSilentKeyDown(event)">
+      <div class="command-hud-footer">
+        <span>PRESS <strong>ENTER</strong> TO EXECUTE</span>
+        <span>AUTO-EXECUTED VIA TIER 4 ENGINE</span>
       </div>
     </div>
   </div>
 
-  <audio id="jarvis-audio-player" style="display:none;"></audio>
+  <div class="observability-drawer" id="observability-drawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-gold); padding-bottom: 10px;">
+      <span style="color: var(--gold-bright); font-weight: 700; font-size: 13px; font-family: var(--font-hud);">// LATENCY & OBSERVABILITY</span>
+      <span style="font-size: 10px; color: var(--text-dim); cursor: pointer;" onclick="document.getElementById('observability-drawer').classList.remove('open')">[ESC / CTRL+D]</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+      <div class="obs-row"><span>Whisper STT Latency</span><span class="obs-val" id="obs-stt-val">0.0 ms</span></div>
+      <div class="obs-row"><span>Cognitive Reasoning (LLM)</span><span class="obs-val" id="obs-llm-val">0.0 ms</span></div>
+      <div class="obs-row"><span>Tool Execution Latency</span><span class="obs-val" id="obs-tool-val">0.0 ms</span></div>
+      <div class="obs-row"><span>Neural TTS Latency</span><span class="obs-val" id="obs-tts-val">0.0 ms</span></div>
+      <div class="obs-row" style="border-top: 1px solid var(--border-hud); padding-top: 8px;"><span>Total Voice Turnaround</span><span class="obs-val" id="obs-total-val" style="color: var(--gold-bright);">0.0 ms</span></div>
+    </div>
+    <div style="margin-top: 20px; font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; gap: 6px;">
+      <div>VOICE PIPELINE: <span style="color: var(--cyan);">CONTINUOUS STREAMING</span></div>
+      <div>AUDIO BUFFER: <span style="color: var(--green);">PCM_16 @ 16,000 Hz</span></div>
+      <div>BARGE-IN CIRCUIT: <span style="color: var(--green);">&lt; 5ms IMMEDIATE HALT</span></div>
+    </div>
+  </div>
 
-  <!-- SCRIPTS -->
   <script>
-    // Live Clock & Date
-    function updateClock() {
-      const now = new Date();
-      const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-      document.getElementById('live-date').textContent = now.toLocaleDateString('en-US', options);
-      
-      let hours = now.getHours();
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'pm' : 'am';
-      hours = hours % 12;
-      hours = hours ? hours : 12;
-      document.getElementById('live-clock').textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
+    const JarvisState = {
+      IDLE: 'IDLE',
+      LISTENING: 'LISTENING',
+      THINKING: 'THINKING',
+      EXECUTING: 'EXECUTING',
+      SPEAKING: 'SPEAKING',
+      SUCCESS: 'SUCCESS',
+      ERROR: 'ERROR'
+    };
+
+    let currentState = JarvisState.IDLE;
+    let audioEnergy = 0.0;
+    let micAnalyser = null;
+    let audioCtx = null;
+    let micStream = null;
+    let scriptProcessor = null;
+    let freqData = new Uint8Array(32);
+    let isSpeakingNow = false;
+    let isLiveCapturing = false;
+    let liveSpeechChunks = [];
+    let silenceFrames = 0;
+    let speechFrames = 0;
+    let lastDispatchedText = "";
+    let lastDispatchTime = 0;
+
+    // Developer Observability Latencies
+    const telemetryLatencies = {
+      stt_ms: 0,
+      llm_ms: 0,
+      tool_ms: 0,
+      tts_ms: 0,
+      total_ms: 0
+    };
+
+    const waveStrip = document.getElementById('core-waveform');
+    const waveBars = [];
+    for (let i = 0; i < 28; i++) {
+      const b = document.createElement('div');
+      b.className = 'wave-bar';
+      waveStrip.appendChild(b);
+      waveBars.push(b);
     }
-    setInterval(updateClock, 1000);
-    updateClock();
 
-    // Open Calendar App directly
-    function openCalendarApp() {
-      executeFromChip('Open Calendar');
-    }
-
-    // 3D Holographic Globe
-    function initHoloGlobe() {
-      const canvas = document.getElementById('holo-globe-canvas');
-      if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      let width = canvas.width = canvas.parentElement.clientWidth;
-      let height = canvas.height = canvas.parentElement.clientHeight;
-
-      window.addEventListener('resize', () => {
-        width = canvas.width = canvas.parentElement.clientWidth;
-        height = canvas.height = canvas.parentElement.clientHeight;
-      });
-
-      const dots = [];
-      const numDots = 300;
-      for (let i = 0; i < numDots; i++) {
-        const theta = Math.acos(2 * Math.random() - 1);
-        const phi = 2 * Math.PI * Math.random();
-        dots.push({ theta, phi, radius: Math.min(width, height) * 0.35 });
+    function setJarvisState(newState, caption) {
+      currentState = newState;
+      if (window.jarvisReactor) {
+        window.jarvisReactor.setState(newState);
       }
 
-      let angleX = 0;
-      let angleY = 0;
+      const stateText = document.getElementById('state-caption');
+      const dot = document.getElementById('state-indicator-dot');
+      const tag = document.getElementById('core-telemetry-tag');
 
-      function render() {
-        ctx.clearRect(0, 0, width, height);
-        const cx = width / 2;
-        const cy = height / 2;
-
-        angleY += 0.007;
-        angleX = Math.sin(angleY * 0.5) * 0.2;
-
-        // Ground perspective grid plane
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
-        ctx.lineWidth = 1;
-        const gridY = cy + Math.min(width, height) * 0.36;
-        for (let gx = -width; gx < width * 2; gx += 40) {
-          ctx.beginPath();
-          ctx.moveTo(gx, gridY);
-          ctx.lineTo(cx + (gx - cx) * 2.5, height);
-          ctx.stroke();
-        }
-
-        // Horizontal perspective grid cross lines
-        for (let gy = gridY; gy < height; gy += 16) {
-          ctx.beginPath();
-          ctx.moveTo(0, gy);
-          ctx.lineTo(width, gy);
-          ctx.stroke();
-        }
-
-        // Orbital Rings
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.26)';
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, Math.min(width, height) * 0.44, Math.min(width, height) * 0.16, angleY * 0.8, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, Math.min(width, height) * 0.48, Math.min(width, height) * 0.12, -angleY * 0.6, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Sphere Dots
-        dots.forEach(d => {
-          let x = d.radius * Math.sin(d.theta) * Math.cos(d.phi + angleY);
-          let y = d.radius * Math.sin(d.theta) * Math.sin(d.phi + angleY);
-          let z = d.radius * Math.cos(d.theta);
-
-          let y1 = y * Math.cos(angleX) - z * Math.sin(angleX);
-          let z1 = y * Math.sin(angleX) + z * Math.cos(angleX);
-
-          const scale = 300 / (300 + z1);
-          const px = cx + x * scale;
-          const py = cy + y1 * scale;
-          const alpha = Math.max(0.12, (z1 + d.radius) / (2 * d.radius));
-
-          ctx.fillStyle = `rgba(0, 240, 255, ${alpha * 0.9})`;
-          ctx.beginPath();
-          ctx.arc(px, py, 1.4 * scale, 0, Math.PI * 2);
-          ctx.fill();
-        });
-
-        requestAnimationFrame(render);
-      }
-      render();
-    }
-    initHoloGlobe();
-
-    // Active Agent Waveforms / Visualizers
-    function initAgentWaves() {
-      document.querySelectorAll('.agent-wave').forEach(cvs => {
-        const ctx = cvs.getContext('2d');
-        const color = cvs.getAttribute('data-color') || '#00f0ff';
-        const type = cvs.getAttribute('data-type') || 'wave';
-        let t = Math.random() * 100;
-
-        function draw() {
-          ctx.clearRect(0, 0, cvs.width, cvs.height);
-          t += 0.08;
-
-          if (type === 'dots') {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.2;
-            ctx.beginPath();
-            const points = [
-              {x: 4, y: 10}, {x: 14, y: 7}, {x: 24, y: 11}, {x: 34, y: 4}, {x: 42, y: 8}
-            ];
-            for (let i = 0; i < points.length; i++) {
-              if (i === 0) ctx.moveTo(points[i].x, points[i].y);
-              else ctx.lineTo(points[i].x, points[i].y);
-            }
-            ctx.stroke();
-            points.forEach(p => {
-              ctx.fillStyle = color;
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2);
-              ctx.fill();
-            });
-          } else {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            for (let x = 0; x < cvs.width; x++) {
-              const y = (cvs.height / 2) + Math.sin(x * 0.22 + t) * (cvs.height * 0.35);
-              if (x === 0) ctx.moveTo(x, y);
-              else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
-          }
-          requestAnimationFrame(draw);
-        }
-        draw();
-      });
-    }
-    initAgentWaves();
-
-    // Memory Constellation Canvas
-    function initConstellation() {
-      const cvs = document.getElementById('constellation-canvas');
-      if (!cvs) return;
-      const ctx = cvs.getContext('2d');
-      cvs.width = cvs.clientWidth;
-      cvs.height = cvs.clientHeight;
-
-      const nodes = [
-        {x: 18, y: 28}, {x: 46, y: 18}, {x: 75, y: 42},
-        {x: 110, y: 22}, {x: 140, y: 55}, {x: 178, y: 34}
-      ];
-
-      function drawConstellation() {
-        ctx.clearRect(0, 0, cvs.width, cvs.height);
-        ctx.strokeStyle = 'rgba(0, 240, 255, 0.35)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let i = 0; i < nodes.length - 1; i++) {
-          ctx.moveTo(nodes[i].x, nodes[i].y);
-          ctx.lineTo(nodes[i+1].x, nodes[i+1].y);
-        }
-        ctx.stroke();
-
-        nodes.forEach(n => {
-          ctx.fillStyle = '#00f0ff';
-          ctx.shadowColor = '#00f0ff';
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, 2.5, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.shadowBlur = 0;
-      }
-      drawConstellation();
-    }
-    initConstellation();
-
-    // Voice Sidebar Waveform
-    function initVoiceSidebarWave() {
-      const cvs = document.getElementById('voice-sidebar-canvas');
-      if (!cvs) return;
-      const ctx = cvs.getContext('2d');
-      cvs.width = cvs.clientWidth;
-      cvs.height = cvs.clientHeight;
-      let phase = 0;
-
-      function renderWave() {
-        ctx.clearRect(0, 0, cvs.width, cvs.height);
-        const bars = 22;
-        const bWidth = (cvs.width / bars) - 2;
-        phase += 0.05;
-
-        for (let i = 0; i < bars; i++) {
-          const h = isRecording 
-            ? Math.max(3, Math.abs(Math.sin(phase + i * 0.4)) * (cvs.height - 2))
-            : Math.max(2, Math.sin(phase + i * 0.2) * 4 + 4.5);
-          const x = i * (bWidth + 2);
-          const y = cvs.height - h;
-          ctx.fillStyle = isRecording ? '#ef4444' : 'rgba(0, 240, 255, 0.45)';
-          ctx.fillRect(x, y, bWidth, h);
-        }
-        requestAnimationFrame(renderWave);
-      }
-      renderWave();
-    }
-    initVoiceSidebarWave();
-
-    // Real-Time Telemetry & Live Services Polling
-    async function updateTelemetry() {
-      const startTime = performance.now();
-      try {
-        const resp = await fetch('/api/v1/state');
-        const latency = Math.round(performance.now() - startTime);
-        if (!resp.ok) return;
-        const data = await resp.json();
-        const pc = data.pc || {};
-
-        // 1. System Monitor Gauges
-        const cpu = Math.round(pc.cpu_percent || 15);
-        const ram = Math.round(pc.memory_percent || 54);
-        const disk = Math.round(pc.disk_percent || 40);
-
-        setGauge('cpu', cpu);
-        setGauge('ram', ram);
-        setGauge('disk', disk);
-
-        // 2. Status Indicator
-        if (data.system && data.system.emergency_stand_down) {
-          document.getElementById('system-status-dot').className = 'status-dot warn';
-          document.getElementById('system-status-text').textContent = 'FROZEN';
-          document.getElementById('system-status-text').style.color = 'var(--red)';
-        } else {
-          document.getElementById('system-status-dot').className = 'status-dot';
-          document.getElementById('system-status-text').textContent = 'OPTIMAL';
-          document.getElementById('system-status-text').style.color = 'var(--green)';
-        }
-
-        // 3. Location & Weather (Coimbatore, India)
-        const loc = data.location || {};
-        const city = loc.city || 'Coimbatore';
-        const country = loc.country || 'India';
-        document.getElementById('geo-location-text').textContent = `${city}, ${country}`;
-        if (loc.temperature_c) {
-          document.getElementById('geo-weather-text').textContent = `${loc.temperature_c}°C ${loc.condition || 'Overcast'}`;
-        }
-        document.getElementById('geo-network-text').textContent = `Excellent (${latency}ms)`;
-
-        // 4. AI Core Overview Vitals
-        if (data.ai) {
-          document.getElementById('vital-ai-val').textContent = data.ai.status || 'Active';
-          if (data.ai.connected_count) {
-            document.getElementById('vital-llms-val').textContent = `${data.ai.connected_count} Connected`;
-            document.getElementById('llm-connected-header').textContent = `${data.ai.connected_count} Connected`;
-          }
-        }
-
-        // 5. Memory Insights Live Counts
-        if (data.memory) {
-          document.getElementById('memories-count-val').textContent = (data.memory.stored_count || 3380).toLocaleString();
-        }
-
-        // 6. Dynamic Live Intelligence Feed
-        if (data.feed && Array.isArray(data.feed) && data.feed.length > 0) {
-          const feedEl = document.getElementById('intel-feed-container');
-          if (feedEl) {
-            feedEl.innerHTML = data.feed.map(item => `
-              <div class="feed-item" onclick="openCommandModal('${item.text}')">
-                <div class="feed-text">${item.text}</div>
-                <span class="feed-tag ${item.cls}">${item.tag}</span>
-              </div>
-            `).join('');
-          }
-        }
-      } catch (e) {
-        console.debug('Telemetry poll:', e);
+      switch (newState) {
+        case JarvisState.LISTENING:
+          stateText.textContent = caption || 'LISTENING TO YOUR VOICE...';
+          stateText.style.color = 'var(--cyan)';
+          stateText.style.textShadow = '0 0 20px rgba(0, 240, 255, 0.95)';
+          dot.style.background = 'var(--cyan)';
+          dot.style.boxShadow = '0 0 14px var(--cyan)';
+          tag.textContent = 'ACOUSTIC SENSORS // CAPTURING USER SPEECH';
+          break;
+        case JarvisState.THINKING:
+          stateText.textContent = caption || 'PROCESSING INSTRUCTION...';
+          stateText.style.color = 'var(--gold-bright)';
+          stateText.style.textShadow = '0 0 20px rgba(255, 215, 0, 0.95)';
+          dot.style.background = 'var(--gold-bright)';
+          dot.style.boxShadow = '0 0 14px var(--gold-bright)';
+          tag.textContent = 'COGNITIVE ENGINE // HEURISTIC INFERENCE';
+          break;
+        case JarvisState.EXECUTING:
+          stateText.textContent = caption || 'EXECUTING ACTIONS...';
+          stateText.style.color = 'var(--gold-bright)';
+          stateText.style.textShadow = '0 0 25px rgba(255, 170, 0, 1)';
+          dot.style.background = 'var(--gold-bright)';
+          dot.style.boxShadow = '0 0 16px var(--gold-bright)';
+          tag.textContent = 'NEURAL EXECUTION // COMPUTATIONAL DISPATCH';
+          break;
+        case JarvisState.SPEAKING:
+          stateText.textContent = caption || 'J.A.R.V.I.S. RESPONDING...';
+          stateText.style.color = 'var(--gold-bright)';
+          stateText.style.textShadow = '0 0 25px rgba(255, 200, 0, 1)';
+          dot.style.background = 'var(--gold-bright)';
+          dot.style.boxShadow = '0 0 18px var(--gold-bright)';
+          tag.textContent = 'AUDIO SYNTHESIS // NEURAL VOCAL DELIVERY';
+          break;
+        case JarvisState.SUCCESS:
+          stateText.textContent = caption || 'TASK COMPLETED';
+          stateText.style.color = 'var(--green)';
+          stateText.style.textShadow = '0 0 20px rgba(16, 185, 129, 0.95)';
+          dot.style.background = 'var(--green)';
+          dot.style.boxShadow = '0 0 16px var(--green)';
+          tag.textContent = 'VERIFIED // EXECUTION SUCCESSFUL';
+          break;
+        case JarvisState.ERROR:
+          stateText.textContent = caption || 'NOTICE // RE-CALIBRATING';
+          stateText.style.color = 'var(--amber)';
+          dot.style.background = 'var(--amber)';
+          tag.textContent = 'FAULT RECOVERY // NOMINAL';
+          break;
+        case JarvisState.IDLE:
+        default:
+          stateText.textContent = caption || 'READY';
+          stateText.style.color = 'var(--gold-bright)';
+          stateText.style.textShadow = '0 0 16px rgba(255, 170, 0, 0.8)';
+          dot.style.background = 'var(--gold-bright)';
+          dot.style.boxShadow = '0 0 12px var(--gold-bright)';
+          tag.textContent = 'PROCEDURAL HOLOGRAPHIC REACTOR // 7 LAYERS // 60 FPS';
+          break;
       }
     }
 
-    function setGauge(name, val) {
-      const maxCircumference = 176;
-      const offset = maxCircumference - (val / 100) * maxCircumference;
-      const bar = document.getElementById(`gauge-${name}-bar`);
-      const txt = document.getElementById(`gauge-${name}-val`);
-      if (bar) bar.style.strokeDashoffset = offset;
-      if (txt) txt.textContent = val + '%';
-    }
-
-    setInterval(updateTelemetry, 3000);
-    updateTelemetry();
-
-    // Command Modal Handlers
-    function openCommandModal(prefill = '') {
-      const modal = document.getElementById('command-modal-overlay');
-      const input = document.getElementById('modal-command-input');
-      modal.classList.add('open');
-      if (prefill) {
-        input.value = prefill;
-        executeModalCommand();
+    function initNeuralCore() {
+      if (typeof JarvisReactor3D !== 'undefined') {
+        window.jarvisReactor = new JarvisReactor3D('jarvis-core-canvas');
       } else {
-        setTimeout(() => input.focus(), 50);
+        console.warn('JarvisReactor3D loading, retrying in 80ms...');
+        setTimeout(initNeuralCore, 80);
+      }
+      updateWaveformBars();
+    }
+
+    function updateWaveformBars() {
+      if (waveBars.length > 0) {
+        if (micAnalyser && freqData) {
+          micAnalyser.getByteFrequencyData(freqData);
+        }
+
+        const now = Date.now();
+        for (let b = 0; b < waveBars.length; b++) {
+          let val = 0;
+          if (currentState === JarvisState.SPEAKING) {
+            val = 0.35 + Math.sin(now * 0.008 + b * 0.4) * 0.35;
+          } else if (micAnalyser && freqData) {
+            val = freqData[b % freqData.length] / 255;
+          } else {
+            val = 0.15 + Math.sin(now * 0.003 + b * 0.5) * 0.12;
+          }
+
+          if (currentState === JarvisState.LISTENING) {
+            val = Math.max(0.2, val * 1.8);
+          }
+
+          const barHeight = Math.max(3, Math.min(22, val * 24));
+          waveBars[b].style.height = `${barHeight}px`;
+          waveBars[b].style.background = (currentState === JarvisState.LISTENING) ? 'var(--cyan)' : 'var(--gold)';
+          waveBars[b].style.boxShadow = (currentState === JarvisState.LISTENING) ? '0 0 8px var(--cyan)' : '0 0 6px var(--gold)';
+        }
+
+        if (window.jarvisReactor) {
+          let effectiveEnergy = audioEnergy;
+          if (currentState === JarvisState.SPEAKING) {
+            effectiveEnergy = 0.35 + Math.sin(now * 0.009) * 0.35;
+          }
+          window.jarvisReactor.updateAudio(effectiveEnergy, freqData);
+        }
+      }
+      requestAnimationFrame(updateWaveformBars);
+    }
+
+    // ==========================================================================
+    // 100% LIVE CONTINUOUS ENGLISH AUDIO STREAM (NO BUTTONS / NO PAUSE)
+    // ==========================================================================
+    function updateLiveVoxPill(capturing, text) {
+      const pill = document.getElementById('live-vox-indicator');
+      const lbl = document.getElementById('live-vox-label');
+      if (lbl && text) lbl.textContent = text;
+      if (pill) {
+        if (capturing) {
+          pill.classList.add('capturing');
+        } else {
+          pill.classList.remove('capturing');
+        }
       }
     }
 
-    function closeCommandModal() {
-      document.getElementById('command-modal-overlay').classList.remove('open');
+    function triggerBargeInHalt(initialChunk = null) {
+      // 1. Immediately pause and silence HTML5 player
+      const player = document.getElementById('jarvis-audio-player');
+      if (player) {
+        try {
+          player.pause();
+          player.currentTime = 0;
+          player.removeAttribute('src');
+        } catch (e) {}
+      }
+
+      // 2. Immediately cancel browser speech synthesis if active
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
+
+      // 3. Immediately halt server audio (pygame.mixer / soundboard) via REST
+      fetch('/api/v1/query/interrupt', { method: 'POST' }).catch(() => {});
+
+      // 4. Reset speaking flags
+      isSpeakingNow = false;
+
+      // 5. Instantly transition to listening state so user's new question is captured
+      setJarvisState(JarvisState.LISTENING, 'INTERRUPT ACKNOWLEDGED // LISTENING...');
+      updateLiveVoxPill(true, 'INTERRUPTED // LISTENING...');
+
+      isLiveCapturing = true;
+      liveSpeechChunks = initialChunk ? [initialChunk] : [];
+      silenceFrames = 0;
+      speechFrames = 1;
     }
 
-    function closeModalOnBg(e) {
-      if (e.target.id === 'command-modal-overlay') closeCommandModal();
+    async function ensureAudioLive() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        try { await audioCtx.resume(); } catch (e) {}
+      }
+      if (!micStream) {
+        await initAudioEngine();
+      }
     }
 
-    function executeFromChip(cmd) {
-      document.getElementById('modal-command-input').value = cmd;
-      executeModalCommand();
+    async function initAudioEngine() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!audioCtx) {
+          audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') {
+          try { await audioCtx.resume(); } catch (e) {}
+        }
+
+        if (!micStream) {
+          micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            video: false
+          });
+        }
+
+        const micSource = audioCtx.createMediaStreamSource(micStream);
+        micAnalyser = audioCtx.createAnalyser();
+        micAnalyser.fftSize = 64;
+        freqData = new Uint8Array(micAnalyser.frequencyBinCount);
+
+        // Connect mic ONLY to analyser (NEVER TO audioCtx.destination!)
+        micSource.connect(micAnalyser);
+
+        // Continuous Live Acoustic Stream Processor Node
+        const bufferSize = 4096;
+        scriptProcessor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+        // Silent dummy node so the Web Audio clock continues running
+        const dummyMute = audioCtx.createGain();
+        dummyMute.gain.value = 0.0;
+        dummyMute.connect(audioCtx.destination);
+
+        micSource.connect(scriptProcessor);
+        scriptProcessor.connect(dummyMute);
+
+        let bargeInFrames = 0;
+
+        // CONTINUOUS LIVE SENSORY AUDIO PROCESSING LOOP
+        scriptProcessor.onaudioprocess = (e) => {
+          const inputData = e.inputBuffer.getChannelData(0);
+
+          let sum = 0;
+          for (let i = 0; i < inputData.length; i++) {
+            sum += inputData[i] * inputData[i];
+          }
+          const rms = Math.sqrt(sum / inputData.length);
+
+          // Audio energy for visualizer & 3D holographic reactor
+          audioEnergy = Math.min(1.0, rms * 9.0);
+
+          // BARGE-IN INTERRUPTION CIRCUIT:
+          // If Jarvis is currently speaking and user begins talking, halt playback immediately!
+          if (isSpeakingNow || currentState === JarvisState.SPEAKING) {
+            const BARGE_IN_THRESHOLD = 0.035;
+            if (rms > BARGE_IN_THRESHOLD) {
+              bargeInFrames++;
+              if (bargeInFrames >= 2) {
+                console.log('⚡ [Barge-In] Vocal interruption detected! Halting Jarvis immediately.');
+                triggerBargeInHalt(new Float32Array(inputData));
+                bargeInFrames = 0;
+              }
+            } else {
+              bargeInFrames = 0;
+            }
+            return;
+          }
+          bargeInFrames = 0;
+
+          const SPEECH_THRESHOLD = 0.020;
+          const sampleRate = audioCtx ? (audioCtx.sampleRate || 44100) : 44100;
+
+          if (rms > SPEECH_THRESHOLD) {
+            // Speech energy detected!
+            speechFrames++;
+            silenceFrames = 0;
+
+            if (!isLiveCapturing) {
+              isLiveCapturing = true;
+              liveSpeechChunks = [];
+              setJarvisState(JarvisState.LISTENING, 'LISTENING TO YOUR ENGLISH SPEECH...');
+              updateLiveVoxPill(true, 'RECEIVING LIVE SPEECH...');
+            }
+
+            liveSpeechChunks.push(new Float32Array(inputData));
+
+          } else if (isLiveCapturing) {
+            // User was speaking; now a silence/thinking pause
+            silenceFrames++;
+            liveSpeechChunks.push(new Float32Array(inputData));
+
+            // Dynamic Endpointing:
+            // 1.6s of sustained quiet required before concluding speech
+            // Prevents cutting off sentences mid-thought while user formulates words
+            const framesForEnd = Math.max(12, Math.round((sampleRate / bufferSize) * 1.6));
+            const totalSamples = liveSpeechChunks.reduce((acc, c) => acc + c.length, 0);
+
+            if (silenceFrames >= framesForEnd) {
+              // Ensure at least 0.75s of speech audio was captured (ignores throat clearing / clicks)
+              if (totalSamples > sampleRate * 0.75) {
+                const chunksToProcess = [...liveSpeechChunks];
+                liveSpeechChunks = [];
+                isLiveCapturing = false;
+                silenceFrames = 0;
+                speechFrames = 0;
+                updateLiveVoxPill(false, 'ANALYZING ENGLISH INSTRUCTION...');
+                processCapturedVoice(chunksToProcess, sampleRate);
+              } else {
+                liveSpeechChunks = [];
+                isLiveCapturing = false;
+                silenceFrames = 0;
+                speechFrames = 0;
+                setJarvisState(JarvisState.IDLE, 'READY');
+                updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+              }
+            }
+          }
+        };
+
+        setInterval(() => {
+          if (!micAnalyser) return;
+          micAnalyser.getByteFrequencyData(freqData);
+        }, 30);
+
+        console.log('[AudioEngine] 100% Live Continuous English Sensors active.');
+        const voxBadge = document.getElementById('vox-status-badge');
+        if (voxBadge) {
+          voxBadge.textContent = '● LIVE 24/7';
+          voxBadge.style.color = 'var(--green)';
+        }
+        updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+
+      } catch (e) {
+        console.warn('[AudioEngine] Web Audio permission note:', e.message);
+        const voxBadge = document.getElementById('vox-status-badge');
+        if (voxBadge) {
+          voxBadge.textContent = '● CLICK WINDOW TO ACTIVATE';
+          voxBadge.style.color = 'var(--gold)';
+        }
+        updateLiveVoxPill(false, 'CLICK ANYWHERE TO UNMUTE LIVE SENSORS');
+      }
     }
 
-    async function executeModalCommand() {
-      const input = document.getElementById('modal-command-input');
-      const query = input.value.trim();
-      if (!query) return;
+    function encodeWavBlob(chunks, inputSampleRate) {
+      const targetSampleRate = 16000;
+      const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+      const fullBuffer = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        fullBuffer.set(chunk, offset);
+        offset += chunk.length;
+      }
 
-      appendModalTerminal('user', query);
-      input.value = '';
+      // 1. Automatic Gain Control (AGC) - Find peak amplitude and amplify soft voices
+      let peak = 0;
+      for (let i = 0; i < totalLength; i++) {
+        const v = Math.abs(fullBuffer[i]);
+        if (v > peak) peak = v;
+      }
+      const gain = peak > 0.005 ? Math.min(10.0, 0.92 / peak) : 1.0;
+      console.log(`[AudioEngine] Preprocessing: Peak=${peak.toFixed(4)}, AGC Gain=${gain.toFixed(2)}x`);
 
-      const thinkingId = appendModalTerminal('jarvis', 'Processing instruction, sir...');
+      // 2. High-Quality Linear Interpolation Downsampling to 16,000 Hz
+      const ratio = inputSampleRate / targetSampleRate;
+      const outputLength = Math.round(totalLength / ratio);
+      const downsampled = new Float32Array(outputLength);
+      for (let i = 0; i < outputLength; i++) {
+        const srcPos = i * ratio;
+        const i0 = Math.floor(srcPos);
+        const i1 = Math.min(i0 + 1, totalLength - 1);
+        const frac = srcPos - i0;
+        const interp = fullBuffer[i0] * (1 - frac) + fullBuffer[i1] * frac;
+        downsampled[i] = Math.max(-1.0, Math.min(1.0, interp * gain));
+      }
+
+      // 3. Construct standard 16-bit PCM WAV container
+      const wavBuffer = new ArrayBuffer(44 + outputLength * 2);
+      const view = new DataView(wavBuffer);
+
+      function writeStr(pos, s) {
+        for (let i = 0; i < s.length; i++) view.setUint8(pos + i, s.charCodeAt(i));
+      }
+
+      writeStr(0, 'RIFF');
+      view.setUint32(4, 36 + outputLength * 2, true);
+      writeStr(8, 'WAVE');
+      writeStr(12, 'fmt ');
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 1, true);
+      view.setUint32(24, targetSampleRate, true);
+      view.setUint32(28, targetSampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeStr(36, 'data');
+      view.setUint32(40, outputLength * 2, true);
+
+      let p = 44;
+      for (let i = 0; i < outputLength; i++, p += 2) {
+        const s = Math.max(-1, Math.min(1, downsampled[i]));
+        view.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+
+      return new Blob([view], { type: 'audio/wav' });
+    }
+
+    async function processCapturedVoice(chunks, sampleRate) {
+      setJarvisState(JarvisState.THINKING, 'ANALYZING ENGLISH INSTRUCTION...');
+      updateLiveVoxPill(false, 'ANALYZING FULL QUESTION...');
+      try {
+        const wavBlob = encodeWavBlob(chunks, sampleRate);
+        const resp = await fetch('/api/v1/sensory/transcribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'audio/wav' },
+          body: wavBlob
+        });
+
+        const data = await resp.json();
+
+        if (data.status === 'success' && data.transcript && data.transcript.trim()) {
+          const rawText = data.transcript.trim();
+          console.log('[Sensory Live STT: Groq Whisper English]', rawText, '(Complete:', data.is_complete, ')');
+          const cmdInput = document.getElementById('silent-cmd-input');
+          if (cmdInput) cmdInput.value = rawText;
+          dispatchJarvisCommand(rawText);
+        } else {
+          console.log('[Sensory STT] Ambient noise discarded:', data.message);
+          setJarvisState(JarvisState.IDLE, 'READY');
+          updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+        }
+      } catch (err) {
+        console.warn('[Sensory STT] Transcribe error:', err);
+        setJarvisState(JarvisState.IDLE, 'READY');
+        updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+      }
+    }
+
+    // Secondary Hands-Free Wake-Word Voice Listener ("Jarvis ...")
+    let recognition = null;
+    function initContinuousVoice() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+
+      try {
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+          const voxBadge = document.getElementById('vox-status-badge');
+          if (voxBadge) {
+            voxBadge.textContent = '● LIVE 24/7';
+            voxBadge.style.color = 'var(--green)';
+          }
+        };
+
+        recognition.onresult = (event) => {
+          if (isSpeakingNow || isLiveCapturing) return;
+
+          const lastResult = event.results[event.results.length - 1];
+          if (!lastResult.isFinal) return;
+
+          const transcript = (lastResult[0].transcript || '').trim();
+          if (!transcript) return;
+
+          const lower = transcript.toLowerCase();
+
+          // STRICT ENGLISH WAKE WORD REQUIREMENT:
+          const hasWakeWord = lower.includes('jarvis') || lower.includes('computer');
+          if (!hasWakeWord) {
+            console.debug('[ContinuousVoice] Ambient speech ignored (no wake word):', transcript);
+            return;
+          }
+
+          let cleaned = transcript
+            .replace(/\b(hey|ok|hi)?\s*jarvis\b/gi, '')
+            .replace(/\bcomputer\b/gi, '')
+            .trim()
+            .replace(/^[,:\-\s]+/, '');
+
+          if (!cleaned || cleaned.length < 2) {
+            cleaned = "hello jarvis";
+          }
+
+          const now = Date.now();
+          if (cleaned.toLowerCase() === lastDispatchedText.toLowerCase() && (now - lastDispatchTime) < 2500) {
+            return;
+          }
+          lastDispatchedText = cleaned;
+          lastDispatchTime = now;
+
+          console.log('[ContinuousVoice] Wake word command accepted:', cleaned);
+          const cmdInput = document.getElementById('silent-cmd-input');
+          if (cmdInput) cmdInput.value = cleaned;
+
+          dispatchJarvisCommand(cleaned);
+        };
+
+        recognition.onerror = (e) => {
+          console.debug('[ContinuousVoice] Recognition status:', e.error);
+        };
+
+        recognition.onend = () => {
+          if (!isSpeakingNow && !isLiveCapturing && currentState !== JarvisState.SPEAKING) {
+            setTimeout(() => {
+              if (!isSpeakingNow && !isLiveCapturing) {
+                try { recognition.start(); } catch (e) {}
+              }
+            }, 600);
+          }
+        };
+
+        try { recognition.start(); } catch (e) {}
+      } catch (err) {
+        console.warn('[ContinuousVoice] Init notice:', err);
+      }
+    }
+
+    // ==========================================================================
+    // COMMAND DISPATCHER & REAL ACTION EXECUTION
+    // ==========================================================================
+    async function dispatchJarvisCommand(query) {
+      if (!query || !query.trim()) return;
+
+      appendActivityStream('user', query);
+      setJarvisState(JarvisState.THINKING, 'PROCESSING INSTRUCTION...');
 
       try {
         const resp = await fetch('/api/v1/query', {
@@ -2241,140 +1463,328 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: query, speak: true, play_server_audio: false })
         });
+
         const data = await resp.json();
-        
-        const thinkingEl = document.getElementById(thinkingId);
-        if (thinkingEl) {
-          thinkingEl.textContent = `[JARVIS]: ${data.response || 'Instruction executed, sir.'}`;
+
+        // Execute Real Desktop Actions & Open Browser Tabs
+        if (data.actions_executed && Array.isArray(data.actions_executed)) {
+          for (const act of data.actions_executed) {
+            appendActivityStream('system', `[${act.tool}] ${JSON.stringify(act.arguments || {})}`);
+
+            if (act.tool === 'browse_web' && act.arguments && act.arguments.url) {
+              const u = act.arguments.url;
+              try {
+                const w = window.open(u, '_blank');
+                if (!w || w.closed || typeof w.closed === 'undefined') {
+                  appendActivityStream('system', `[TAB OPENED VIA OS] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">Click to focus: ${u}</a>`);
+                }
+              } catch (err) {
+                appendActivityStream('system', `[TAB OPENED VIA OS] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">Click to focus: ${u}</a>`);
+              }
+            } else if (act.tool === 'launch_app' && act.result && act.result.path && act.result.path.startsWith('http')) {
+              const u = act.result.path;
+              appendActivityStream('system', `[WEB APP ACTIVATED] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">${u}</a>`);
+            } else if (act.tool === 'manage_browser' && act.arguments && act.arguments.action === 'open_bookmarks') {
+              try {
+                window.open('opera://bookmarks', '_blank');
+              } catch (err) {}
+            } else if (act.tool === 'send_message' && act.result && act.result.platform === 'web') {
+              const u = 'https://web.whatsapp.com/send?text=' + encodeURIComponent(act.result.message || '');
+              try {
+                window.open(u, '_blank');
+              } catch (err) {}
+            }
+          }
+        }
+
+        const reply = data.response || 'Action completed, sir.';
+        appendActivityStream('jarvis', reply);
+
+        if (data.soundboard_url || data.has_audio) {
+          const audioUrl = data.soundboard_url || ('/api/v1/query/audio/latest?t=' + Date.now());
+          playJarvisVoice(audioUrl, reply);
         } else {
-          appendModalTerminal('jarvis', data.response || 'Instruction executed, sir.');
+          setJarvisState(JarvisState.IDLE, 'READY');
         }
 
-        const turnsEl = document.getElementById('session-turns-val');
-        if (turnsEl) turnsEl.textContent = parseInt(turnsEl.textContent || 24) + 1;
-
-        if (data.soundboard_url) {
-          playAudioUrl(data.soundboard_url);
-        } else if (data.has_audio) {
-          playAudioUrl('/api/v1/query/audio/latest?t=' + Date.now());
-        }
-
-        updateTelemetry();
-      } catch (err) {
-        appendModalTerminal('jarvis', `Error executing command: ${err.message}`);
+      } catch (e) {
+        appendActivityStream('system', `Notice: Execution error - ${e.message}`);
+        setJarvisState(JarvisState.ERROR, 'ERROR ENCOUNTERED');
+        setTimeout(() => setJarvisState(JarvisState.IDLE, 'READY'), 2500);
       }
     }
 
-    let msgCounter = 0;
-    function appendModalTerminal(role, text) {
-      const stream = document.getElementById('modal-terminal-stream');
-      const msg = document.createElement('div');
-      const id = 'msg-' + (++msgCounter);
-      msg.id = id;
-      msg.className = `term-msg ${role === 'user' ? 'term-user' : 'term-jarvis'}`;
-      msg.textContent = `[${role === 'user' ? 'Tony' : 'JARVIS'}]: ${text}`;
-      stream.appendChild(msg);
-      stream.scrollTop = stream.scrollHeight;
-      return id;
-    }
-
-    function playAudioUrl(url) {
+    function playJarvisVoice(audioUrl, vocalText) {
       const player = document.getElementById('jarvis-audio-player');
-      player.src = url;
-      player.play().catch(e => console.log('Audio autoplay:', e));
+
+      isSpeakingNow = true;
+      if (recognition) {
+        try { recognition.abort(); } catch (e) {}
+      }
+
+      setJarvisState(JarvisState.SPEAKING, 'J.A.R.V.I.S. RESPONDING...');
+      player.src = audioUrl;
+
+      const onVocalEnd = () => {
+        setTimeout(() => {
+          if (isLiveCapturing || currentState === JarvisState.LISTENING) {
+            return;
+          }
+          isSpeakingNow = false;
+          setJarvisState(JarvisState.IDLE, 'READY');
+          updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+          if (recognition) {
+            try { recognition.start(); } catch (e) {}
+          }
+        }, 600);
+      };
+
+      const fallbackBrowserSpeech = () => {
+        if ('speechSynthesis' in window && vocalText) {
+          try {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(vocalText);
+            utter.rate = 1.0;
+            utter.pitch = 0.95;
+            const voices = window.speechSynthesis.getVoices();
+            const gb = voices.find(v => (v.lang && v.lang.includes('GB')) || (v.name && (v.name.includes('British') || v.name.includes('UK') || v.name.includes('English'))));
+            if (gb) utter.voice = gb;
+            utter.onend = onVocalEnd;
+            utter.onerror = onVocalEnd;
+            window.speechSynthesis.speak(utter);
+            return;
+          } catch (e) {}
+        }
+        onVocalEnd();
+      };
+
+      player.onended = onVocalEnd;
+      player.onerror = () => {
+        console.warn('[VoicePlayer] HTML5 audio error. Invoking speech synthesis fallback.');
+        fallbackBrowserSpeech();
+      };
+
+      player.play().catch((err) => {
+        console.warn('[VoicePlayer] Playback blocked by browser autoplay policy:', err);
+        fallbackBrowserSpeech();
+      });
     }
 
-    // Voice Capture (Web Speech API)
-    let isRecording = false;
-    let recognition = null;
+    function appendActivityStream(role, text) {
+      const stream = document.getElementById('activity-stream');
+      if (!stream) return;
 
-    function toggleVoiceCapture() {
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-        openCommandModal();
+      const timeStr = new Date().toLocaleTimeString();
+      const item = document.createElement('div');
+      item.className = `stream-entry ${role}`;
+
+      let roleLabel = 'SYSTEM';
+      if (role === 'jarvis') roleLabel = 'J.A.R.V.I.S.';
+      else if (role === 'user') roleLabel = 'TONY';
+
+      item.innerHTML = `
+        <div class="stream-header">
+          <span>${roleLabel}</span>
+          <span>${timeStr}</span>
+        </div>
+        <div class="stream-content">${text}</div>
+      `;
+
+      stream.appendChild(item);
+      stream.scrollTop = stream.scrollHeight;
+    }
+
+    // ==========================================================================
+    // SYSTEM TELEMETRY
+    // ==========================================================================
+    async function updateVitals() {
+      try {
+        const resp = await fetch('/api/v1/state');
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        const pc = data.pc || {};
+        const cpu = Math.round(pc.cpu_percent || 0);
+        const ram = Math.round(pc.memory_percent || 0);
+        const net = pc.network_mb_s !== undefined ? pc.network_mb_s : 0.0;
+        const gpu = pc.gpu_percent !== undefined ? Math.round(pc.gpu_percent) : Math.round(cpu * 0.45);
+
+        document.getElementById('cpu-val').textContent = `${cpu}%`;
+        document.getElementById('cpu-bar').style.width = `${Math.min(100, cpu)}%`;
+
+        document.getElementById('ram-val').textContent = `${ram}% (${pc.memory_used_gb || 0}/${pc.memory_total_gb || 0} GB)`;
+        document.getElementById('ram-bar').style.width = `${Math.min(100, ram)}%`;
+
+        document.getElementById('net-val').textContent = `${net.toFixed(1)} MB/s`;
+
+        document.getElementById('gpu-val').textContent = `${gpu}% (${pc.gpu_name || 'Intel UHD'})`;
+        document.getElementById('gpu-bar').style.width = `${Math.min(100, gpu)}%`;
+
+        const uptimeSec = data.system?.uptime_seconds || 0;
+        const hrs = String(Math.floor(uptimeSec / 3600)).padStart(2, '0');
+        const mins = String(Math.floor((uptimeSec % 3600) / 60)).padStart(2, '0');
+        const secs = String(uptimeSec % 60).padStart(2, '0');
+        document.getElementById('uptime-val').textContent = `${hrs}:${mins}:${secs}`;
+
+        if (pc.active_window) {
+          const winLabel = pc.active_window.length > 22 ? pc.active_window.substring(0, 20) + '...' : pc.active_window;
+          document.getElementById('focus-window-label').textContent = winLabel;
+        }
+
+        if (data.ai) {
+          document.getElementById('ai-engine-badge').textContent = data.ai.primary || 'ACTIVE';
+        }
+
+      } catch (err) {}
+    }
+
+    // ==========================================================================
+    // SILENT HUD COMMAND BAR
+    // ==========================================================================
+    function openSilentHUD() {
+      const modal = document.getElementById('command-hud-overlay');
+      const input = document.getElementById('silent-cmd-input');
+      modal.classList.add('active');
+      setTimeout(() => input.focus(), 60);
+    }
+
+    function closeSilentHUD() {
+      document.getElementById('command-hud-overlay').classList.remove('active');
+    }
+
+    function closeSilentHUDOnBg(e) {
+      if (e.target.id === 'command-hud-overlay') closeSilentHUD();
+    }
+
+    function handleSilentKeyDown(e) {
+      if (e.key === 'Enter') {
+        const input = document.getElementById('silent-cmd-input');
+        const val = input.value.trim();
+        if (val) {
+          closeSilentHUD();
+          input.value = '';
+          dispatchJarvisCommand(val);
+        }
+      } else if (e.key === 'Escape') {
+        closeSilentHUD();
+      }
+    }
+
+    function updateLatencyHUD() {
+      const stt = document.getElementById('obs-stt-val');
+      const llm = document.getElementById('obs-llm-val');
+      const tool = document.getElementById('obs-tool-val');
+      const tts = document.getElementById('obs-tts-val');
+      const total = document.getElementById('obs-total-val');
+      if (stt) stt.textContent = `${telemetryLatencies.stt_ms.toFixed(1)} ms`;
+      if (llm) llm.textContent = `${telemetryLatencies.llm_ms.toFixed(1)} ms`;
+      if (tool) tool.textContent = `${telemetryLatencies.tool_ms.toFixed(1)} ms`;
+      if (tts) tts.textContent = `${telemetryLatencies.tts_ms.toFixed(1)} ms`;
+      if (total) total.textContent = `${(telemetryLatencies.stt_ms + telemetryLatencies.llm_ms + telemetryLatencies.tool_ms + telemetryLatencies.tts_ms).toFixed(1)} ms`;
+    }
+
+    function initWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      let ws = null;
+      try {
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          console.log('⚡ [HUD] Real-time full-duplex WebSocket connected.');
+        };
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.channel === 'voice_state') {
+              if (data.current_state) {
+                setJarvisState(data.current_state, data.details?.caption);
+              }
+            } else if (data.channel === 'partial_stt') {
+              const display = document.getElementById('partial-transcript-display');
+              const textSpan = document.getElementById('partial-transcript-text');
+              if (display && textSpan) {
+                if (data.text) {
+                  display.style.display = 'block';
+                  textSpan.textContent = data.text;
+                } else {
+                  display.style.display = 'none';
+                }
+              }
+            } else if (data.channel === 'chat') {
+              if (data.user) appendActivityStream('user', data.user);
+              if (data.jarvis) appendActivityStream('jarvis', data.jarvis);
+            }
+          } catch (e) {}
+        };
+        ws.onclose = () => {
+          setTimeout(initWebSocket, 2500);
+        };
+      } catch (err) {
+        setTimeout(initWebSocket, 3000);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      // Developer Observability Panel Toggle: Ctrl+D
+      if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        const drawer = document.getElementById('observability-drawer');
+        if (drawer) drawer.classList.toggle('open');
         return;
       }
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      if (!isRecording) {
-        recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-          isRecording = true;
-          document.getElementById('mic-toggle-btn').classList.add('listening');
-          document.getElementById('voice-status-caption').textContent = 'Listening...';
-          document.getElementById('talk-hero-subtitle').textContent = 'Listening to your voice...';
-        };
-
-        recognition.onresult = (e) => {
-          const transcript = e.results[0][0].transcript;
-          openCommandModal();
-          document.getElementById('modal-command-input').value = transcript;
-          executeModalCommand();
-        };
-
-        recognition.onend = () => {
-          isRecording = false;
-          document.getElementById('mic-toggle-btn').classList.remove('listening');
-          document.getElementById('voice-status-caption').textContent = 'Tap to Speak';
-          document.getElementById('talk-hero-subtitle').textContent = 'I am listening...';
-        };
-
-        recognition.onerror = () => {
-          isRecording = false;
-          document.getElementById('mic-toggle-btn').classList.remove('listening');
-        };
-
-        recognition.start();
-      } else {
-        if (recognition) recognition.stop();
+      // Physical key barge-in: If Jarvis is currently speaking, Escape/Space/q halts immediately
+      if (isSpeakingNow || currentState === JarvisState.SPEAKING) {
+        if (e.code === 'Escape' || e.code === 'Space' || e.key === 'q') {
+          e.preventDefault();
+          console.log('⚡ [Barge-In] Keyboard interrupt signal received.');
+          triggerBargeInHalt();
+          return;
+        }
       }
-    }
 
-    function triggerExecutiveBriefing() {
-      openCommandModal('JARVIS, give me an executive briefing on system status and Coimbatore weather');
-    }
-
-    let focusActive = false;
-    function toggleFocusMode() {
-      focusActive = !focusActive;
-      alert(focusActive ? 'Focus Mode Engaged: Desktop notifications minimized, sir.' : 'Focus Mode Disengaged: Normal operations resumed.');
-    }
-
-    // Keybindings (⌘K / Ctrl+K)
-    window.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.code === 'Space' || (e.ctrlKey && e.key === 'k') || e.key === '/') {
         e.preventDefault();
-        openCommandModal();
-      }
-      if (e.key === 'Escape') {
-        closeCommandModal();
+        openSilentHUD();
       }
     });
 
-    // WebSocket Integration
-    function connectWebSocket() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      const ws = new WebSocket(wsUrl);
+    setInterval(() => {
+      document.getElementById('hud-clock').textContent = new Date().toLocaleTimeString();
+    }, 1000);
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.channel === 'chat') {
-            appendModalTerminal('jarvis', data.jarvis);
+    window.addEventListener('DOMContentLoaded', () => {
+      initNeuralCore();
+      initAudioEngine();
+      initContinuousVoice();
+      initWebSocket();
+      updateVitals();
+      setInterval(updateVitals, 2000);
+      document.getElementById('hud-clock').textContent = new Date().toLocaleTimeString();
+
+      // Tap core sphere to interrupt if speaking, or ensure live audio context is active
+      const stage = document.getElementById('hologram-stage');
+      if (stage) {
+        stage.addEventListener('click', (e) => {
+          if (isSpeakingNow || currentState === JarvisState.SPEAKING) {
+            console.log('⚡ [Barge-In] Stage click interrupt triggered.');
+            triggerBargeInHalt();
+            return;
           }
-        } catch (e) {
-          console.debug(e);
-        }
-      };
+          ensureAudioLive();
+        });
+      }
+    });
 
-      ws.onclose = () => {
-        setTimeout(connectWebSocket, 4000);
-      };
-    }
-    connectWebSocket();
+    window.addEventListener('click', () => {
+      ensureAudioLive();
+      const player = document.getElementById('jarvis-audio-player');
+      if (player && player.paused && !player.src) {
+        player.play().catch(() => {});
+      }
+    }, { once: true });
+
   </script>
 </body>
 </html>

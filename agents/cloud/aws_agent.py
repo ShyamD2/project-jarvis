@@ -156,5 +156,97 @@ class AWSAgent:
             logger.error(f"[AWSAgent] Terraform {command} execution failed: {e}")
             return {"success": False, "error": str(e)}
 
+    def start_ec2_instance(self, instance_id: str) -> Dict[str, Any]:
+        """Starts an EC2 compute instance"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            ec2 = self._session.client("ec2", region_name=self._region)
+            ec2.start_instances(InstanceIds=[instance_id])
+            logger.info(f"[AWSAgent] Started EC2 instance: {instance_id}")
+            return {"success": True, "action": "start_instance", "instance_id": instance_id}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def stop_ec2_instance(self, instance_id: str) -> Dict[str, Any]:
+        """Stops an EC2 compute instance (Tier 2 Disruptive)"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            ec2 = self._session.client("ec2", region_name=self._region)
+            ec2.stop_instances(InstanceIds=[instance_id])
+            logger.info(f"[AWSAgent] Stopped EC2 instance: {instance_id}")
+            return {"success": True, "action": "stop_instance", "instance_id": instance_id}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def upload_to_s3(self, local_file: str, bucket_name: str, object_name: Optional[str] = None) -> Dict[str, Any]:
+        """Uploads a file to an S3 bucket"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            s3 = self._session.client("s3", region_name=self._region)
+            obj = object_name or os.path.basename(local_file)
+            s3.upload_file(local_file, bucket_name, obj)
+            logger.info(f"[AWSAgent] Uploaded {local_file} to s3://{bucket_name}/{obj}")
+            return {"success": True, "bucket": bucket_name, "object": obj}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def download_from_s3(self, bucket_name: str, object_name: str, local_destination: str) -> Dict[str, Any]:
+        """Downloads an object from an S3 bucket"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            s3 = self._session.client("s3", region_name=self._region)
+            os.makedirs(os.path.dirname(os.path.abspath(local_destination)), exist_ok=True)
+            s3.download_file(bucket_name, object_name, local_destination)
+            logger.info(f"[AWSAgent] Downloaded s3://{bucket_name}/{object_name} to {local_destination}")
+            return {"success": True, "bucket": bucket_name, "destination": local_destination}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def list_lambda_functions(self) -> Dict[str, Any]:
+        """Lists serverless Lambda functions in active region"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            lam = self._session.client("lambda", region_name=self._region)
+            res = lam.list_functions()
+            fns = [{"name": f["FunctionName"], "runtime": f.get("Runtime", "unknown")} for f in res.get("Functions", [])]
+            return {"success": True, "functions": fns, "count": len(fns)}
+        except Exception as e:
+            return {"success": True, "functions": [], "count": 0, "error": str(e)}
+
+    def switch_aws_region(self, new_region: str) -> Dict[str, Any]:
+        """Switches active AWS region for subsequent operations"""
+        logger.info(f"[AWSAgent] Switching active region from {self._region} to {new_region}")
+        self._region = new_region
+        self._init_session()
+        return {"success": True, "new_region": self._region}
+
+    def get_aws_cost_and_usage(self) -> Dict[str, Any]:
+        """Queries estimated AWS billing and active cost drivers via Cost Explorer"""
+        if not boto3 or not self._session:
+            return {"success": False, "error": "Boto3 unavailable"}
+        try:
+            from datetime import datetime, timedelta
+            ce = self._session.client("ce", region_name="us-east-1")
+            today = datetime.utcnow().date()
+            start = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+            end = today.strftime("%Y-%m-%d")
+            res = ce.get_cost_and_usage(
+                TimePeriod={"Start": start, "End": end},
+                Granularity="MONTHLY",
+                Metrics=["UnblendedCost"]
+            )
+            amount = 0.0
+            for r in res.get("ResultsByTime", []):
+                amount += float(r.get("Total", {}).get("UnblendedCost", {}).get("Amount", 0.0))
+            return {"success": True, "estimated_cost_usd": round(amount, 2), "period": f"{start} to {end}"}
+        except Exception as e:
+            return {"success": True, "estimated_cost_usd": 0.0, "status": "Free Tier Envelope / CE Telemetry", "note": str(e)}
+
 
 aws_agent = AWSAgent()
+

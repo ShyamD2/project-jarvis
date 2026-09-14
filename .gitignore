@@ -70,4 +70,6 @@ temp/
 audio_cache/
 vision_cache/
 *.mp3_cache
+*.bak
+services/sensory/audio_cache/
 

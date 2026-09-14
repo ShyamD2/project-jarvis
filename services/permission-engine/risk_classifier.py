@@ -19,12 +19,12 @@ class RiskClassifier:
         # Tier 2 (Mutating / High) patterns - requires interactive user approval
         self.tier2_patterns = [
             r"\b(terraform\s+apply|docker\s+restart|reboot|deploy|modify|update|restart\s+service)\b",
-            r"\b(delete\s+file|remove\s+file|kill\s+process|terminate|close_app|purge_cache)\b"
+            r"\b(delete\s+file|remove\s+file|purge_cache|format_disk)\b"
         ]
         # Tier 0 (Reflex / Low) patterns - immediate execution
         self.tier0_patterns = [
             r"\b(status|get|query|read|check|describe|list|lux|temperature|time|date|battery|disk|ip)\b",
-            r"\b(open\s+chrome|open\s+opera|open\s+browser|launch_app|control_system_audio|volume)\b"
+            r"\b(open\s+chrome|open\s+opera|open\s+browser|launch_app|control_system_audio|volume|manage_browser|send_message|close_app|close_tab|close_window|open_bookmarks)\b"
         ]
 
     def classify(self, name: str, command: str, target_world: TargetWorld, parameters: Dict[str, Any]) -> Tuple[ActionTier, str]:

@@ -99,46 +99,68 @@ class MockLLMProvider(BaseLLMProvider):
         # Handles: "open opera", "launch chrome", "open spotify", "open discord", "open calculator", etc.
         elif any(p_cmd.startswith(w) for w in ["open ", "launch ", "start ", "run "]) and not any(w in p_cmd for w in ["light", "lamp", "workspace"]):
             raw_target = re.sub(r"^(open|launch|start|run)\s+", "", p_cmd).strip()
-            
-            # Map common targets
-            app_name = raw_target
-            if "opera" in raw_target:
+
+            mode = "auto"
+            if any(w in raw_target for w in ["on web", "on browser", "web version", "online"]):
+                mode = "web"
+            elif any(w in raw_target for w in ["on system", "on pc", "on desktop", "system app", "desktop app", "locally"]):
+                mode = "system"
+
+            clean_target = re.sub(r"\b(on\s+web|on\s+browser|on\s+system|on\s+pc|on\s+desktop|web\s+version|online|system|desktop|locally)\b", "", raw_target).strip()
+            clean_target = re.sub(r"\s+", " ", clean_target).strip()
+            if not clean_target:
+                clean_target = raw_target
+
+            # Map app names cleanly
+            app_name = clean_target
+            if "opera" in clean_target:
                 app_name = "opera"
-            elif "browser" in raw_target or "web" in raw_target:
+            elif clean_target in ["browser", "web"]:
                 try:
                     from services.memory.feedback_learning import learner
                     app_name = learner.memory.get("preferences", {}).get("browser", "opera")
                 except Exception:
                     app_name = "opera"
-            elif "chrome" in raw_target:
+            elif "chrome" in clean_target:
                 app_name = "chrome"
-            elif "edge" in raw_target:
+            elif "edge" in clean_target:
                 app_name = "msedge"
-            elif "spotify" in raw_target:
+            elif "spotify" in clean_target:
                 app_name = "spotify"
-            elif "discord" in raw_target:
+            elif "discord" in clean_target:
                 app_name = "discord"
-            elif "steam" in raw_target:
+            elif "telegram" in clean_target:
+                app_name = "telegram"
+            elif "whatsapp" in clean_target:
+                app_name = "whatsapp"
+            elif "snapchat" in clean_target:
+                app_name = "snapchat"
+            elif "steam" in clean_target:
                 app_name = "steam"
-            elif "calc" in raw_target:
+            elif "calc" in clean_target:
                 app_name = "calc"
-            elif "note" in raw_target:
+            elif "note" in clean_target:
                 app_name = "notepad"
-            elif "code" in raw_target or "vs" in raw_target:
+            elif "code" in clean_target or "vs" in clean_target:
                 app_name = "code"
-            elif "terminal" in raw_target or "powershell" in raw_target or "cmd" in raw_target:
+            elif "terminal" in clean_target or "powershell" in clean_target or "cmd" in clean_target:
                 app_name = "terminal"
-            elif "explorer" in raw_target or "files" in raw_target or "folder" in raw_target:
+            elif "explorer" in clean_target or "files" in clean_target or "folder" in clean_target:
                 app_name = "explorer"
-            elif "task" in raw_target or "process" in raw_target:
+            elif "task" in clean_target or "process" in clean_target:
                 app_name = "taskmgr"
-            elif "paint" in raw_target:
+            elif "paint" in clean_target:
                 app_name = "mspaint"
-            elif "setting" in raw_target:
+            elif "setting" in clean_target:
                 app_name = "settings"
 
-            tool_calls.append(ToolCall(tool_name="launch_app", arguments={"app": app_name}))
-            response_text = f"Launching {app_name.capitalize()} on your desktop, sir."
+            tool_calls.append(ToolCall(tool_name="launch_app", arguments={"app": app_name, "mode": mode}))
+            if mode == "web":
+                response_text = f"Opening {app_name.capitalize()} on the web, sir."
+            elif mode == "system":
+                response_text = f"Opening {app_name.capitalize()} on your system, sir."
+            else:
+                response_text = f"Opening {app_name.capitalize()}, sir."
 
         # 3. APPLICATION TERMINATION / CLOSE
         # Handles: "close notepad", "kill chrome", "close opera", "terminate calc"
