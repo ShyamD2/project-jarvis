@@ -54,17 +54,21 @@ class SystemControl:
 
     def set_volume(self, level_percent: int) -> Dict[str, Any]:
         """Sets Windows master audio volume (0 to 100) via PowerShell Audio endpoint"""
-        logger.info(f"[SystemControl] Setting audio volume to {level_percent}%")
+        try:
+            target_level = max(0, min(100, int(level_percent)))
+        except (ValueError, TypeError):
+            target_level = 50
+        logger.info(f"[SystemControl] Setting audio volume to {target_level}%")
         # PowerShell script using Audio Device endpoint
         ps_script = f"""
         $wsh = New-Object -ComObject WScript.Shell
         1..50 | ForEach-Object {{ $wsh.SendKeys([char]174) }} # Mute / Volume Down to 0
-        $steps = [math]::Round({level_percent} / 2)
+        $steps = [math]::Round({target_level} / 2)
         1..$steps | ForEach-Object {{ $wsh.SendKeys([char]175) }} # Volume Up
         """
         try:
             subprocess.run(["powershell", "-c", ps_script], capture_output=True, timeout=5)
-            return {"success": True, "volume_set": level_percent, "channel_1_logical": True}
+            return {"success": True, "volume_set": target_level, "channel_1_logical": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

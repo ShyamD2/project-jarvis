@@ -83,10 +83,22 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration for Web Dashboard & Mobile interfaces
+# Trusted CORS origins: Local workstation endpoints only (prevents cross-origin browser attacks)
+ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3000",
+    "http://127.0.0.1",
+    "http://localhost",
+]
+custom_origins = os.getenv("JARVIS_ALLOWED_ORIGINS", "")
+if custom_origins:
+    ALLOWED_ORIGINS.extend([o.strip() for o in custom_origins.split(",") if o.strip()])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -157,6 +169,12 @@ async def websocket_endpoint(websocket: WebSocket):
     Real-time full-duplex WebSocket stream for Live Dashboard HUD,
     voice audio chunks, and event subscriptions.
     """
+    origin = websocket.headers.get("origin")
+    if origin and not any(origin.startswith(prefix) for prefix in ["http://127.0.0.1", "http://localhost", "https://127.0.0.1", "https://localhost", "vscode-webview:"]):
+        logger.warning(f"[Security] Rejected unauthorized cross-origin WebSocket connection from: {origin}")
+        await websocket.close(code=1008)
+        return
+
     await ws_manager.connect(websocket)
     await ws_manager.send_personal_message(
         {"channel": "system", "message": "J.A.R.V.I.S. HUD Connected", "status": "online"},

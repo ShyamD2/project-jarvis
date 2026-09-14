@@ -49,6 +49,7 @@ class SafetyGuard:
             r"\b(terraform\s+destroy|destroy\s+infrastructure|destroy\s+all)\b",
             r"\b(permanent\s+delete|force\s+delete|rm\s+-rf|wipe\s+disk|format\s+[c-z]:|drop\s+database|truncate\s+table)\b",
             r"\b(delete\s+s3\s+bucket|delete\s+bucket|terminate\s+instance|delete\s+database|delete\s+table)\b",
+            r"\b(execute_powershell|powershell|cmd\.exe|run_script|raw_command|eval|exec)\b",
             r"\b(sign\s*out|log\s*off)\b"
         ]
 

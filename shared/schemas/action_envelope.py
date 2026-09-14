@@ -39,8 +39,8 @@ class ActionEnvelope:
     verification_spec: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
-        # Enforce automatic approval requirements for destructive actions
-        if self.tier == ActionTier.TIER_3_DESTRUCTIVE:
+        # Enforce automatic approval requirements for mutating and destructive actions
+        if self.tier in (ActionTier.TIER_2_MUTATING, ActionTier.TIER_3_DESTRUCTIVE):
             self.requires_approval = True
 
     def to_dict(self) -> Dict[str, Any]:

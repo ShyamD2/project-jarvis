@@ -28,12 +28,14 @@ class ProductivityAgent:
     def _show_windows_toast(self, title: str, message: str):
         """Displays native Windows 10/11 toast notification"""
         try:
+            safe_title = str(title).replace("'", "''")
+            safe_message = str(message).replace("'", "''")
             ps_script = f"""
             [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
             $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
             $textNodes = $template.GetElementsByTagName("text")
-            $textNodes.Item(0).AppendChild($template.CreateTextNode('{title}')) > $null
-            $textNodes.Item(1).AppendChild($template.CreateTextNode('{message}')) > $null
+            $textNodes.Item(0).AppendChild($template.CreateTextNode('{safe_title}')) > $null
+            $textNodes.Item(1).AppendChild($template.CreateTextNode('{safe_message}')) > $null
             $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Project J.A.R.V.I.S.").Show($toast)
             """

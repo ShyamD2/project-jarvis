@@ -137,7 +137,7 @@ class PermissionEngine:
                 return decision
 
         # 5. Tier 2 Mutating / HIGH Action Safeguard (Requires interactive UI approval unless pre-approved)
-        if effective_tier == ActionTier.TIER_2_MUTATING and action.requires_approval:
+        if effective_tier == ActionTier.TIER_2_MUTATING:
             if not approval_token:
                 app_req = self._create_approval_request(action, effective_tier, risk_level, rationale)
                 decision = PermissionDecision(

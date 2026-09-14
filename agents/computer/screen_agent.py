@@ -51,6 +51,7 @@ class ScreenAgent:
             logger.debug(f"PIL ImageGrab error: {e_pil}; attempting PowerShell fallback")
             # PowerShell fallback
             try:
+                safe_out = output_path.replace("'", "''")
                 ps_script = f"""
                 Add-Type -AssemblyName System.Windows.Forms
                 Add-Type -AssemblyName System.Drawing
@@ -58,7 +59,7 @@ class ScreenAgent:
                 $bmp = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
                 $graphics = [System.Drawing.Graphics]::FromImage($bmp)
                 $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-                $bmp.Save('{output_path}', [System.Drawing.Imaging.ImageFormat]::Png)
+                $bmp.Save('{safe_out}', [System.Drawing.Imaging.ImageFormat]::Png)
                 $graphics.Dispose()
                 $bmp.Dispose()
                 """

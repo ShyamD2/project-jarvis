@@ -12,6 +12,8 @@ class PolicyEngine:
         # Permitted target worlds per agent
         self.agent_world_matrix: Dict[str, Set[TargetWorld]] = {
             "windows_agent": {TargetWorld.COMPUTER},
+            "docker_agent": {TargetWorld.COMPUTER, TargetWorld.DIGITAL},
+            "git_agent": {TargetWorld.COMPUTER, TargetWorld.DIGITAL},
             "esp32_agent": {TargetWorld.PHYSICAL},
             "aws_agent": {TargetWorld.DIGITAL},
             "terraform_agent": {TargetWorld.DIGITAL},

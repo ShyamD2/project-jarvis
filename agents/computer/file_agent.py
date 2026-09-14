@@ -134,9 +134,10 @@ class FileAgent:
 
         # Safe delete via Windows Shell Recycle Bin
         try:
+            safe_path = real_path.replace("'", "''")
             ps_cmd = f"""
             Add-Type -AssemblyName Microsoft.VisualBasic
-            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{real_path}', 'OnlyErrorDialogs', 'SendToRecycleBin')
+            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{safe_path}', 'OnlyErrorDialogs', 'SendToRecycleBin')
             """
             res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
             if res.returncode == 0:

@@ -204,6 +204,21 @@ class WindowsAgent:
 
         return None
 
+    @staticmethod
+    def _open_url_safely(target_url: str) -> bool:
+        """Safely launches a URL or protocol handler via native Win32 ShellExecute without spawning cmd.exe"""
+        try:
+            os.startfile(target_url)
+            return True
+        except Exception:
+            try:
+                import webbrowser
+                webbrowser.open(target_url)
+                return True
+            except Exception as e:
+                logger.warning(f"[WindowsAgent] Safe URL launch failed for '{target_url}': {e}")
+                return False
+
     def launch_app(self, app_name: str, args: List[str] = None, mode: str = "auto") -> Dict[str, Any]:
         """
         Universally launches applications across Web and Windows System.
@@ -270,10 +285,7 @@ class WindowsAgent:
             if not target_url:
                 target_url = f"https://www.{clean_target}.com"
             logger.info(f"[WindowsAgent] Launching Web Application: {target_url}")
-            try:
-                subprocess.Popen(['cmd.exe', '/c', 'start', '', target_url])
-            except Exception:
-                os.startfile(target_url)
+            self._open_url_safely(target_url)
             time.sleep(0.3)
             focus_window_by_name("Opera")
             return {
@@ -379,10 +391,7 @@ class WindowsAgent:
             if clean_target in WEB_APPS:
                 fallback_url = WEB_APPS[clean_target]
                 logger.info(f"[WindowsAgent] System app '{clean_target}' not installed; falling back to web version: {fallback_url}")
-                try:
-                    subprocess.Popen(['cmd.exe', '/c', 'start', '', fallback_url])
-                except Exception:
-                    os.startfile(fallback_url)
+                self._open_url_safely(fallback_url)
                 time.sleep(0.3)
                 focus_window_by_name("Opera")
                 return {
@@ -407,10 +416,7 @@ class WindowsAgent:
         if clean_target in WEB_APPS:
             web_url = WEB_APPS[clean_target]
             logger.info(f"[WindowsAgent] Launching web app for '{clean_target}': {web_url}")
-            try:
-                subprocess.Popen(['cmd.exe', '/c', 'start', '', web_url])
-            except Exception:
-                os.startfile(web_url)
+            self._open_url_safely(web_url)
             time.sleep(0.3)
             focus_window_by_name("Opera")
             return {
@@ -426,10 +432,7 @@ class WindowsAgent:
         # Fallback to www.<target>.com
         fallback_url = f"https://www.{clean_target}.com"
         logger.info(f"[WindowsAgent] Launching web service fallback: {fallback_url}")
-        try:
-            subprocess.Popen(['cmd.exe', '/c', 'start', '', fallback_url])
-        except Exception:
-            os.startfile(fallback_url)
+        self._open_url_safely(fallback_url)
         time.sleep(0.3)
         focus_window_by_name("Opera")
         return {
@@ -594,10 +597,7 @@ class WindowsAgent:
 
         if is_web:
             target_url = f"https://web.whatsapp.com/send?text={encoded_text}"
-            try:
-                subprocess.Popen(['cmd.exe', '/c', 'start', '', target_url])
-            except Exception:
-                os.startfile(target_url)
+            self._open_url_safely(target_url)
             time.sleep(0.4)
             focus_window_by_name("Opera")
             return {
@@ -611,10 +611,7 @@ class WindowsAgent:
         else:
             # Native Desktop WhatsApp via protocol
             proto_url = f"whatsapp://send?text={encoded_text}"
-            try:
-                subprocess.Popen(['cmd.exe', '/c', 'start', '', proto_url])
-            except Exception:
-                os.startfile(proto_url)
+            self._open_url_safely(proto_url)
             time.sleep(0.5)
             focus_window_by_name("WhatsApp")
             return {
@@ -639,7 +636,7 @@ class WindowsAgent:
                 try:
                     os.startfile("whatsapp:")
                 except Exception:
-                    subprocess.Popen(['cmd.exe', '/c', 'start', '', 'https://web.whatsapp.com'])
+                    self._open_url_safely('https://web.whatsapp.com')
             time.sleep(0.4)
             focus_window_by_name("WhatsApp")
     def list_running_applications(self) -> Dict[str, Any]:
@@ -716,13 +713,9 @@ class WindowsAgent:
             target_url = f"https://{target_url}"
         logger.info(f"[WindowsAgent] Opening URL: {target_url}")
         ensure_interactive_desktop()
-        try:
-            subprocess.Popen(['cmd.exe', '/c', 'start', '', target_url])
-        except Exception:
-            try:
-                os.startfile(target_url)
-            except Exception as e:
-                return {"success": False, "error": str(e)}
+        success = self._open_url_safely(target_url)
+        if not success:
+            return {"success": False, "error": f"Failed to launch URL: {target_url}"}
         time.sleep(0.3)
         focus_window_by_name("Opera")
         return {"success": True, "url": target_url, "channel_1_logical": True}

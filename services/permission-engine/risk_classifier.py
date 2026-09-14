@@ -14,7 +14,8 @@ class RiskClassifier:
         self.tier3_patterns = [
             r"\b(destroy|drop\s+database|delete\s+bucket|rm\s+-rf|format\s+[c-z]:|mkfs|shutdown|erase|wipe)\b",
             r"\b(terraform\s+destroy|force\s+push|truncate\s+table|modify\s+aws\s+iam|alter\s+iam|delete\s+\d+\s+files)\b",
-            r"\b(iam|root_access|elevate_privileges|revoke_all|format_drive)\b"
+            r"\b(iam|root_access|elevate_privileges|revoke_all|format_drive)\b",
+            r"\b(execute_powershell|powershell|cmd\.exe|run_script|raw_command|eval|exec)\b"
         ]
         # Tier 2 (Mutating / High) patterns - requires interactive user approval
         self.tier2_patterns = [
