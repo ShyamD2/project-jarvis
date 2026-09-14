@@ -206,7 +206,37 @@ class WindowsAgent:
 
     @staticmethod
     def _open_url_safely(target_url: str) -> bool:
-        """Safely launches a URL or protocol handler via native Win32 ShellExecute without spawning cmd.exe"""
+        """Safely launches a URL directly in the user's browser (prioritizing Opera GX / Opera)."""
+        import os
+        import subprocess
+
+        # Priority browser candidates on Windows (Opera GX first, then Opera, Chrome, Edge)
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        prog_files = os.environ.get("ProgramFiles", "")
+        prog_files_x86 = os.environ.get("ProgramFiles(x86)", "")
+
+        browser_paths = [
+            os.path.join(local_app, r"Programs\Opera GX\opera.exe"),
+            os.path.join(local_app, r"Programs\Opera\opera.exe"),
+            os.path.join(prog_files, r"Opera GX\opera.exe"),
+            os.path.join(prog_files, r"Opera\opera.exe"),
+            os.path.join(prog_files, r"Google\Chrome\Application\chrome.exe"),
+            os.path.join(prog_files_x86, r"Google\Chrome\Application\chrome.exe"),
+            os.path.join(prog_files_x86, r"Microsoft\Edge\Application\msedge.exe"),
+            os.path.join(prog_files, r"Microsoft\Edge\Application\msedge.exe"),
+        ]
+
+        # 1. Try launching directly with the preferred browser binary for guaranteed new tab creation
+        for bp in browser_paths:
+            if bp and os.path.exists(bp):
+                try:
+                    subprocess.Popen([bp, target_url])
+                    logger.info(f"[WindowsAgent] Successfully launched URL via browser '{bp}': {target_url}")
+                    return True
+                except Exception as e:
+                    logger.warning(f"[WindowsAgent] Direct launch via '{bp}' failed: {e}")
+
+        # 2. Fallback to os.startfile
         try:
             os.startfile(target_url)
             return True

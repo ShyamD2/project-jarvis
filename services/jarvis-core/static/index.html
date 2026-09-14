@@ -1481,9 +1481,20 @@
               } catch (err) {
                 appendActivityStream('system', `[TAB OPENED VIA OS] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">Click to focus: ${u}</a>`);
               }
-            } else if (act.tool === 'launch_app' && act.result && act.result.path && act.result.path.startsWith('http')) {
-              const u = act.result.path;
-              appendActivityStream('system', `[WEB APP ACTIVATED] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">${u}</a>`);
+            } else if (act.tool === 'launch_app' && act.result && ((act.result.path && act.result.path.startsWith('http')) || act.result.mode === 'web')) {
+              const u = act.result.path || (act.arguments && act.arguments.app ? `https://web.${act.arguments.app}.com` : '');
+              if (u) {
+                try {
+                  const w = window.open(u, '_blank');
+                  if (!w || w.closed || typeof w.closed === 'undefined') {
+                    appendActivityStream('system', `[WEB APP OPENED] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">Click to focus: ${u}</a>`);
+                  } else {
+                    appendActivityStream('system', `[WEB APP OPENED] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">${u}</a>`);
+                  }
+                } catch (err) {
+                  appendActivityStream('system', `[WEB APP OPENED] <a href="${u}" target="_blank" style="color:var(--cyan);text-decoration:underline;">Click to focus: ${u}</a>`);
+                }
+              }
             } else if (act.tool === 'manage_browser' && act.arguments && act.arguments.action === 'open_bookmarks') {
               try {
                 window.open('opera://bookmarks', '_blank');
