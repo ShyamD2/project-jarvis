@@ -391,9 +391,12 @@ class AgentRuntime:
         elif tool_name == "productivity_tool":
             return f"Productivity action completed ({args.get('action')})"
         elif tool_name == "compound_workflow":
-            return result.get("message", f"Workflow {args.get('workflow')} executed")
+            return result.get("message", f"Workflow {args.get('workflow')} executed, sir.")
         elif tool_name == "analyze_screen":
-            return f"Here is what I observe on your screen: {result.get('analysis', 'Screen analyzed')}"
+            analysis = result.get("analysis", "Screen visual inspection completed, sir.")
+            if analysis.startswith(("You are", "Active", "Good", "Here is", "Desktop")):
+                return analysis
+            return f"Here is what I observe on your screen: {analysis}"
         return f"Action '{tool_name}' executed successfully"
 
 

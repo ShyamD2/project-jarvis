@@ -90,10 +90,28 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
     elif req.speak and response_text and response_text.strip():
         try:
             import asyncio
+            import base64
             voice_session.transition_to(VoiceState.SPEAKING, {"text_preview": response_text[:40]})
+
+            async def _stream_callback(idx: int, clause: str, chunk_bytes: bytes, is_last: bool):
+                try:
+                    b64_audio = base64.b64encode(chunk_bytes).decode("utf-8")
+                    await ws_manager.broadcast_audio_chunk(
+                        audio_b64=b64_audio,
+                        chunk_idx=idx,
+                        is_final=is_last,
+                        text_segment=clause
+                    )
+                except Exception as e_stream:
+                    logger.debug(f"[QueryAPI] Stream chunk broadcast notice: {e_stream}")
+
             audio_file = await asyncio.wait_for(
-                tts_engine.speak(response_text, play_audio=req.play_server_audio),
-                timeout=6.0
+                tts_engine.speak_stream(
+                    response_text,
+                    on_chunk=_stream_callback,
+                    play_audio=req.play_server_audio
+                ),
+                timeout=7.5
             )
             # Fallback to voice_synthesizer if tts_engine produced no audio
             if not audio_file:
@@ -106,7 +124,7 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
                 audio_filename = os.path.basename(audio_file)
                 audio_url = f"/api/v1/query/audio/file/{audio_filename}"
         except asyncio.TimeoutError:
-            logger.info("Voice synthesis exceeded 6.0s; completing in background task.")
+            logger.info("Voice synthesis exceeded 7.5s; completing in background task.")
             background_tasks.add_task(tts_engine.speak, response_text, req.play_server_audio)
         except Exception as e:
             logger.warning(f"Voice synthesis error: {e}")

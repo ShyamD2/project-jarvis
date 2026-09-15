@@ -1079,6 +1079,9 @@
       }
     }
 
+    let streamingAudioQueue = [];
+    let isPlayingStream = false;
+
     function triggerBargeInHalt(initialChunk = null) {
       // 1. Immediately pause and silence HTML5 player
       const player = document.getElementById('jarvis-audio-player');
@@ -1089,6 +1092,10 @@
           player.removeAttribute('src');
         } catch (e) {}
       }
+
+      // Reset streaming audio queue
+      streamingAudioQueue = [];
+      isPlayingStream = false;
 
       // 2. Immediately cancel browser speech synthesis if active
       if ('speechSynthesis' in window) {
@@ -1511,11 +1518,13 @@
         const reply = data.response || 'Action completed, sir.';
         appendActivityStream('jarvis', reply);
 
-        if (data.soundboard_url || data.audio_url || data.has_audio) {
-          const audioUrl = data.soundboard_url || data.audio_url || ('/api/v1/query/audio/latest?t=' + Date.now());
-          playJarvisVoice(audioUrl, reply);
-        } else {
-          setJarvisState(JarvisState.IDLE, 'READY');
+        if (!isPlayingStream && streamingAudioQueue.length === 0) {
+          if (data.soundboard_url || data.audio_url || data.has_audio) {
+            const audioUrl = data.soundboard_url || data.audio_url || ('/api/v1/query/audio/latest?t=' + Date.now());
+            playJarvisVoice(audioUrl, reply);
+          } else {
+            setJarvisState(JarvisState.IDLE, 'READY');
+          }
         }
 
       } catch (e) {
@@ -1523,6 +1532,73 @@
         setJarvisState(JarvisState.ERROR, 'ERROR ENCOUNTERED');
         setTimeout(() => setJarvisState(JarvisState.IDLE, 'READY'), 2500);
       }
+    }
+
+    function b64ToBlob(b64Data, contentType = '', sliceSize = 512) {
+      const byteCharacters = atob(b64Data);
+      const byteArrays = [];
+      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        const slice = byteCharacters.slice(offset, offset + sliceSize);
+        const byteNumbers = new Array(slice.length);
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+        byteArrays.push(new Uint8Array(byteNumbers));
+      }
+      return new Blob(byteArrays, { type: contentType });
+    }
+
+    function enqueueStreamingAudioChunk(audioB64, chunkIndex, isFinal) {
+      try {
+        const audioBlob = b64ToBlob(audioB64, 'audio/mpeg');
+        const blobUrl = URL.createObjectURL(audioBlob);
+        streamingAudioQueue.push({ url: blobUrl, isFinal: isFinal, index: chunkIndex });
+        if (!isPlayingStream) {
+          playNextStreamChunk();
+        }
+      } catch (e) {
+        console.warn('[HUD AudioStream] Chunk decode notice:', e);
+      }
+    }
+
+    function playNextStreamChunk() {
+      if (streamingAudioQueue.length === 0) {
+        isPlayingStream = false;
+        return;
+      }
+      isPlayingStream = true;
+      const nextItem = streamingAudioQueue.shift();
+      const player = document.getElementById('jarvis-audio-player');
+      if (!player) return;
+
+      isSpeakingNow = true;
+      if (recognition) {
+        try { recognition.abort(); } catch (e) {}
+      }
+
+      setJarvisState(JarvisState.SPEAKING, 'J.A.R.V.I.S. RESPONDING...');
+      player.src = nextItem.url;
+      player.play().catch(e => console.log('[StreamPlay playback notice]', e));
+
+      player.onended = () => {
+        try { URL.revokeObjectURL(nextItem.url); } catch (e) {}
+        if (streamingAudioQueue.length > 0) {
+          playNextStreamChunk();
+        } else {
+          isPlayingStream = false;
+          if (nextItem.isFinal) {
+            setTimeout(() => {
+              if (isLiveCapturing || currentState === JarvisState.LISTENING) return;
+              isSpeakingNow = false;
+              setJarvisState(JarvisState.IDLE, 'READY');
+              updateLiveVoxPill(false, 'ACOUSTIC SENSORS: LIVE (SPEAK ENGLISH)');
+              if (recognition) {
+                try { recognition.start(); } catch (e) {}
+              }
+            }, 500);
+          }
+        }
+      };
     }
 
     function playJarvisVoice(audioUrl, vocalText) {
@@ -1724,6 +1800,10 @@
             } else if (data.channel === 'chat') {
               if (data.user) appendActivityStream('user', data.user);
               if (data.jarvis) appendActivityStream('jarvis', data.jarvis);
+            } else if (data.channel === 'audio_stream') {
+              if (data.audio_b64) {
+                enqueueStreamingAudioChunk(data.audio_b64, data.chunk_index, data.is_final);
+              }
             }
           } catch (e) {}
         };

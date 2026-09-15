@@ -123,6 +123,25 @@ class TTSEngine:
                 logger.error(f"[TTS Engine] Failed to initialize pygame mixer: {e}")
                 raise
 
+    async def synthesize_bytes(self, text: str) -> Optional[bytes]:
+        """
+        Synthesizes text directly into MP3 bytes in-memory for ultra-low latency.
+        """
+        clean_text = self.sanitize_text(text)
+        if not clean_text or not EDGE_TTS_AVAILABLE:
+            return None
+        try:
+            communicate = edge_tts.Communicate(clean_text, self.voice, pitch=self.pitch, rate=self.rate)
+            chunks = []
+            async for chunk in communicate.stream():
+                if chunk.get("type") == "audio" and "data" in chunk:
+                    chunks.append(chunk["data"])
+            if chunks:
+                return b"".join(chunks)
+        except Exception as e:
+            logger.warning(f"[TTS Engine] In-memory byte synthesis error: {e}")
+        return None
+
     async def synthesize(self, text: str) -> Optional[str]:
         """
         Synthesizes given text into a British neural speech MP3 file.
@@ -137,18 +156,26 @@ class TTSEngine:
 
         if EDGE_TTS_AVAILABLE:
             try:
-                communicate = edge_tts.Communicate(clean_text, self.voice, pitch=self.pitch, rate=self.rate)
-                await communicate.save(audio_path)
-                return audio_path
+                audio_bytes = await self.synthesize_bytes(clean_text)
+                if audio_bytes:
+                    with open(audio_path, "wb") as f:
+                        f.write(audio_bytes)
+                    return audio_path
             except Exception as e:
                 logger.warning(f"[TTS Engine] Edge-TTS synthesis failed: {e}")
                 return None
         return None
 
-    async def speak(self, text: str, play_audio: bool = True) -> Optional[str]:
+    async def speak_stream(
+        self,
+        text: str,
+        on_chunk: Optional[Callable[[int, str, bytes, bool], Any]] = None,
+        play_audio: bool = True
+    ) -> Optional[str]:
         """
-        Full synthesis + playback routine.
-        Guarantees single-channel execution and honors barge-in interrupts.
+        Progressive sub-second streaming audio synthesizer:
+        Synthesizes sentence-by-sentence/clause-by-clause so the user hears audio in <600ms,
+        while broadcasting chunks via callback and queuing sequential playback.
         """
         self.interrupt()
         self._interrupt_event.clear()
@@ -157,44 +184,82 @@ class TTSEngine:
         if not clean:
             return None
 
-        audio_file = await self.synthesize(clean)
-        if not audio_file:
-            return None
-
-        self._current_audio_file = audio_file
-
-        # Copy to jarvis_latest.mp3 so endpoints and caches are immediately updated
-        try:
-            import shutil
-            latest_copy = os.path.join(self.output_dir, "jarvis_latest.mp3")
-            shutil.copy2(audio_file, latest_copy)
-        except Exception as e_copy:
-            logger.debug(f"[TTS] Failed to update jarvis_latest.mp3: {e_copy}")
-
-        if not play_audio:
-            return audio_file
+        clauses = self.split_into_clauses(clean)
+        if not clauses:
+            clauses = [clean]
 
         self._is_speaking = True
+        total_audio_bytes = bytearray()
+        last_audio_file = None
 
-        def _play_loop():
+        # Process first clause immediately for sub-second vocal delivery
+        for idx, clause in enumerate(clauses):
+            if self._interrupt_event.is_set():
+                break
+
+            is_last = (idx == len(clauses) - 1)
+            chunk_bytes = await self.synthesize_bytes(clause)
+            if not chunk_bytes:
+                continue
+
+            total_audio_bytes.extend(chunk_bytes)
+
+            # Invoke async or sync callback for progressive WebSocket streaming
+            if on_chunk:
+                try:
+                    res = on_chunk(idx, clause, chunk_bytes, is_last)
+                    if asyncio.iscoroutine(res):
+                        await res
+                except Exception as e_cb:
+                    logger.debug(f"[TTS Engine] Stream callback exception: {e_cb}")
+
+            # Save individual clause file for immediate progressive playback
+            clause_filename = f"jarvis_chunk_{idx}_{int(time.time() * 1000) % 1000}.mp3"
+            clause_path = os.path.join(self.output_dir, clause_filename)
             try:
-                self._ensure_mixer()
-                pygame.mixer.music.load(audio_file)
-                pygame.mixer.music.play()
-                while pygame.mixer.music.get_busy() and not self._interrupt_event.is_set():
-                    time.sleep(0.04)
-            except Exception as e:
-                logger.error(f"[TTS Playback Error]: {e}")
-            finally:
-                self._is_speaking = False
-                for cb in self._speech_done_callbacks:
-                    try:
-                        cb()
-                    except Exception:
-                        pass
+                with open(clause_path, "wb") as f:
+                    f.write(chunk_bytes)
+                last_audio_file = clause_path
+            except Exception:
+                pass
 
-        threading.Thread(target=_play_loop, daemon=True).start()
-        return audio_file
+            # If playing server audio, play first chunk immediately and subsequent in sequence
+            if play_audio and not self._interrupt_event.is_set():
+                try:
+                    self._ensure_mixer()
+                    pygame.mixer.music.load(clause_path)
+                    pygame.mixer.music.play()
+                    while pygame.mixer.music.get_busy() and not self._interrupt_event.is_set():
+                        await asyncio.sleep(0.03)
+                except Exception as e_play:
+                    logger.debug(f"[TTS Engine] Server playback notice: {e_play}")
+
+        # Assemble and persist consolidated jarvis_latest.mp3
+        if total_audio_bytes:
+            master_file = os.path.join(self.output_dir, "jarvis_latest.mp3")
+            try:
+                with open(master_file, "wb") as f:
+                    f.write(total_audio_bytes)
+                self._current_audio_file = master_file
+                last_audio_file = master_file
+            except Exception as e_save:
+                logger.debug(f"[TTS Engine] Consolidated save error: {e_save}")
+
+        self._is_speaking = False
+        for cb in self._speech_done_callbacks:
+            try:
+                cb()
+            except Exception:
+                pass
+
+        return last_audio_file
+
+    async def speak(self, text: str, play_audio: bool = True) -> Optional[str]:
+        """
+        Standard synthesis + playback routine (delegates to progressive streaming).
+        Guarantees single-channel execution and honors barge-in interrupts.
+        """
+        return await self.speak_stream(text, play_audio=play_audio)
 
 
 tts_engine = TTSEngine()

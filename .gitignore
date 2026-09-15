@@ -72,4 +72,4 @@ vision_cache/
 *.mp3_cache
 *.bak
 services/sensory/audio_cache/
-
+services/sensory/screenshots/

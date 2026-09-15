@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 33,
-  "average_latency_ms": 3573.99,
+  "total_commands_learned": 35,
+  "average_latency_ms": 3900.69,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -144,6 +144,21 @@
         "app": "spotify"
       },
       "hits": 1
+    },
+    "launch snapchat.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "snapchat",
+        "mode": "web"
+      },
+      "hits": 1
+    },
+    "launch instagram. launch whatsapp.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "instagram"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -164,9 +179,9 @@
     "cpu": 5,
     "usage": 5,
     "open": 14,
-    "snapchat": 4,
-    "whatsapp": 2,
-    "instagram": 2,
+    "snapchat": 5,
+    "whatsapp": 3,
+    "instagram": 3,
     "up": 5,
     "the": 5,
     "browser": 3,
@@ -174,7 +189,8 @@
     "opera": 3,
     "app": 1,
     "vimba": 1,
-    "spotify": 1
+    "spotify": 1,
+    "launch": 3
   },
   "history": [
     {
@@ -254,6 +270,18 @@
       "tool": "launch_app",
       "latency_ms": 2618.56,
       "timestamp": 1789384249.902869
+    },
+    {
+      "query": "launch snapchat.",
+      "tool": "launch_app",
+      "latency_ms": 5607.3,
+      "timestamp": 1789384546.920506
+    },
+    {
+      "query": "launch instagram. launch whatsapp.",
+      "tool": "launch_app",
+      "latency_ms": 5010.98,
+      "timestamp": 1789384565.830152
     }
   ]
 }

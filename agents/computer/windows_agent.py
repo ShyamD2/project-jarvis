@@ -763,6 +763,67 @@ class WindowsAgent:
         encoded = urllib.parse.quote(query)
         return self.open_url(f"https://www.google.com/search?q={encoded}")
 
+    def get_active_window_info(self) -> Dict[str, Any]:
+        """
+        Extracts active foreground window title, process ID, and executable name.
+        Uses native Win32 API with robust desktop enumeration fallback.
+        """
+        if sys.platform != "win32":
+            return {"success": False, "title": "Non-Windows host", "process": "unknown", "pid": 0}
+
+        try:
+            import ctypes
+            u32 = ctypes.windll.user32
+            h_def = u32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if h_def:
+                u32.SetThreadDesktop(h_def)
+
+            hwnd = u32.GetForegroundWindow()
+            if hwnd:
+                length = u32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    u32.GetWindowTextW(hwnd, buff, length + 1)
+                    title = buff.value.strip()
+                    if title:
+                        pid = ctypes.c_ulong()
+                        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                        pname = psutil.Process(pid.value).name() if pid.value else "unknown"
+                        return {"success": True, "title": title, "pid": pid.value, "process": pname}
+
+            # Topmost visible desktop window fallback
+            top_window = {}
+            EnumProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+            def enum_cb(h, l):
+                if u32.IsWindowVisible(h):
+                    l_len = u32.GetWindowTextLengthW(h)
+                    if l_len > 0:
+                        b = ctypes.create_unicode_buffer(l_len + 1)
+                        u32.GetWindowTextW(h, b, l_len + 1)
+                        t = b.value.strip()
+                        if t and t not in ["Program Manager", "Windows Input Experience"]:
+                            p_val = ctypes.c_ulong()
+                            u32.GetWindowThreadProcessId(h, ctypes.byref(p_val))
+                            p_name = psutil.Process(p_val.value).name() if p_val.value else "unknown"
+                            top_window["title"] = t
+                            top_window["pid"] = p_val.value
+                            top_window["process"] = p_name
+                            return False
+                return True
+
+            enum_fn = EnumProc(enum_cb)
+            if h_def:
+                u32.EnumDesktopWindows(h_def, enum_fn, 0)
+            else:
+                u32.EnumWindows(enum_fn, 0)
+
+            if top_window:
+                return {"success": True, "title": top_window.get("title", ""), "pid": top_window.get("pid", 0), "process": top_window.get("process", "")}
+
+            return {"success": True, "title": "Windows Desktop", "pid": 0, "process": "explorer.exe"}
+        except Exception as e:
+            return {"success": False, "error": str(e), "title": "Windows Desktop", "pid": 0, "process": "explorer.exe"}
+
 
 windows_agent = WindowsAgent()
 

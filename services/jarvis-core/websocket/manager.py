@@ -37,5 +37,15 @@ class WebSocketManager:
     async def send_personal_message(self, message: Dict[str, Any], websocket: WebSocket):
         await websocket.send_text(json.dumps(message))
 
+    async def broadcast_audio_chunk(self, audio_b64: str, chunk_idx: int, is_final: bool, text_segment: str = ""):
+        """Broadcasts progressive streaming audio chunk to connected HUD and web clients"""
+        await self.broadcast({
+            "channel": "audio_stream",
+            "chunk_index": chunk_idx,
+            "audio_b64": audio_b64,
+            "is_final": is_final,
+            "text": text_segment
+        })
+
 
 ws_manager = WebSocketManager()

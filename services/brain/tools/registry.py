@@ -470,11 +470,25 @@ class CompoundWorkflowTool(JarvisTool):
         super().__init__(
             ToolDefinition(
                 name="compound_workflow",
-                description="Executes compound multi-step automation pipelines: 'dev_environment' (VS Code, Terminal, Docker, Server, Browser), 'aws_workspace' (STS, Cloud resources, AWS Console), 'movie_mode' (Volume 50%, Media launch), and 'shutdown_prep' (Save notes, verify tasks, prompt confirmation)",
+                description="Executes compound multi-step automation pipelines and protocols: 'coding_protocol' (VS Code, Terminal, HUD, 30% Vol), 'focus_protocol' (20% Vol, suppress distractions), 'meeting_protocol' (40% Vol, pause media), 'lockdown_protocol' (Mute audio, lock workstation), 'morning_briefing' (Real PC vitals & Tony Stark morning report), 'dev_environment', 'aws_workspace', 'movie_mode', and 'shutdown_prep'",
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_2_MUTATING,
                 parameters_schema={
-                    "workflow": {"type": "string", "enum": ["dev_environment", "aws_workspace", "movie_mode", "shutdown_prep"], "required": True}
+                    "workflow": {
+                        "type": "string",
+                        "enum": [
+                            "coding_protocol",
+                            "focus_protocol",
+                            "meeting_protocol",
+                            "lockdown_protocol",
+                            "morning_briefing",
+                            "dev_environment",
+                            "aws_workspace",
+                            "movie_mode",
+                            "shutdown_prep"
+                        ],
+                        "required": True
+                    }
                 }
             )
         )

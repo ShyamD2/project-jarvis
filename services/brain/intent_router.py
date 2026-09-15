@@ -77,8 +77,12 @@ class IntentRouter:
             (r"\b(message|text|send\s+message)\b", "send_message", None),
             (r"\b(check|read)\b.*\b(message|messages|whatsapp|chat)\b", "send_message", {"action": "check_latest"}),
 
+            # Snapchat Specific Routing (Web default, System override)
+            (r"\b(open|launch|start|run)\b.*\bsnapchat\b.*\b(system|systems)\b|\b(system|systems)\b.*\bsnapchat\b", "launch_app", {"app_name": "snapchat", "mode": "system"}),
+            (r"\b(open|launch|start|run)\b.*\bsnapchat\b", "launch_app", {"app_name": "snapchat", "mode": "web"}),
+
             # App Launch & Termination
-            (r"\b(open|launch|start|run)\b.*\b(whatsapp|opera|browser|chrome|edge|notepad|calculator|calc|vs\s*code|code|terminal|wt|spotify|discord|instagram|youtube|snapchat)\b", "launch_app", None),
+            (r"\b(open|launch|start|run)\b.*\b(whatsapp|opera|browser|chrome|edge|notepad|calculator|calc|vs\s*code|code|terminal|wt|spotify|discord|instagram|youtube)\b", "launch_app", None),
             (r"\b(close|shut\s+down|kill|terminate)\b.*\b(all|all\s+apps|all\s+of\s+them|everything)\b", "close_app", {"app_name": "all"}),
             (r"\b(close|kill|terminate|shut\s+down)\b.*\b(opera|browser|chrome|edge|notepad|calculator|calc|code|terminal|whatsapp)\b", "close_app", None),
 
@@ -90,6 +94,17 @@ class IntentRouter:
             (r"\b(cpu|ram|memory|disk|battery|temperature|vitals|hardware)\b", "query_system_telemetry", None),
             (r"\b(wifi|ip\s+address|ping|network\s+status|internet\s+status)\b", "network_control", None),
             (r"\b(take\s+note|quick\s+note|add\s+task|remind\s+me|set\s+timer)\b", "productivity_tool", None),
+
+            # Named Workstation Protocols (Iron Man Macros)
+            (r"\b(protocol\s+(coding|developer|dev)|(coding|developer)\s+protocol|start\s+coding\s+mode)\b", "compound_workflow", {"workflow": "coding_protocol"}),
+            (r"\b(protocol\s+focus|focus\s+protocol|focus\s+mode|enable\s+focus)\b", "compound_workflow", {"workflow": "focus_protocol"}),
+            (r"\b(protocol\s+meeting|meeting\s+protocol|meeting\s+mode)\b", "compound_workflow", {"workflow": "meeting_protocol"}),
+            (r"\b(protocol\s+lockdown|lockdown\s+protocol|initiate\s+lockdown|lockdown)\b", "compound_workflow", {"workflow": "lockdown_protocol"}),
+            (r"\b(morning\s+briefing|daily\s+briefing|good\s+morning(\s+jarvis)?)\b", "compound_workflow", {"workflow": "morning_briefing"}),
+
+            # Screen Vision & Active Window Understanding
+            (r"\b(what\s+am\s+i\s+looking\s+at|what\s+window\s+is\s+(active|open)|active\s+window|what('s|\s+is)\s+on\s+(my\s+)?screen)\b", "analyze_screen", {"query": "Identify the active window and explain what is visible on the screen."}),
+            (r"\b(look\s+at\s+(this|my\s+screen)|inspect\s+screen|analyze\s+screen|diagnose\s+screen(\s+error)?|check\s+this\s+error)\b", "analyze_screen", {"query": "Inspect the active screen, code, or terminal and diagnose any errors or contents."}),
 
             # Compound Pipelines
             (r"\b(prepare\s+(my\s+)?workspace|start\s+my\s+development\s+environment)\b", "compound_workflow", {"workflow": "dev_environment"}),

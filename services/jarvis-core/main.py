@@ -67,8 +67,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"[Lifespan] PCDaemon background task could not be started: {e}")
 
+    # Start Telegram Gateway background task
+    telegram_task = None
+    try:
+        from services.gateway.telegram_bot import telegram_gateway
+        import asyncio
+        telegram_task = asyncio.create_task(telegram_gateway.start())
+        logger.info("⚡ [Lifespan] Registered Telegram Remote Mobile Gateway.")
+    except Exception as e:
+        logger.warning(f"[Lifespan] Telegram Gateway could not be registered: {e}")
+
     yield
 
+    if 'telegram_gateway' in locals() and telegram_gateway:
+        telegram_gateway.stop()
+    if telegram_task:
+        telegram_task.cancel()
     if 'pc_daemon' in locals() and pc_daemon:
         pc_daemon.stop()
     if pc_task:

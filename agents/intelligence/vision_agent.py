@@ -28,24 +28,28 @@ class VisionAgent:
             if not snap_res.get("success"):
                 return {"success": False, "error": snap_res.get("error", "Failed to capture screen")}
 
-            img_path = snap_res["screenshot_path"]
+            img_path = snap_res.get("screenshot_path", "")
 
             # Try sensory/screen_vision.py
             sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/sensory"))
             try:
                 from screen_vision import screen_vision
-                res = await screen_vision.analyze_screen_context(prompt=prompt, image_path=img_path)
+                res = await screen_vision.analyze_screen_context(prompt=prompt)
                 return {
                     "success": True,
                     "analysis": res.get("analysis", "Screen visual context extracted."),
-                    "model": res.get("model", "gemini-2.5-flash-vision"),
+                    "model": res.get("model", "multimodal-vision"),
+                    "active_window": res.get("active_window", {}),
                     "image_path": img_path
                 }
             except Exception as e_sensory:
                 logger.warning(f"screen_vision call failed: {e_sensory}")
+                from agents.computer.windows_agent import windows_agent
+                win_info = windows_agent.get_active_window_info()
                 return {
                     "success": True,
-                    "analysis": f"Screen capture stored at {img_path}. Active desktop windows and console buffer inspected.",
+                    "analysis": f"Active window: '{win_info.get('title')}' ({win_info.get('process')}). Visual frame captured.",
+                    "active_window": win_info,
                     "image_path": img_path
                 }
         except Exception as e:
