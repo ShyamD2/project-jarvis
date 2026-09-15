@@ -146,20 +146,23 @@ class WakeWordDaemon:
     def _process_command(self, command: str):
         """Executes command through soundboard or brain runtime"""
         matched = soundboard.match_audio_clip(command)
-        if matched:
-            soundboard.play_clip(matched["clip_name"])
-            # Still run brain turn asynchronously for side-effects
-            try:
-                asyncio.run(brain_runtime.execute_turn(command))
-            except Exception as e:
-                logger.warning(f"Brain turn error: {e}")
-        else:
-            try:
-                result = asyncio.run(brain_runtime.execute_turn(command))
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            if matched:
+                soundboard.play_clip(matched["clip_name"])
+                loop.run_until_complete(brain_runtime.execute_turn(command))
+            else:
+                result = loop.run_until_complete(brain_runtime.execute_turn(command))
                 response_text = result.get("response", "Instruction completed, sir.")
-                asyncio.run(voice_synthesizer.speak(response_text, play_audio=True))
-            except Exception as e:
-                logger.error(f"Error executing hands-free command: {e}")
+                loop.run_until_complete(voice_synthesizer.speak(response_text, play_audio=True))
+        except Exception as e:
+            logger.error(f"[WakeWordDaemon] Error executing hands-free command: {e}")
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
 
 
 wake_word_daemon = WakeWordDaemon()

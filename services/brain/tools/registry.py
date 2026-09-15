@@ -823,6 +823,46 @@ class AWSListEC2Tool(JarvisTool):
         return {"success": True, "instances": instances, "count": len(instances)}
 
 
+class ClipboardDiagnosticianTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="diagnose_clipboard",
+                description="Inspects Windows clipboard for errors or code tracebacks, diagnoses root cause using AI, and automatically copies the verified fix back to clipboard for instant Ctrl+V pasting",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={}
+            )
+        )
+
+    async def execute(self, **kwargs) -> Dict[str, Any]:
+        return await windows_agent.diagnose_clipboard_error()
+
+
+class CrossDeviceRouteTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="cross_device_route",
+                description="Routes actions across registered personal devices (phone, laptop, tablet, desktop) or lists fleet status",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_0_REFLEX,
+                parameters_schema={
+                    "query": {"type": "string"},
+                    "action": {"type": "string"}
+                }
+            )
+        )
+
+    async def execute(self, query: str = "", action: str = "", **kwargs) -> Dict[str, Any]:
+        if action == "list_devices":
+            from services.cloud.device_registry import device_registry
+            return {"success": True, "devices": device_registry.list_devices()}
+        from services.cloud.device_router import device_router
+        q = query or kwargs.get("raw_query", "")
+        return await device_router.route_and_execute(q)
+
+
 # ==============================================================================
 # CENTRAL TOOL REGISTRY CLASS WITH RESILIENCE BUS
 # ==============================================================================
@@ -863,6 +903,8 @@ class ToolRegistry:
         self.register(AWSCloudHealthTool())
         self.register(AWSListS3Tool())
         self.register(AWSListEC2Tool())
+        self.register(ClipboardDiagnosticianTool())
+        self.register(CrossDeviceRouteTool())
 
         logger.info(f"Initialized ToolRegistry with {len(self._tools)} registered domain tools.")
 

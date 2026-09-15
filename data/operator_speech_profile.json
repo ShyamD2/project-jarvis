@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 35,
-  "average_latency_ms": 3900.69,
+  "total_commands_learned": 43,
+  "average_latency_ms": 5594.64,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -159,6 +159,30 @@
         "app": "instagram"
       },
       "hits": 1
+    },
+    "open whatsapp.": {
+      "tool": "launch_app",
+      "args": {
+        "app": "whatsapp",
+        "mode": "web"
+      },
+      "hits": 1
+    },
+    "open whatsapp": {
+      "tool": "launch_app",
+      "args": {
+        "app": "whatsapp",
+        "mode": "web"
+      },
+      "hits": 1
+    },
+    "open whatsapp on system": {
+      "tool": "launch_app",
+      "args": {
+        "app": "whatsapp",
+        "mode": "system"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -178,19 +202,33 @@
     "my": 5,
     "cpu": 5,
     "usage": 5,
-    "open": 14,
+    "open": 20,
     "snapchat": 5,
-    "whatsapp": 3,
+    "whatsapp": 6,
     "instagram": 3,
-    "up": 5,
-    "the": 5,
-    "browser": 3,
-    "on": 4,
-    "opera": 3,
+    "up": 7,
+    "the": 7,
+    "browser": 5,
+    "on": 7,
+    "opera": 5,
     "app": 1,
     "vimba": 1,
     "spotify": 1,
-    "launch": 3
+    "launch": 3,
+    "unjabber": 1,
+    "ram": 1,
+    "system": 1,
+    "play": 2,
+    "that": 1,
+    "for": 1,
+    "me": 1,
+    "computer": 1,
+    "your": 1,
+    "im": 1,
+    "going": 1,
+    "to": 1,
+    "a": 1,
+    "game": 1
   },
   "history": [
     {
@@ -282,6 +320,54 @@
       "tool": "launch_app",
       "latency_ms": 5010.98,
       "timestamp": 1789384565.830152
+    },
+    {
+      "query": "unjabber ram.",
+      "tool": "query_system_telemetry",
+      "latency_ms": 16931.52,
+      "timestamp": 1789486681.5916834
+    },
+    {
+      "query": "open whatsapp.",
+      "tool": "launch_app",
+      "latency_ms": 3929.93,
+      "timestamp": 1789486734.2323556
+    },
+    {
+      "query": "open whatsapp",
+      "tool": "launch_app",
+      "latency_ms": 5909.39,
+      "timestamp": 1789486754.0484855
+    },
+    {
+      "query": "open whatsapp on system",
+      "tool": "launch_app",
+      "latency_ms": 4901.0,
+      "timestamp": 1789487629.3714497
+    },
+    {
+      "query": "play that for me.",
+      "tool": "audio_media",
+      "latency_ms": 4184.24,
+      "timestamp": 1789488614.5270436
+    },
+    {
+      "query": "open up the browser, open the computer, on opera",
+      "tool": "launch_app",
+      "latency_ms": 7327.78,
+      "timestamp": 1789488672.4190512
+    },
+    {
+      "query": "open up your browser on opera",
+      "tool": "launch_app",
+      "latency_ms": 7221.37,
+      "timestamp": 1789488831.5362923
+    },
+    {
+      "query": "i'm going to play a game.",
+      "tool": "launch_app",
+      "latency_ms": 6778.42,
+      "timestamp": 1789488924.029955
     }
   ]
 }

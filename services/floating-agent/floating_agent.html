@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>J.A.R.V.I.S. // FLOATING AGENT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Three.js 3D WebGL Library & J.A.R.V.I.S. Procedural Holographic Reactor Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/static/jarvis_reactor_3d.js"></script>
+  <script>
+    if (typeof JarvisReactor3D === "undefined") {
+      document.write('<script src="../jarvis-core/static/jarvis_reactor_3d.js"><\/script>');
+    }
+  </script>
+  <style>
+    :root {
+      --bg-space: #060e1c;
+      --bg-panel: #09162a;
+      --bg-card: #0c1c36;
+      --bg-input: #040a16;
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.6);
+      --gold: #ffaa00;
+      --gold-bright: #ffd700;
+      --gold-glow: rgba(255, 170, 0, 0.6);
+      --green: #10b981;
+      --red: #ef4444;
+      --border-cyan: rgba(0, 240, 255, 0.35);
+      --text-main: #e2f1ff;
+      --text-muted: #8ba2c4;
+      --font-hud: 'Orbitron', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-ui: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    /* SOLID FLOATING WINDOW (ZERO TRANSPARENCY) */
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg-space) !important;
+      color: var(--text-main);
+      font-family: var(--font-ui);
+    }
+
+    /* DRAGGABLE REGIONS */
+    .pywebview-drag-region {
+      -webkit-app-region: drag;
+      cursor: grab;
+    }
+    .pywebview-drag-region:active {
+      cursor: grabbing;
+    }
+    .no-drag {
+      -webkit-app-region: no-drag;
+      cursor: default;
+    }
+
+    /* COMPACT FLOATING CONTAINER */
+    #agent-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: radial-gradient(circle at 50% 45%, #081a36 0%, #060e1c 70%, #030814 100%) !important;
+      border: 1.5px solid var(--border-cyan);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.2), inset 0 0 20px rgba(0, 0, 0, 0.8);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* SCI-FI GRID OVERLAY */
+    #agent-container::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+      background-size: 30px 30px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* =========================================================================
+       1. SLEEK FLOATING HEADER
+       ========================================================================= */
+    .hud-header {
+      height: 38px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+      background: rgba(6, 14, 28, 0.85);
+      z-index: 20;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      animation: pulse-dot 1.8s infinite ease-in-out;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 0.6; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .brand-name {
+      font-family: var(--font-hud);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #fff;
+      text-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hdr-btn {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: #aaeaff;
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+
+    .hdr-btn:hover {
+      background: var(--cyan);
+      color: #02060f;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .hdr-btn-screen {
+      width: auto;
+      padding: 0 8px;
+      font-size: 10px;
+      font-weight: 700;
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .hdr-btn-screen:hover {
+      background: var(--gold);
+      color: #02060f;
+      box-shadow: 0 0 10px var(--gold);
+    }
+
+    .hdr-btn-close:hover {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+      box-shadow: 0 0 10px var(--red);
+    }
+
+    /* =========================================================================
+       2. STATUS PILL & 3D ARC REACTOR (MATCHING INDEX.HTML)
+       ========================================================================= */
+    .reactor-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 10;
+      padding: 8px 12px 0;
+    }
+
+    /* EXACT PILL FROM USER SCREENSHOT */
+    .pill-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      z-index: 15;
+    }
+
+    .state-pill {
+      font-family: var(--font-hud);
+      font-size: 11px;
+      letter-spacing: 2px;
+      padding: 5px 22px;
+      border-radius: 20px;
+      background: #040f20;
+      border: 1.5px solid var(--cyan);
+      color: var(--cyan);
+      font-weight: 800;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px var(--cyan-glow);
+      transition: all 0.3s ease;
+    }
+
+    .frequency-subtext {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    /* 3D HOLOGRAM CONTAINER (FROM INDEX.HTML) */
+    .hologram-stage-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+    }
+    .hologram-stage-container:active {
+      cursor: grabbing;
+    }
+
+    /* VOLUMETRIC AURA GLOW (FROM INDEX.HTML) */
+    .hologram-volumetric-glow {
+      position: absolute;
+      width: 290px;
+      height: 290px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 170, 0, 0.28) 0%, rgba(255, 100, 0, 0.12) 40%, rgba(0, 240, 255, 0.03) 65%, transparent 80%);
+      pointer-events: none;
+      z-index: 5;
+      mix-blend-mode: screen;
+      filter: blur(20px);
+    }
+
+    #jarvis-core-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      filter: drop-shadow(0 0 18px rgba(255, 170, 0, 0.75)) drop-shadow(0 0 35px rgba(0, 240, 255, 0.4));
+    }
+
+    /* WAVEFORM BARS (FROM INDEX.HTML) */
+    .core-waveform-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 16px;
+      margin-top: 2px;
+      z-index: 15;
+    }
+
+    .wave-bar {
+      width: 2px;
+      height: 4px;
+      background: var(--gold);
+      box-shadow: 0 0 6px var(--gold);
+      border-radius: 1px;
+      transition: height 0.08s ease;
+    }
+
+    /* =========================================================================
+       3. FLOATING TRANSCRIPT & COMMAND BAR
+       ========================================================================= */
+    .hud-footer {
+      padding: 10px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #071222;
+      border-top: 1px solid rgba(0, 240, 255, 0.2);
+      z-index: 20;
+    }
+
+    .transcript-bubble {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #e2f1ff;
+      background: #091932;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 2px solid var(--cyan);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      max-height: 52px;
+      overflow-y: auto;
+      text-shadow: 0 0 6px rgba(0, 240, 255, 0.2);
+    }
+
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mic-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--green);
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .mic-btn.active {
+      animation: pulse-mic 2s infinite ease-in-out;
+    }
+
+    .mic-btn.speaking {
+      background: rgba(239, 68, 68, 0.3);
+      border-color: var(--red);
+      color: #fff;
+      box-shadow: 0 0 16px var(--red);
+    }
+
+    @keyframes pulse-mic {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 8px rgba(16, 185, 129, 0.25); }
+      50% { transform: scale(1.05); box-shadow: 0 0 16px rgba(16, 185, 129, 0.55); }
+    }
+
+    .text-input {
+      flex: 1;
+      height: 34px;
+      background: var(--bg-input);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 6px;
+      padding: 0 10px;
+      color: #fff;
+      font-family: var(--font-ui);
+      font-size: 12px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    }
+
+    .text-input::placeholder {
+      color: #5d7599;
+      font-size: 11px;
+    }
+
+    .send-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      background: var(--cyan);
+      border: none;
+      color: #02060f;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-weight: 800;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .send-btn:hover {
+      box-shadow: 0 0 14px var(--cyan);
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+<div id="agent-container">
+
+  <!-- 1. DRAGGABLE FLOATING HEADER -->
+  <header class="hud-header pywebview-drag-region">
+    <div class="brand-group">
+      <div class="brand-dot"></div>
+      <div class="brand-name">J.A.R.V.I.S.</div>
+    </div>
+    <div class="header-actions no-drag">
+      <button class="hdr-btn hdr-btn-screen" onclick="triggerScreenRecognition()" title="Analyze Display Screen">👁️ SCREEN</button>
+      <button class="hdr-btn" onclick="minimizeWindow()" title="Minimize">_</button>
+      <button class="hdr-btn hdr-btn-close" onclick="closeWindow()" title="Close">✕</button>
+    </div>
+  </header>
+
+  <!-- 2. CENTRAL REACTOR STAGE (IDENTICAL TO USER SCREENSHOT & INDEX.HTML) -->
+  <main class="reactor-stage pywebview-drag-region">
+    <!-- PILL & SUBTEXT -->
+    <div class="pill-wrapper no-drag">
+      <div class="state-pill" id="agent-state-label">STANDBY // IDLE</div>
+      <div class="frequency-subtext" id="state-subtext">CORE STABILIZER: ONLINE &bull; SCREEN &amp; KEYBOARD: READY</div>
+    </div>
+
+    <!-- 3D HOLOGRAPHIC AI CORE FROM INDEX.HTML -->
+    <div class="hologram-stage-container" id="hologram-stage" title="Click or speak anytime hands-free">
+      <div class="hologram-volumetric-glow"></div>
+      <canvas id="jarvis-core-canvas"></canvas>
+    </div>
+
+    <!-- REAL-TIME AUDIO WAVEFORM STRIP -->
+    <div class="core-waveform-strip no-drag" id="core-waveform"></div>
+  </main>
+
+  <!-- 3. FLOATING TRANSCRIPT & COMMAND INPUT -->
+  <footer class="hud-footer no-drag">
+    <div class="transcript-bubble" id="speech-bubble">
+      Good day, sir. J.A.R.V.I.S. is listening hands-free. Click 👁️ SCREEN or speak anytime.
+    </div>
+
+    <div class="input-bar">
+      <button class="mic-btn active" id="mic-btn" onclick="toggleMic()" title="Always-On Voice Toggle">🎙️</button>
+      <input type="text" class="text-input" id="command-input" placeholder="Speak hands-free or type instruction..." onkeydown="handleKey(event)" />
+      <button class="send-btn" onclick="submitCommand()" title="Send">➤</button>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  let reactor = null;
+  let recognition = null;
+  let alwaysVoiceActive = true;
+  let voiceSilenceTimer = null;
+  const waveBars = [];
+
+  // 8 AGENT STATES
+  const AGENT_STATES = {
+    IDLE: { label: "STANDBY // IDLE", subtext: "CORE STABILIZER: ONLINE • SCREEN & KEYBOARD: READY", color: "#00f0ff" },
+    LISTENING: { label: "AUDIO INGEST // LISTENING", subtext: "CAPTURING USER VOICE...", color: "#00f0ff" },
+    UNDERSTANDING: { label: "COGNITIVE PARSING", subtext: "ANALYZING INTENT & PARAMETERS", color: "#38bdf8" },
+    PLANNING: { label: "TACTICAL PLANNING", subtext: "FORMULATING EXECUTION PLAN", color: "#f59e0b" },
+    ROUTING: { label: "MESH ROUTING", subtext: "TARGETING DESKTOP-SHYAM", color: "#a855f7" },
+    EXECUTING: { label: "WIN32 EXECUTING", subtext: "SIMULATING SYSTEM ACTIONS", color: "#ffaa00" },
+    VERIFYING: { label: "VALIDATING TELEMETRY", subtext: "CONFIRMING WORKSTATION STATE", color: "#10b981" },
+    RESPONDING: { label: "TRANSMITTING RESPONSE", subtext: "DELIVERING RESULTS, SIR", color: "#00f0ff" }
+  };
+
+  window.addEventListener("DOMContentLoaded", () => {
+    initWaveformBars();
+    initReactor();
+    initSpeechRecognition();
+  });
+
+  // WAVEFORM BARS INITIALIZATION (MATCHING INDEX.HTML)
+  function initWaveformBars() {
+    const waveStrip = document.getElementById("core-waveform");
+    if (!waveStrip) return;
+    for (let i = 0; i < 24; i++) {
+      const b = document.createElement("div");
+      b.className = "wave-bar";
+      waveStrip.appendChild(b);
+      waveBars.push(b);
+    }
+    animateWaveform();
+  }
+
+  function animateWaveform() {
+    const now = Date.now();
+    for (let b = 0; b < waveBars.length; b++) {
+      let val = 0.15 + Math.sin(now * 0.003 + b * 0.5) * 0.12;
+      if (document.getElementById("mic-btn") && document.getElementById("mic-btn").classList.contains("speaking")) {
+        val = Math.max(0.3, Math.min(1.0, 0.4 + Math.sin(now * 0.01 + b * 0.4) * 0.5));
+      }
+      const barHeight = Math.max(3, Math.min(18, val * 20));
+      waveBars[b].style.height = `${barHeight}px`;
+    }
+    requestAnimationFrame(animateWaveform);
+  }
+
+  // 3D ARC REACTOR INITIALIZATION (MATCHING INDEX.HTML)
+  function initReactor() {
+    try {
+      if (typeof JarvisReactor3D !== "undefined") {
+        reactor = new JarvisReactor3D("jarvis-core-canvas");
+        setAgentState("IDLE");
+      }
+    } catch (e) {
+      console.warn("Reactor initialization notice:", e);
+    }
+  }
+
+  // UPDATE AGENT STATE
+  function setAgentState(stateKey) {
+    const st = AGENT_STATES[stateKey] || AGENT_STATES.IDLE;
+    const labelEl = document.getElementById("agent-state-label");
+    const subEl = document.getElementById("state-subtext");
+
+    if (labelEl) {
+      labelEl.innerText = st.label;
+      labelEl.style.borderColor = st.color;
+      labelEl.style.color = st.color;
+      labelEl.style.boxShadow = `0 0 16px ${st.color}`;
+    }
+    if (subEl) subEl.innerText = st.subtext;
+
+    if (reactor && typeof reactor.setState === "function") {
+      reactor.setState(stateKey);
+    }
+  }
+
+  function setSpeechText(text) {
+    const bubble = document.getElementById("speech-bubble");
+    if (bubble) bubble.innerText = text;
+  }
+
+  function handleKey(e) {
+    if (e.key === "Enter") {
+      submitCommand();
+    }
+  }
+
+  function triggerScreenRecognition() {
+    const input = document.getElementById("command-input");
+    if (input) input.value = "What is on my screen?";
+    submitCommand();
+  }
+
+  // DISPATCH COMMAND VIA PYWEBVIEW NATIVE BRIDGE OR FASTAPI
+  async function submitCommand() {
+    const input = document.getElementById("command-input");
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+
+    setAgentState("UNDERSTANDING");
+    setSpeechText(`Ingesting instruction: "${text}"`);
+
+    try {
+      setTimeout(() => setAgentState("PLANNING"), 250);
+      setTimeout(() => setAgentState("ROUTING"), 500);
+
+      let data = null;
+
+      // Check pywebview Native Bridge First
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.execute_command === "function") {
+        data = await window.pywebview.api.execute_command(text);
+      } else {
+        const resp = await fetch("/api/device/execute", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: text, source_device: "desktop-shyam" })
+        });
+        data = await resp.json();
+      }
+
+      setAgentState("EXECUTING");
+
+      setTimeout(() => {
+        setAgentState("VERIFYING");
+        setTimeout(() => {
+          setAgentState("RESPONDING");
+          const reply = data.message || "Instruction completed successfully, sir.";
+          setSpeechText(reply);
+          setTimeout(() => setAgentState("IDLE"), 4000);
+        }, 500);
+      }, 600);
+
+    } catch (e) {
+      console.error("Execution error:", e);
+      setAgentState("IDLE");
+      setSpeechText(`Processed: ${text}`);
+    }
+  }
+
+  // ALWAYS-ON HANDS-FREE VOICE RECOGNITION
+  function initSpeechRecognition() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRec) {
+      try {
+        recognition = new SpeechRec();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = "en-US";
+
+        recognition.onstart = () => {
+          const micBtn = document.getElementById("mic-btn");
+          if (micBtn) {
+            micBtn.classList.add("active");
+            micBtn.classList.remove("speaking");
+          }
+          console.log("🎙️ [AlwaysOnVoice] Continuous hands-free loop active.");
+        };
+
+        recognition.onresult = (event) => {
+          let interimTranscript = "";
+          let finalTranscript = "";
+
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              finalTranscript += event.results[i][0].transcript;
+            } else {
+              interimTranscript += event.results[i][0].transcript;
+            }
+          }
+
+          const currentText = (finalTranscript || interimTranscript).trim();
+          if (currentText) {
+            const input = document.getElementById("command-input");
+            input.value = currentText;
+            setSpeechText(`🎙️ "${currentText}"`);
+            setAgentState("LISTENING");
+
+            const micBtn = document.getElementById("mic-btn");
+            if (micBtn) micBtn.classList.add("speaking");
+
+            // Hands-Free Auto-Submit on 1.2s silence pause
+            if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
+            voiceSilenceTimer = setTimeout(() => {
+              if (document.getElementById("command-input").value.trim().length > 0) {
+                console.log("⚡ Auto-submitting hands-free instruction:", currentText);
+                if (micBtn) micBtn.classList.remove("speaking");
+                submitCommand();
+              }
+            }, 1200);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          console.warn("Speech recognition notice:", event.error);
+          if (event.error !== "no-speech" && event.error !== "audio-capture") {
+            if (alwaysVoiceActive) {
+              setTimeout(() => {
+                try { recognition.start(); } catch(e) {}
+              }, 500);
+            }
+          }
+        };
+
+        recognition.onend = () => {
+          if (alwaysVoiceActive) {
+            setTimeout(() => {
+              try { recognition.start(); } catch(e) {}
+            }, 300);
+          }
+        };
+
+        try {
+          recognition.start();
+        } catch(e) {}
+
+      } catch (err) {
+        console.warn("Speech recognition init notice:", err);
+      }
+    }
+  }
+
+  function toggleMic() {
+    alwaysVoiceActive = !alwaysVoiceActive;
+    const micBtn = document.getElementById("mic-btn");
+
+    if (!alwaysVoiceActive) {
+      if (recognition) {
+        try { recognition.stop(); } catch(e) {}
+      }
+      if (micBtn) {
+        micBtn.classList.remove("active");
+        micBtn.classList.remove("speaking");
+        micBtn.style.opacity = "0.5";
+      }
+      setSpeechText("Hands-free microphone paused.");
+    } else {
+      if (micBtn) {
+        micBtn.classList.add("active");
+        micBtn.style.opacity = "1";
+      }
+      setSpeechText("Hands-free microphone resumed and listening, sir.");
+      if (recognition) {
+        try { recognition.start(); } catch(e) {}
+      }
+    }
+  }
+
+  // WINDOW CONTROLS
+  function minimizeWindow() {
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.minimize === "function") {
+      window.pywebview.api.minimize();
+    }
+  }
+
+  function closeWindow() {
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.close === "function") {
+      window.pywebview.api.close();
+    } else {
+      window.close();
+    }
+  }
+</script>
+
+</body>
+</html>

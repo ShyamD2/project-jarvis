@@ -14,9 +14,22 @@ logger = get_logger("OllamaProvider")
 
 
 class OllamaProvider(BaseLLMProvider):
-    def __init__(self, base_url: Optional[str] = None, model: str = "llama3.2"):
+    def __init__(self, base_url: Optional[str] = None, model: Optional[str] = None):
         self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-        self.model = model
+        self.model = model or os.getenv("OLLAMA_MODEL", "llama3.2")
+
+    @property
+    def is_configured(self) -> bool:
+        return True
+
+    async def is_available(self, timeout: float = 0.8) -> bool:
+        """Fast non-blocking probe to verify if local Ollama daemon is active"""
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(f"{self.base_url}/api/tags")
+                return resp.status_code == 200
+        except Exception:
+            return False
 
     async def generate(
         self,

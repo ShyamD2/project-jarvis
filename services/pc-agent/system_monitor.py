@@ -75,6 +75,23 @@ class SystemMonitor:
         except Exception:
             pass
 
+        # Battery telemetry
+        battery_info = None
+        battery_pct = 100.0
+        power_plugged = True
+        try:
+            bat = psutil.sensors_battery()
+            if bat is not None:
+                battery_pct = round(bat.percent, 1)
+                power_plugged = bool(bat.power_plugged)
+                battery_info = {
+                    "percent": battery_pct,
+                    "power_plugged": power_plugged,
+                    "secsleft": bat.secsleft if hasattr(bat, "secsleft") else None
+                }
+        except Exception:
+            pass
+
         return {
             "os": "Windows",
             "cpu_percent": cpu_pct,
@@ -87,11 +104,68 @@ class SystemMonitor:
             "disk_percent": disk.percent,
             "disk_free_gb": round(disk.free / (1024 ** 3), 2),
             "disk_total_gb": round(disk.total / (1024 ** 3), 2),
+            "battery": battery_info,
+            "battery_percent": battery_pct,
+            "power_plugged": power_plugged,
             "active_window": active_window,
             "in_meeting": in_meeting,
             "focus_mode": in_meeting,
             "timestamp": now
         }
+
+    def evaluate_health_thresholds(self, telemetry: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Analyzes vitals against safety thresholds:
+        - Battery < 20% when unplugged
+        - RAM > 90%
+        - CPU > 95%
+        - Disk Free < 10 GB
+        """
+        alerts: List[Dict[str, Any]] = []
+
+        # Battery warning
+        battery = telemetry.get("battery")
+        if battery and not battery.get("power_plugged", True):
+            pct = battery.get("percent", 100)
+            if pct <= 20:
+                alerts.append({
+                    "id": "battery_critical",
+                    "severity": "critical" if pct <= 10 else "warning",
+                    "spoken": f"Warning, sir. Workstation battery is at {int(pct)} percent and unplugged. Please connect power.",
+                    "telegram": f"🔋 <b>Sentry Alert: Battery Critical</b>\nLevel: {pct}%\nStatus: Unplugged\nAction Required: Connect power supply immediately."
+                })
+
+        # Memory warning
+        mem_pct = telemetry.get("memory_percent", 0.0)
+        if mem_pct >= 90.0:
+            alerts.append({
+                "id": "ram_high",
+                "severity": "warning",
+                "spoken": f"Sir, system RAM utilization has reached {int(mem_pct)} percent. High load detected.",
+                "telegram": f"⚠️ <b>Sentry Alert: High RAM Usage</b>\nUtilization: {mem_pct}%\nActive App: {telemetry.get('active_window', 'Unknown')}"
+            })
+
+        # CPU warning
+        cpu_pct = telemetry.get("cpu_percent", 0.0)
+        if cpu_pct >= 95.0:
+            alerts.append({
+                "id": "cpu_high",
+                "severity": "warning",
+                "spoken": f"Workstation CPU workload is peaking at {int(cpu_pct)} percent, sir.",
+                "telegram": f"🔥 <b>Sentry Alert: High CPU Workload</b>\nLoad: {cpu_pct}%\nActive App: {telemetry.get('active_window', 'Unknown')}"
+            })
+
+        # Low disk warning
+        disk_free = telemetry.get("disk_free_gb", 100.0)
+        if disk_free < 10.0:
+            alerts.append({
+                "id": "disk_low",
+                "severity": "warning",
+                "spoken": f"Drive C has only {int(disk_free)} gigabytes remaining, sir.",
+                "telegram": f"💾 <b>Sentry Alert: Low Disk Space</b>\nDrive C: Free space is down to {disk_free} GB."
+            })
+
+        return alerts
 
 
 system_monitor = SystemMonitor()

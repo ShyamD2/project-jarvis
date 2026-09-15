@@ -1,0 +1,102 @@
+[
+  {
+    "device_id": "desktop-shyam",
+    "name": "Shyam's Desktop",
+    "device_type": "desktop",
+    "status": "online",
+    "ip_address": "127.0.0.1",
+    "last_seen": 1789500051.2411141,
+    "last_seen_str": "2026-09-16 00:50:51",
+    "capabilities": [
+      "app_launch",
+      "app_terminate",
+      "browser_control",
+      "file_system",
+      "volume_control",
+      "window_management",
+      "screen_capture",
+      "screen_recognition",
+      "keyboard_input",
+      "system_power",
+      "clipboard_sync"
+    ],
+    "token_hash": "53c6e863ec1c28ce1841acd7bbefedf0961f5ef6d8377f6c3b769694dac1d5c4",
+    "metadata": {
+      "os": "Windows 11 Pro",
+      "role": "primary_workstation"
+    }
+  },
+  {
+    "device_id": "laptop-shyam",
+    "name": "Shyam's Laptop",
+    "device_type": "laptop",
+    "status": "online",
+    "ip_address": "192.168.1.51",
+    "last_seen": 1789500051.2411764,
+    "last_seen_str": "2026-09-16 00:50:51",
+    "capabilities": [
+      "app_launch",
+      "app_terminate",
+      "browser_control",
+      "file_system",
+      "volume_control",
+      "window_management",
+      "screen_capture",
+      "screen_recognition",
+      "keyboard_input",
+      "system_power",
+      "clipboard_sync"
+    ],
+    "token_hash": "e96b6031fefbfcf52cce5bb710755bf93473613b3b98155eb0a5cbcf3bb65bef",
+    "metadata": {
+      "os": "Windows 11 Home",
+      "role": "mobile_workstation"
+    }
+  },
+  {
+    "device_id": "mobile-shyam",
+    "name": "Shyam's Phone",
+    "device_type": "mobile",
+    "status": "online",
+    "ip_address": "192.168.1.50",
+    "last_seen": 1789500051.2411928,
+    "last_seen_str": "2026-09-16 00:50:51",
+    "capabilities": [
+      "app_launch",
+      "mobile_apps",
+      "notifications",
+      "messages",
+      "calls",
+      "camera",
+      "volume_control",
+      "clipboard_sync"
+    ],
+    "token_hash": "0703efef8b1aa521bfad7fa0e8d935b9c4b836bdaa593ad3e66dc2998c53756e",
+    "metadata": {
+      "os": "Android 14",
+      "role": "personal_mobile"
+    }
+  },
+  {
+    "device_id": "tablet-shyam",
+    "name": "Shyam's Tablet",
+    "device_type": "tablet",
+    "status": "offline",
+    "ip_address": null,
+    "last_seen": 1789500729.064078,
+    "last_seen_str": "2026-09-16 01:02:09",
+    "capabilities": [
+      "app_launch",
+      "mobile_apps",
+      "browser_control",
+      "notifications",
+      "volume_control",
+      "clipboard_sync"
+    ],
+    "token_hash": "8f042a393d143d3a1f17a32ef68ba149935a8a05e6f883b4d7339023471efac5",
+    "metadata": {
+      "os": "iPadOS / Android",
+      "role": "secondary_companion"
+    }
+  }
+]

@@ -77,8 +77,36 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"[Lifespan] Telegram Gateway could not be registered: {e}")
 
+    # Start Chronos Autonomous Scheduler background task
+    chronos_task = None
+    try:
+        from services.scheduler.chronos import chronos
+        import asyncio
+        chronos_task = asyncio.create_task(chronos.start())
+        logger.info("⚡ [Lifespan] Started Chronos Autonomous Scheduler daemon.")
+    except Exception as e:
+        logger.warning(f"[Lifespan] Chronos Scheduler could not be started: {e}")
+
+    # Start Hands-Free Acoustic Wakeword Daemon if enabled
+    wake_daemon_instance = None
+    if os.getenv("ENABLE_WAKE_WORD_DAEMON", "false").lower() in ("true", "1"):
+        try:
+            from services.sensory.wake_word_daemon import wake_word_daemon
+            ok = wake_word_daemon.start()
+            if ok:
+                wake_daemon_instance = wake_word_daemon
+                logger.info("🎙️ [Lifespan] Hands-free Wakeword daemon ('Hey Jarvis') active.")
+        except Exception as e:
+            logger.warning(f"[Lifespan] WakeWordDaemon notice: {e}")
+
     yield
 
+    if 'wake_daemon_instance' in locals() and wake_daemon_instance:
+        wake_daemon_instance.stop()
+    if 'chronos' in locals() and chronos:
+        chronos.stop()
+    if chronos_task:
+        chronos_task.cancel()
     if 'telegram_gateway' in locals() and telegram_gateway:
         telegram_gateway.stop()
     if telegram_task:
@@ -147,6 +175,36 @@ if os.path.exists(static_path):
             os.path.join(static_path, "index.html"),
             headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
         )
+
+    @app.get("/floating_agent", include_in_schema=False)
+    async def get_floating_agent():
+        floating_html = os.path.abspath(os.path.join(os.path.dirname(__file__), "../floating-agent/floating_agent.html"))
+        if os.path.exists(floating_html):
+            return FileResponse(
+                floating_html,
+                headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+            )
+        return {"error": "Floating agent interface not found"}
+
+    @app.post("/api/device/execute", tags=["Cross-Device"])
+    async def execute_cross_device_command(payload: dict):
+        from services.cloud.device_router import device_router
+        query = payload.get("query", "").strip()
+        source_device = payload.get("source_device", "desktop-shyam")
+        res = await device_router.route_and_execute(query, source_device_id=source_device)
+        return res
+
+    @app.get("/api/devices", tags=["Cross-Device"])
+    async def list_registered_devices():
+        from services.cloud.device_registry import device_registry
+        return {"devices": device_registry.list_devices()}
+
+    @app.post("/api/devices/handoff", tags=["Cross-Device"])
+    async def request_device_handoff(payload: dict):
+        from services.cloud.shared_context import shared_context
+        src = payload.get("source_device_id", "desktop-shyam")
+        tgt = payload.get("target_device_id", "mobile-shyam")
+        return shared_context.request_handoff(src, tgt)
 
 
 @app.get("/health", tags=["Health"])

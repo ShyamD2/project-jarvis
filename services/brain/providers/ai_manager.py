@@ -13,6 +13,7 @@ from services.brain.providers.openrouter_provider import OpenRouterProvider
 from services.brain.providers.gemini_provider import GeminiProvider
 from services.brain.providers.groq_provider import GroqProvider
 from services.brain.providers.mock_provider import MockLLMProvider
+from services.brain.providers.ollama_provider import OllamaProvider
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisAIManager")
@@ -23,6 +24,7 @@ class AIManager(BaseLLMProvider):
         self.openrouter = OpenRouterProvider()
         self.gemini = GeminiProvider()
         self.groq = GroqProvider()
+        self.ollama = OllamaProvider()
         self.local = MockLLMProvider("jarvis-local-cognitive-brain")
         default_pref = "openrouter" if self.openrouter.is_configured else "groq"
         self.preferred_provider = os.getenv("JARVIS_PRIMARY_AI", default_pref).strip().lower()
@@ -86,6 +88,8 @@ class AIManager(BaseLLMProvider):
             "openrouter_model": self.openrouter.model,
             "gemini_status": "Configured" if has_gemini else "Not configured",
             "groq_status": "Configured" if has_groq else "Not configured",
+            "ollama_status": f"Configured ({self.ollama.model})",
+            "ollama_model": self.ollama.model,
             "preferred_provider": self.preferred_provider,
             "active_provider": active_label
         }
@@ -189,7 +193,20 @@ class AIManager(BaseLLMProvider):
             except Exception as e:
                 logger.warning(f"[AIManager] Gemini fallback failed: {e}")
 
-        # 3. No cloud provider succeeded -> Local Cognitive Reflex
+        # 3. Local Offline Autonomous Brain (Ollama)
+        try:
+            if await self.ollama.is_available(timeout=0.6):
+                logger.info(f"[AIManager] Cascading to Local Offline Brain (Ollama - {self.ollama.model})...")
+                return await self.ollama.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    temperature=temperature
+                )
+        except Exception as e:
+            logger.warning(f"[AIManager] Ollama fallback failed: {e}")
+
+        # 4. No cloud provider or Ollama succeeded -> Local Cognitive Reflex
         logger.info("[AIManager] Engaging local cognitive reflex engine.")
         p_clean = prompt.strip().lower()
         if p_clean in ["hello", "hello jarvis", "hi", "hey jarvis"]:
@@ -250,6 +267,15 @@ class AIManager(BaseLLMProvider):
                 return
             except Exception as e:
                 logger.warning(f"[AIManager Stream] Gemini fallback failed: {e}")
+
+        # Local Ollama Streaming Fallback
+        try:
+            if await self.ollama.is_available(timeout=0.6):
+                async for chunk in self.ollama.stream(prompt, system_prompt, temperature):
+                    yield chunk
+                return
+        except Exception as e:
+            logger.warning(f"[AIManager Stream] Ollama fallback failed: {e}")
 
         yield "AI API keys are not configured. Please add your OpenRouter, Groq, or Gemini key into your .env file."
 

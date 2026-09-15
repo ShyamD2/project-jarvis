@@ -44,7 +44,20 @@ class ProductivityAgent:
             logger.warning(f"Toast notification failed: {e}")
 
     def create_reminder(self, message: str, delay_seconds: int = 60) -> Dict[str, Any]:
-        """Schedules a reminder timer that alerts the user via Windows toast notification"""
+        """Schedules a persistent reminder timer via Chronos Autonomous Scheduler"""
+        try:
+            from services.scheduler.chronos import chronos
+            res = chronos.add_timer(seconds=delay_seconds, message=message)
+            return {
+                "success": True,
+                "reminder_id": res["task_id"],
+                "message": message,
+                "delay_seconds": delay_seconds,
+                "scheduled_time": res["target_time"]
+            }
+        except Exception as e:
+            logger.warning(f"[ProductivityAgent] Falling back to local thread reminder: {e}")
+
         rem_id = f"rem_{len(self._reminders) + 1}"
         rem = {
             "id": rem_id,

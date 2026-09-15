@@ -77,6 +77,10 @@ class IntentRouter:
             (r"\b(message|text|send\s+message)\b", "send_message", None),
             (r"\b(check|read)\b.*\b(message|messages|whatsapp|chat)\b", "send_message", {"action": "check_latest"}),
 
+            # Cross-Device Execution & Fleet Routing
+            (r"\b(open|launch|start|run|close|turn\s+up|turn\s+down|volume|battery)\b.*\b(on\s+(my\s+)?(phone|mobile|android|laptop|tablet))\b|\b(continue\s+(what\s+i\s+was\s+doing\s+)?on\s+(my\s+)?phone)\b", "cross_device_route", {}),
+            (r"\b(list|show|check|view)\b.*\b(devices|fleet|connected\s+devices)\b", "cross_device_route", {"action": "list_devices"}),
+
             # Snapchat Specific Routing (Web default, System override)
             (r"\b(open|launch|start|run)\b.*\bsnapchat\b.*\b(system|systems)\b|\b(system|systems)\b.*\bsnapchat\b", "launch_app", {"app_name": "snapchat", "mode": "system"}),
             (r"\b(open|launch|start|run)\b.*\bsnapchat\b", "launch_app", {"app_name": "snapchat", "mode": "web"}),
@@ -105,6 +109,13 @@ class IntentRouter:
             # Screen Vision & Active Window Understanding
             (r"\b(what\s+am\s+i\s+looking\s+at|what\s+window\s+is\s+(active|open)|active\s+window|what('s|\s+is)\s+on\s+(my\s+)?screen)\b", "analyze_screen", {"query": "Identify the active window and explain what is visible on the screen."}),
             (r"\b(look\s+at\s+(this|my\s+screen)|inspect\s+screen|analyze\s+screen|diagnose\s+screen(\s+error)?|check\s+this\s+error)\b", "analyze_screen", {"query": "Inspect the active screen, code, or terminal and diagnose any errors or contents."}),
+
+            # Smart Clipboard & Error Auto-Diagnostician
+            (r"\b(diagnose|check|inspect|analyze|fix)\b.*\b(clipboard|copied|copied\s+error|copied\s+code)\b|\b(clipboard\s+(error|diagnostic|diagnose))\b", "diagnose_clipboard", {}),
+
+            # Sentry Mode & Proximity Controls
+            (r"\b(arm|enable|activate|start)\b.*\bsentry(\s+mode)?\b", "compound_workflow", {"workflow": "sentry_arm"}),
+            (r"\b(disarm|disable|deactivate|stop)\b.*\bsentry(\s+mode)?\b", "compound_workflow", {"workflow": "sentry_disarm"}),
 
             # Compound Pipelines
             (r"\b(prepare\s+(my\s+)?workspace|start\s+my\s+development\s+environment)\b", "compound_workflow", {"workflow": "dev_environment"}),

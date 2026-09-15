@@ -56,6 +56,22 @@ class CompoundWorkflowPlanner:
             return await self._workflow_movie_mode()
         elif name in ["shutdown_prep", "prepare_pc_for_shutdown"]:
             return await self._workflow_shutdown_prep()
+        elif name in ["sentry_arm", "arm_sentry", "enable_sentry"]:
+            from agent_daemon import pc_daemon
+            res = pc_daemon.enable_sentry_mode()
+            return {"success": True, "workflow": "sentry_arm", "status": "COMPLETED", "message": res["message"]}
+        elif name in ["sentry_disarm", "disarm_sentry", "disable_sentry"]:
+            from agent_daemon import pc_daemon
+            res = pc_daemon.disable_sentry_mode()
+            return {"success": True, "workflow": "sentry_disarm", "status": "COMPLETED", "message": res["message"]}
+        elif name in ["proximity_enable", "enable_proximity"]:
+            from agent_daemon import pc_daemon
+            res = pc_daemon.enable_proximity_lock()
+            return {"success": True, "workflow": "proximity_enable", "status": "COMPLETED", "message": res["message"]}
+        elif name in ["proximity_disable", "disable_proximity"]:
+            from agent_daemon import pc_daemon
+            res = pc_daemon.disable_proximity_lock()
+            return {"success": True, "workflow": "proximity_disable", "status": "COMPLETED", "message": res["message"]}
         else:
             return {
                 "success": False,
