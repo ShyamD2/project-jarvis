@@ -38,10 +38,10 @@ logger = get_logger("JarvisTelegramGateway")
 MAIN_KEYBOARD = {
     "keyboard": [
         [{"text": "🚀 Start J.A.R.V.I.S."}, {"text": "🛑 Close HUD"}],
+        [{"text": "🌙 Stealth Screen Off"}, {"text": "☀️ Wake Screen"}],
         [{"text": "📸 Screen Snapshot"}, {"text": "👁️ What's on Screen?"}],
         [{"text": "💻 PC Status"}, {"text": "📋 Open Apps"}],
-        [{"text": "🔊 Volume 50%"}, {"text": "🔇 Mute Audio"}],
-        [{"text": "🔒 Lock PC"}, {"text": "📁 Project Files"}],
+        [{"text": "🔊 Volume 50%"}, {"text": "🔒 Lock PC"}],
         [{"text": "❓ Help & Commands"}]
     ],
     "resize_keyboard": True,
@@ -292,9 +292,10 @@ class JarvisTelegramGateway:
                 "• `/status` — View simple PC health (CPU, RAM, Battery, Storage)\n"
                 "• `/battery` — Check battery charge and remaining time\n\n"
                 "🔒 *Safety & Power*\n"
+                "• `/stealth` — Turn off monitors for silent master background control (no lock needed!)\n"
+                "• `/wake` — Wake monitors back up and restore normal desktop display\n"
                 "• `/lock` — Lock your computer immediately\n"
                 "• `/unlock <PIN>` — Unlock Windows remotely from your phone (auto-deletes password)\n"
-                "• `/display_off` — Turn off screens for stealth background control\n"
                 "• `/sleep`, `/restart`, `/shutdown` — PC power controls\n\n"
                 "✨ *Tip:* You can also simply speak or type natural sentences! For example: _'take a screenshot'_, _'type hello in notepad'_, or _'open chrome'_."
             )
@@ -835,10 +836,51 @@ class JarvisTelegramGateway:
                     await self.send_message(chat_id, caption, parse_mode="Markdown")
             return
 
-        if lower in ["/display_off", "display off", "turn off screen", "turn off monitor"]:
+        if lower in [
+            "/stealth", "stealth", "stealth mode", "/display_off", "display off",
+            "turn off screen", "turn off monitor", "screen off", "/screen_off", "🌙 stealth screen off"
+        ]:
             from agents.computer.power_agent import power_agent
-            power_agent.turn_off_display()
-            await self.send_message(chat_id, "🌙 Computer screens turned off. Moving mouse or typing will wake them up.")
+            res = power_agent.enable_stealth_mode()
+            if res.get("success"):
+                await self.send_message(
+                    chat_id,
+                    "🌙 *Stealth Master Mode Activated!*\n"
+                    "Your physical monitors are now turned OFF.\n\n"
+                    "🛡️ *Your PC is fully active & protected in stealth:*\n"
+                    "• Anyone in the room sees a completely dark, sleeping screen.\n"
+                    "• Your workstation will *never* auto-lock or sleep while in Stealth Mode.\n"
+                    "• You have **100% unrestricted Master Administrator access** right here from your phone!\n"
+                    "  — 📸 Screen snapshots & vision\n"
+                    "  — ⌨️ Typing & keyboard shortcuts\n"
+                    "  — 🚀 Launching apps & `/cmd`\n"
+                    "  — 📁 Files, volume & PC health\n\n"
+                    "☀️ _When you return to your desk, tap_ *☀️ Wake Screen* _or send_ `/wake`.",
+                    parse_mode="Markdown"
+                )
+            else:
+                await self.send_message(chat_id, f"⚠️ Could not activate stealth mode: {res.get('error', 'Unknown error')}")
+            return
+
+        if lower in [
+            "/wake", "wake", "wake up", "wake screen", "wake pc", "/display_on",
+            "display on", "turn on screen", "turn on monitor", "screen on", "/screen_on", "☀️ wake screen"
+        ]:
+            from agents.computer.power_agent import power_agent
+            from agents.computer.screen_agent import screen_agent
+            res = power_agent.wake_display()
+            await asyncio.sleep(0.5)
+
+            snap = screen_agent.capture_screenshot()
+            caption = (
+                "☀️ *Workstation Screen Awakened!*\n"
+                "Monitors have been turned back on and normal desktop display is active.\n"
+                "Welcome back, sir!"
+            )
+            if snap.get("success") and snap.get("screenshot_path") and os.path.exists(snap["screenshot_path"]):
+                await self.send_photo(chat_id, snap["screenshot_path"], caption=caption, parse_mode="Markdown")
+            else:
+                await self.send_message(chat_id, caption, parse_mode="Markdown")
             return
 
         if lower in ["/sleep", "sleep"]:
@@ -898,6 +940,8 @@ class JarvisTelegramGateway:
         try:
             url = f"{self._base_url}/setMyCommands"
             commands = [
+                {"command": "stealth", "description": "🌙 Turn monitors off for silent master control"},
+                {"command": "wake", "description": "☀️ Wake display monitors & show desktop"},
                 {"command": "status", "description": "💻 Simple PC health, speed, and battery"},
                 {"command": "screen", "description": "📸 Send desktop screenshot photo"},
                 {"command": "whatscreen", "description": "👁️ Tell me what's on my screen"},

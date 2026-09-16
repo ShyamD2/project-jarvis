@@ -82,6 +82,17 @@ class PowerAgent:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    def lock_workstation(self) -> Dict[str, Any]:
+        """Locks the Windows workstation (Win+L)"""
+        logger.info("[PowerAgent] Locking Windows workstation")
+        if not self._user32:
+            return {"success": False, "error": "Win32 API unavailable"}
+        try:
+            self._user32.LockWorkStation()
+            return {"success": True, "action": "lock_workstation"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def turn_off_display(self) -> Dict[str, Any]:
         """Turns off physical display monitor (standby) using Win32 API"""
         logger.info("[PowerAgent] Turning off display monitor")
@@ -94,6 +105,46 @@ class PowerAgent:
             MONITOR_OFF = 2
             self._user32.SendMessageW(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, MONITOR_OFF)
             return {"success": True, "action": "display_off"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def wake_display(self) -> Dict[str, Any]:
+        """Turns on physical display monitor (wakes from standby) and resumes normal state"""
+        logger.info("[PowerAgent] Waking display monitor")
+        if not self._user32:
+            return {"success": False, "error": "Win32 API unavailable"}
+        try:
+            HWND_BROADCAST = 0xFFFF
+            WM_SYSCOMMAND = 0x0112
+            SC_MONITORPOWER = 0xF170
+            MONITOR_ON = -1
+            self._user32.SendMessageW(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, MONITOR_ON)
+            # Gentle mouse nudge and shift tap to wake display hardware
+            self._user32.mouse_event(0x0001, 0, 1, 0, 0)
+            time.sleep(0.05)
+            self._user32.mouse_event(0x0001, 0, -1, 0, 0)
+            self._user32.keybd_event(0x10, 0, 0, 0)  # VK_SHIFT down
+            self._user32.keybd_event(0x10, 0, 2, 0)  # VK_SHIFT up
+            if sys.platform == "win32":
+                ES_CONTINUOUS = 0x80000000
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS)
+            return {"success": True, "action": "display_on"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def enable_stealth_mode(self) -> Dict[str, Any]:
+        """
+        Enables Stealth Mode:
+        1. Keeps PC system awake continuously (preventing auto-sleep or idle lock)
+        2. Turns off physical display monitor
+        """
+        logger.info("[PowerAgent] Enabling Stealth Mode")
+        try:
+            if sys.platform == "win32":
+                ES_CONTINUOUS = 0x80000000
+                ES_SYSTEM_REQUIRED = 0x00000001
+                ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
+            return self.turn_off_display()
         except Exception as e:
             return {"success": False, "error": str(e)}
 
