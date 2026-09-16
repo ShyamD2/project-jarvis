@@ -37,6 +37,7 @@ logger = get_logger("JarvisTelegramGateway")
 # SIMPLE INTERACTIVE REPLY KEYBOARD FOR INSTANT ONE-TAP CONTROL
 MAIN_KEYBOARD = {
     "keyboard": [
+        [{"text": "🚀 Start J.A.R.V.I.S."}, {"text": "🛑 Close HUD"}],
         [{"text": "📸 Screen Snapshot"}, {"text": "👁️ What's on Screen?"}],
         [{"text": "💻 PC Status"}, {"text": "📋 Open Apps"}],
         [{"text": "🔊 Volume 50%"}, {"text": "🔇 Mute Audio"}],
@@ -244,8 +245,10 @@ class JarvisTelegramGateway:
         if lower in ["/start", "/help", "/menu", "help", "menu", "commands", "❓ help & commands"]:
             help_text = (
                 "👋 *Welcome, sir! I am J.A.R.V.I.S.*\n"
-                "I am connected directly to your computer. You have full access to your PC from this chat.\n\n"
                 "💡 *Quick Ways to Control Your PC:*\n\n"
+                "🛸 *Start J.A.R.V.I.S. Floating Agent*\n"
+                "• Tap *'🚀 Start J.A.R.V.I.S.'* or `/start_jarvis` — Launch 3D Floating Window on your monitor\n"
+                "• Tap *'🛑 Close HUD'* or `/close_hud` — Close the floating window\n\n"
                 "📸 *See Your Computer*\n"
                 "• `/screen` — Send me a photo of your PC screen right now\n"
                 "• `/whatscreen` — Tell me what is open and happening on your screen in plain words\n\n"
@@ -586,7 +589,56 @@ class JarvisTelegramGateway:
             return
 
         # ======================================================================
-        # 8. APPLICATION & WINDOW CONTROLS
+        # 8. J.A.R.V.I.S. FLOATING AGENT LAUNCH & CLOSE (REMOTE START BUTTON)
+        # ======================================================================
+        if lower in [
+            "/start_jarvis", "/launch_jarvis", "/start_hud", "/launch_hud",
+            "🚀 start j.a.r.v.i.s.", "start jarvis", "launch jarvis", "start hud", "launch hud",
+            "open jarvis", "open floating agent", "launch floating agent"
+        ]:
+            try:
+                flags = 0
+                if sys.platform == "win32":
+                    flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+
+                subprocess.Popen(
+                    [sys.executable, "services/floating-agent/floating_app.py"],
+                    cwd=PROJECT_ROOT,
+                    creationflags=flags
+                )
+                await self.send_message(
+                    chat_id,
+                    "🚀 *J.A.R.V.I.S. Launched on Your PC!*\n\n"
+                    "• 🛸 3D Holographic Arc Reactor is now active on your desktop.\n"
+                    "• 🎙️ Hands-free continuous voice recognition is listening.\n"
+                    "• 👁️ Multimodal AI Screen Vision is ready.\n"
+                    "• ⚡ Press `Alt + J` or tap 'Mini Orb' anytime.",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                await self.send_message(chat_id, f"⚠️ Error launching J.A.R.V.I.S.: {e}")
+            return
+
+        if lower in [
+            "/close_jarvis", "/close_hud", "/stop_jarvis",
+            "🛑 close hud", "close jarvis", "close hud", "stop jarvis"
+        ]:
+            try:
+                import ctypes
+                user32 = ctypes.windll.user32
+                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+                if hwnd:
+                    user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                    await self.send_message(chat_id, "🛑 *J.A.R.V.I.S. Floating Window closed successfully, sir.*", parse_mode="Markdown")
+                else:
+                    subprocess.run(["taskkill", "/F", "/FI", "WINDOWTITLE eq J.A.R.V.I.S. Floating Agent*"], capture_output=True)
+                    await self.send_message(chat_id, "🛑 *J.A.R.V.I.S. Floating Window closed, sir.*", parse_mode="Markdown")
+            except Exception as e:
+                await self.send_message(chat_id, f"⚠️ Error closing J.A.R.V.I.S.: {e}")
+            return
+
+        # ======================================================================
+        # 9. APPLICATION & WINDOW CONTROLS
         # ======================================================================
         if lower.startswith("/open ") or lower.startswith("open "):
             target = (text[6:] if lower.startswith("/open ") else text[5:]).strip()
