@@ -136,6 +136,19 @@ class JarvisTelegramGateway:
             logger.warning(f"[TelegramGateway] Failed to send photo: {e}")
             return False
 
+    async def delete_message(self, chat_id: int | str, message_id: int) -> bool:
+        """Deletes a message from Telegram chat (used for privacy when sending passwords/PINs)"""
+        if not self.token or not message_id:
+            return False
+        url = f"{self._base_url}/deleteMessage"
+        payload = {"chat_id": chat_id, "message_id": message_id}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, json=payload)
+                return resp.status_code == 200
+        except Exception:
+            return False
+
     async def download_file(self, file_id: str) -> Optional[bytes]:
         """Downloads a file or voice note from Telegram servers"""
         if not self.token:
@@ -280,7 +293,8 @@ class JarvisTelegramGateway:
                 "• `/battery` — Check battery charge and remaining time\n\n"
                 "🔒 *Safety & Power*\n"
                 "• `/lock` — Lock your computer immediately\n"
-                "• `/display_off` — Turn off your screens\n"
+                "• `/unlock <PIN>` — Unlock Windows remotely from your phone (auto-deletes password)\n"
+                "• `/display_off` — Turn off screens for stealth background control\n"
                 "• `/sleep`, `/restart`, `/shutdown` — PC power controls\n\n"
                 "✨ *Tip:* You can also simply speak or type natural sentences! For example: _'take a screenshot'_, _'type hello in notepad'_, or _'open chrome'_."
             )
@@ -764,7 +778,61 @@ class JarvisTelegramGateway:
         if lower in ["/lock", "lock", "lock pc", "lock the pc", "lock computer", "🔒 lock pc"]:
             from agents.computer.power_agent import power_agent
             power_agent.lock_workstation()
-            await self.send_message(chat_id, "🔒 *Computer Locked Safely!*\nYour Windows screen has been locked.", parse_mode="Markdown")
+            await self.send_message(
+                chat_id,
+                "🔒 *Computer Locked Safely!*\n"
+                "Your Windows screen has been locked.\n\n"
+                "• _To unlock remotely from phone, send:_ `/unlock <PIN_or_password>`\n"
+                "_(Your password message will be auto-deleted immediately from chat for your privacy.)_",
+                parse_mode="Markdown"
+            )
+            return
+
+        if lower.startswith("/unlock") or lower.startswith("unlock"):
+            # Privacy & Security: Immediately auto-delete user's message containing password
+            try:
+                msg_id = message.get("message_id")
+                if msg_id:
+                    await self.delete_message(chat_id, msg_id)
+            except Exception:
+                pass
+
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await self.send_message(
+                    chat_id,
+                    "⚠️ *Usage:* `/unlock <your_PIN_or_password>`\n"
+                    "_(Your message will be auto-deleted immediately for your privacy.)_",
+                    parse_mode="Markdown"
+                )
+                return
+
+            pin_or_pass = parts[1].strip()
+            await self.send_message(
+                chat_id,
+                "🔓 *Attempting remote workstation unlock...*\n"
+                "• Waking display monitors\n"
+                "• Dismissing lock screen\n"
+                "• Entering credentials securely",
+                parse_mode="Markdown"
+            )
+
+            from services.device_agents.windows.windows_unlocker import remote_unlocker
+            res = await remote_unlocker.unlock(pin_or_pass)
+
+            if res.get("success"):
+                caption = "🔓 *Workstation Unlocked Successfully, sir!*\nFull desktop master control is active."
+                if res.get("screenshot_path") and os.path.exists(res["screenshot_path"]):
+                    await self.send_photo(chat_id, res["screenshot_path"], caption=caption, parse_mode="Markdown")
+                else:
+                    await self.send_message(chat_id, caption, parse_mode="Markdown")
+            else:
+                err = res.get("error", "Failed to unlock workstation.")
+                caption = f"⚠️ *Unlock Notice:*\n{err}"
+                if res.get("screenshot_path") and os.path.exists(res["screenshot_path"]):
+                    await self.send_photo(chat_id, res["screenshot_path"], caption=caption, parse_mode="Markdown")
+                else:
+                    await self.send_message(chat_id, caption, parse_mode="Markdown")
             return
 
         if lower in ["/display_off", "display off", "turn off screen", "turn off monitor"]:
