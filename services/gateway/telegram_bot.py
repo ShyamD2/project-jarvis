@@ -886,8 +886,15 @@ class JarvisTelegramGateway:
 
         logger.info("[Telegram Gateway] Standby / Shutdown complete.")
 
-    def stop(self):
-        self._running = False
-
-
 telegram_gateway = JarvisTelegramGateway()
+
+if __name__ == "__main__":
+    logger.info("==================================================")
+    logger.info("   J.A.R.V.I.S. TELEGRAM MOBILE GATEWAY DAEMON")
+    logger.info("   Starting active polling listener...")
+    logger.info("==================================================")
+    try:
+        asyncio.run(telegram_gateway.start())
+    except KeyboardInterrupt:
+        telegram_gateway.stop()
+
