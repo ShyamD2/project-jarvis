@@ -197,42 +197,44 @@ class ScreenVision:
         win_proc = win_info.get("process", "")
 
         # 1. Primary: Google Gemini Multimodal Vision
-        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        gemini_key = (getattr(config, "gemini_api_key", "") or os.getenv("GEMINI_API_KEY", "")).strip()
         if gemini_key:
-            try:
-                import httpx
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
-                b64_data = base64.b64encode(jpeg_bytes).decode("utf-8")
-                system_context = (
-                    f"You are J.A.R.V.I.S. Tony Stark asks: '{prompt}'. "
-                    f"Active foreground window: '{win_title}' (Process: {win_proc}). "
-                    "Provide a concise, highly insightful breakdown of what is visible, diagnosing any errors or explaining the workspace."
-                )
-                payload = {
-                    "contents": [{
-                        "parts": [
-                            {"text": system_context},
-                            {"inlineData": {"mimeType": "image/jpeg", "data": b64_data}}
-                        ]
-                    }]
-                }
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    resp = await client.post(url, json=payload)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        analysis_text = data["candidates"][0]["content"]["parts"][0]["text"]
-                        return {
-                            "success": True,
-                            "analysis": analysis_text,
-                            "model": "gemini-2.5-flash-vision",
-                            "active_window": win_info,
-                            "has_thumbnail": True
-                        }
-            except Exception as e:
-                logger.debug(f"[ScreenVision] Gemini Vision API call notice: {e}")
+            for gemini_model in ["gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-2.5-flash"]:
+                try:
+                    import httpx
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model}:generateContent?key={gemini_key}"
+                    b64_data = base64.b64encode(jpeg_bytes).decode("utf-8")
+                    system_context = (
+                        f"You are J.A.R.V.I.S. Tony Stark asks: '{prompt}'. "
+                        f"Active foreground window: '{win_title}' (Process: {win_proc}). "
+                        "Provide a concise, highly insightful breakdown of what is visible, diagnosing any errors or explaining the workspace."
+                    )
+                    payload = {
+                        "contents": [{
+                            "parts": [
+                                {"text": system_context},
+                                {"inlineData": {"mimeType": "image/jpeg", "data": b64_data}}
+                            ]
+                        }]
+                    }
+                    headers = {"x-goog-api-key": gemini_key, "Content-Type": "application/json"}
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.post(url, headers=headers, json=payload)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            analysis_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                            return {
+                                "success": True,
+                                "analysis": analysis_text,
+                                "model": gemini_model,
+                                "active_window": win_info,
+                                "has_thumbnail": True
+                            }
+                except Exception as e:
+                    logger.debug(f"[ScreenVision] Gemini Vision API call notice ({gemini_model}): {e}")
 
         # 2. Secondary: OpenRouter Multimodal Vision Fallback
-        openrouter_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        openrouter_key = (getattr(config, "openrouter_api_key", "") or os.getenv("OPENROUTER_API_KEY", "")).strip()
         if openrouter_key:
             try:
                 import httpx

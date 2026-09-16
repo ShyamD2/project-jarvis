@@ -36,6 +36,29 @@
       --font-ui: 'Inter', sans-serif;
     }
 
+    /* SUIT HOLOGRAPHIC THEMES */
+    body.theme-mark7 {
+      --cyan: #00f0ff;
+      --cyan-glow: rgba(0, 240, 255, 0.6);
+      --border-cyan: rgba(0, 240, 255, 0.35);
+      --gold: #ffaa00;
+      --gold-glow: rgba(255, 170, 0, 0.6);
+    }
+    body.theme-mark50 {
+      --cyan: #ffd700;
+      --cyan-glow: rgba(255, 215, 0, 0.65);
+      --border-cyan: rgba(255, 215, 0, 0.4);
+      --gold: #ff3b30;
+      --gold-glow: rgba(255, 59, 48, 0.65);
+    }
+    body.theme-friday {
+      --cyan: #00ff9d;
+      --cyan-glow: rgba(0, 255, 157, 0.65);
+      --border-cyan: rgba(0, 255, 157, 0.4);
+      --gold: #10b981;
+      --gold-glow: rgba(16, 185, 129, 0.65);
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -399,20 +422,106 @@
       box-shadow: 0 0 14px var(--cyan);
       transform: scale(1.05);
     }
+
+    /* MINI ORB COLLAPSIBLE MODE */
+    #agent-container.mini-mode {
+      width: 96px !important;
+      height: 96px !important;
+      border-radius: 50% !important;
+      border: 2px solid var(--cyan) !important;
+      box-shadow: 0 0 25px var(--cyan-glow), inset 0 0 15px rgba(0, 0, 0, 0.9) !important;
+      cursor: pointer !important;
+      background: radial-gradient(circle at 50% 50%, #081a36 0%, #030814 100%) !important;
+    }
+    #agent-container.mini-mode .hud-header,
+    #agent-container.mini-mode .hud-footer,
+    #agent-container.mini-mode .pill-wrapper,
+    #agent-container.mini-mode .core-waveform-strip {
+      display: none !important;
+    }
+    #agent-container.mini-mode .reactor-stage {
+      padding: 0 !important;
+      margin: 0 !important;
+      width: 96px !important;
+      height: 96px !important;
+    }
+    #agent-container.mini-mode .hologram-stage-container {
+      width: 90px !important;
+      height: 90px !important;
+    }
+    #agent-container.mini-mode .hologram-volumetric-glow {
+      width: 84px !important;
+      height: 84px !important;
+    }
+    #agent-container.mini-mode #jarvis-core-canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* DRAG AND DROP INGESTION OVERLAY */
+    .drop-target-overlay {
+      position: absolute;
+      top: 6px; left: 6px; right: 6px; bottom: 6px;
+      border: 2px dashed var(--cyan);
+      border-radius: 10px;
+      background: rgba(4, 10, 22, 0.94);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: 0 0 25px var(--cyan-glow);
+    }
+    .drop-target-overlay.active {
+      display: flex;
+    }
+    .drop-icon {
+      font-size: 28px;
+      animation: bounce-icon 1s infinite alternate;
+    }
+    @keyframes bounce-icon {
+      0% { transform: translateY(-3px); }
+      100% { transform: translateY(3px); }
+    }
+    .drop-text {
+      font-family: var(--font-hud);
+      font-size: 11px;
+      letter-spacing: 1.5px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+    .drop-hint {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
 
 <div id="agent-container">
 
+  <!-- HOLOGRAPHIC DRAG & DROP OVERLAY -->
+  <div class="drop-target-overlay" id="drop-overlay">
+    <div class="drop-icon">📥</div>
+    <div class="drop-text">STARK INGESTION</div>
+    <div class="drop-hint">Drop file, code, or image to inspect</div>
+  </div>
+
   <!-- 1. DRAGGABLE FLOATING HEADER -->
   <header class="hud-header pywebview-drag-region">
     <div class="brand-group">
       <div class="brand-dot"></div>
-      <div class="brand-name">J.A.R.V.I.S.</div>
+      <div class="brand-name" id="brand-title">J.A.R.V.I.S.</div>
     </div>
     <div class="header-actions no-drag">
+      <button class="hdr-btn" onclick="cycleTheme()" id="theme-btn" title="Suit Hologram Theme (Mark VII / Mark 50 / F.R.I.D.A.Y.)">🎨</button>
       <button class="hdr-btn hdr-btn-screen" onclick="triggerScreenRecognition()" title="Analyze Display Screen">👁️ SCREEN</button>
+      <button class="hdr-btn" id="audio-btn" onclick="toggleAudioSpeech()" title="Toggle Neural Speech Audio">🔊</button>
+      <button class="hdr-btn" onclick="toggleMiniMode(true)" title="Collapse to Mini Reactor Orb">⚡</button>
       <button class="hdr-btn" onclick="minimizeWindow()" title="Minimize">_</button>
       <button class="hdr-btn hdr-btn-close" onclick="closeWindow()" title="Close">✕</button>
     </div>
@@ -427,7 +536,7 @@
     </div>
 
     <!-- 3D HOLOGRAPHIC AI CORE FROM INDEX.HTML -->
-    <div class="hologram-stage-container" id="hologram-stage" title="Click or speak anytime hands-free">
+    <div class="hologram-stage-container" id="hologram-stage" onclick="handleOrbClick()" title="Click or speak anytime hands-free">
       <div class="hologram-volumetric-glow"></div>
       <canvas id="jarvis-core-canvas"></canvas>
     </div>
@@ -470,10 +579,220 @@
     RESPONDING: { label: "TRANSMITTING RESPONSE", subtext: "DELIVERING RESULTS, SIR", color: "#00f0ff" }
   };
 
+  // SUIT THEMES ENGINE
+  const SUIT_THEMES = [
+    { id: "theme-mark7", name: "MARK VII (CYAN)", title: "J.A.R.V.I.S." },
+    { id: "theme-mark50", name: "MARK 50 (GOLD)", title: "STARK // M50" },
+    { id: "theme-friday", name: "F.R.I.D.A.Y. (EMERALD)", title: "F.R.I.D.A.Y." }
+  ];
+  let activeThemeIdx = 0;
+
+  function initSuitTheme() {
+    const saved = localStorage.getItem("jarvis_suit_theme");
+    if (saved) {
+      const idx = SUIT_THEMES.findIndex(t => t.id === saved);
+      if (idx !== -1) activeThemeIdx = idx;
+    }
+    applyTheme(activeThemeIdx, false);
+  }
+
+  function applyTheme(idx, announce = true) {
+    activeThemeIdx = idx % SUIT_THEMES.length;
+    const th = SUIT_THEMES[activeThemeIdx];
+    document.body.className = th.id;
+    const titleEl = document.getElementById("brand-title");
+    if (titleEl) titleEl.innerText = th.title;
+    localStorage.setItem("jarvis_suit_theme", th.id);
+
+    if (announce) {
+      setSpeechText(`Switched holographic suit HUD to ${th.name}, sir.`);
+      speakResponse(`Suit HUD switched to ${th.name}.`);
+    }
+  }
+
+  function cycleTheme() {
+    applyTheme(activeThemeIdx + 1, true);
+  }
+
+  // COLLAPSIBLE MINI ORB MODE
+  let isMiniMode = false;
+
+  function toggleMiniMode(enable) {
+    isMiniMode = (typeof enable === "boolean") ? enable : !isMiniMode;
+    const container = document.getElementById("agent-container");
+
+    if (isMiniMode) {
+      container.classList.add("mini-mode");
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.toggle_mini_mode === "function") {
+        window.pywebview.api.toggle_mini_mode(true);
+      }
+    } else {
+      container.classList.remove("mini-mode");
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.toggle_mini_mode === "function") {
+        window.pywebview.api.toggle_mini_mode(false);
+      }
+    }
+  }
+
+  function handleOrbClick() {
+    if (isMiniMode) {
+      toggleMiniMode(false);
+    }
+  }
+
+  // TWO-WAY SPOKEN NEURAL SPEECH & AUDIO ANALYSER
+  let speechAudioEnabled = true;
+  let currentAudio = null;
+  let audioContext = null;
+  let audioAnalyser = null;
+  let audioSourceNode = null;
+  let audioFreqBuffer = null;
+
+  function toggleAudioSpeech() {
+    speechAudioEnabled = !speechAudioEnabled;
+    const btn = document.getElementById("audio-btn");
+    if (btn) {
+      btn.innerText = speechAudioEnabled ? "🔊" : "🔇";
+      btn.style.opacity = speechAudioEnabled ? "1" : "0.5";
+    }
+    setSpeechText(speechAudioEnabled ? "Voice synthesis unmuted, sir." : "Voice synthesis muted.");
+  }
+
+  async function speakResponse(text) {
+    if (!speechAudioEnabled || !text) return;
+    try {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.synthesize_speech === "function") {
+        const res = await window.pywebview.api.synthesize_speech(text);
+        if (res && res.success && res.audio_b64) {
+          playAudioDataUri(res.audio_b64);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn("Speech synthesis notice:", e);
+    }
+  }
+
+  function playAudioDataUri(dataUri) {
+    try {
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      }
+      currentAudio = new Audio(dataUri);
+
+      if (!audioContext) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) audioContext = new AudioCtx();
+      }
+
+      if (audioContext && !audioSourceNode) {
+        try {
+          audioAnalyser = audioContext.createAnalyser();
+          audioAnalyser.fftSize = 64;
+          audioFreqBuffer = new Uint8Array(audioAnalyser.frequencyBinCount);
+          audioSourceNode = audioContext.createMediaElementSource(currentAudio);
+          audioSourceNode.connect(audioAnalyser);
+          audioAnalyser.connect(audioContext.destination);
+        } catch (e) {
+          console.debug("Audio node connect notice:", e);
+        }
+      }
+
+      if (audioContext && audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+
+      currentAudio.onplay = () => {
+        setAgentState("RESPONDING");
+      };
+
+      currentAudio.onended = () => {
+        setTimeout(() => setAgentState("IDLE"), 800);
+      };
+
+      currentAudio.play().catch(e => console.debug("Autoplay note:", e));
+    } catch (err) {
+      console.warn("Audio playback error:", err);
+    }
+  }
+
+  // DRAG AND DROP FILE INGESTION
+  function initDragAndDrop() {
+    const container = document.getElementById("agent-container");
+    const overlay = document.getElementById("drop-overlay");
+    if (!container || !overlay) return;
+
+    let dragCounter = 0;
+
+    window.addEventListener("dragenter", (e) => {
+      e.preventDefault();
+      dragCounter++;
+      overlay.classList.add("active");
+    });
+
+    window.addEventListener("dragleave", (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        overlay.classList.remove("active");
+      }
+    });
+
+    window.addEventListener("dragover", (e) => {
+      e.preventDefault();
+    });
+
+    window.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      overlay.classList.remove("active");
+
+      const files = e.dataTransfer.files;
+      if (files && files.length > 0) {
+        handleDroppedFile(files[0]);
+      }
+    });
+  }
+
+  function handleDroppedFile(file) {
+    setAgentState("UNDERSTANDING");
+    setSpeechText(`Ingesting dropped asset: "${file.name}"...`);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const dataUrl = event.target.result;
+      const b64 = dataUrl.split(",")[1] || "";
+
+      setAgentState("PLANNING");
+      try {
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.analyze_dropped_file === "function") {
+          const res = await window.pywebview.api.analyze_dropped_file(file.name, b64);
+          setAgentState("RESPONDING");
+          const reply = res.analysis || `File ${file.name} ingested successfully, sir.`;
+          setSpeechText(reply);
+          speakResponse(reply);
+          setTimeout(() => setAgentState("IDLE"), 5000);
+        } else {
+          setSpeechText(`Ingested ${file.name} (${file.size} bytes).`);
+          setAgentState("IDLE");
+        }
+      } catch (err) {
+        console.error("Drop processing error:", err);
+        setSpeechText(`File ingestion notice: ${err.message}`);
+        setAgentState("IDLE");
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   window.addEventListener("DOMContentLoaded", () => {
+    initSuitTheme();
     initWaveformBars();
     initReactor();
     initSpeechRecognition();
+    initDragAndDrop();
   });
 
   // WAVEFORM BARS INITIALIZATION (MATCHING INDEX.HTML)
@@ -491,13 +810,31 @@
 
   function animateWaveform() {
     const now = Date.now();
-    for (let b = 0; b < waveBars.length; b++) {
-      let val = 0.15 + Math.sin(now * 0.003 + b * 0.5) * 0.12;
-      if (document.getElementById("mic-btn") && document.getElementById("mic-btn").classList.contains("speaking")) {
-        val = Math.max(0.3, Math.min(1.0, 0.4 + Math.sin(now * 0.01 + b * 0.4) * 0.5));
+    let isSpeakingAudio = (currentAudio && !currentAudio.paused && !currentAudio.ended);
+
+    if (isSpeakingAudio && audioAnalyser && audioFreqBuffer) {
+      audioAnalyser.getByteFrequencyData(audioFreqBuffer);
+      for (let b = 0; b < waveBars.length; b++) {
+        const freqIdx = b % audioFreqBuffer.length;
+        const rawVal = audioFreqBuffer[freqIdx] / 255;
+        const barHeight = Math.max(3, Math.min(22, rawVal * 26));
+        waveBars[b].style.height = `${barHeight}px`;
       }
-      const barHeight = Math.max(3, Math.min(18, val * 20));
-      waveBars[b].style.height = `${barHeight}px`;
+      if (reactor && typeof reactor.updateAudio === "function") {
+        let avg = 0;
+        for (let i = 0; i < audioFreqBuffer.length; i++) avg += audioFreqBuffer[i];
+        avg = (avg / audioFreqBuffer.length) / 255;
+        reactor.updateAudio(avg);
+      }
+    } else {
+      for (let b = 0; b < waveBars.length; b++) {
+        let val = 0.15 + Math.sin(now * 0.003 + b * 0.5) * 0.12;
+        if (document.getElementById("mic-btn") && document.getElementById("mic-btn").classList.contains("speaking")) {
+          val = Math.max(0.3, Math.min(1.0, 0.4 + Math.sin(now * 0.01 + b * 0.4) * 0.5));
+        }
+        const barHeight = Math.max(3, Math.min(18, val * 20));
+        waveBars[b].style.height = `${barHeight}px`;
+      }
     }
     requestAnimationFrame(animateWaveform);
   }
@@ -544,10 +881,30 @@
     }
   }
 
-  function triggerScreenRecognition() {
-    const input = document.getElementById("command-input");
-    if (input) input.value = "What is on my screen?";
-    submitCommand();
+  // AI SCREEN VISION MULTIMODAL TRIGGER
+  async function triggerScreenRecognition() {
+    setAgentState("UNDERSTANDING");
+    setSpeechText("Capturing workstation display & analyzing via multimodal vision...");
+
+    try {
+      setAgentState("PLANNING");
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.analyze_screen_vision === "function") {
+        const res = await window.pywebview.api.analyze_screen_vision("Analyze what is visible on this screen, diagnosing any errors or explaining the workspace.");
+        setAgentState("RESPONDING");
+        const reply = res.analysis || "Workstation screen captured and analyzed, sir.";
+        setSpeechText(reply);
+        speakResponse(reply);
+        setTimeout(() => setAgentState("IDLE"), 6000);
+      } else {
+        const input = document.getElementById("command-input");
+        if (input) input.value = "What is on my screen?";
+        submitCommand();
+      }
+    } catch (e) {
+      console.error("Screen vision trigger notice:", e);
+      setSpeechText("Vision analysis note: " + e.message);
+      setAgentState("IDLE");
+    }
   }
 
   // DISPATCH COMMAND VIA PYWEBVIEW NATIVE BRIDGE OR FASTAPI
@@ -556,6 +913,29 @@
     const text = input.value.trim();
     if (!text) return;
     input.value = "";
+
+    // Voice / text shortcut commands
+    const lower = text.toLowerCase();
+    if (lower.includes("mini mode") || lower.includes("orb mode") || lower.includes("collapse")) {
+      toggleMiniMode(true);
+      setSpeechText("Collapsed to 3D Arc Reactor Orb mode, sir.");
+      speakResponse("Collapsed to mini reactor orb mode.");
+      return;
+    }
+    if (lower.includes("full mode") || lower.includes("expand hud") || lower.includes("expand window")) {
+      toggleMiniMode(false);
+      setSpeechText("Expanded HUD command center, sir.");
+      speakResponse("Expanded command center.");
+      return;
+    }
+    if (lower.includes("change theme") || lower.includes("switch theme")) {
+      cycleTheme();
+      return;
+    }
+    if (lower.includes("what is on my screen") || lower.includes("look at screen") || lower.includes("analyze screen")) {
+      triggerScreenRecognition();
+      return;
+    }
 
     setAgentState("UNDERSTANDING");
     setSpeechText(`Ingesting instruction: "${text}"`);
@@ -586,6 +966,7 @@
           setAgentState("RESPONDING");
           const reply = data.message || "Instruction completed successfully, sir.";
           setSpeechText(reply);
+          speakResponse(reply);
           setTimeout(() => setAgentState("IDLE"), 4000);
         }, 500);
       }, 600);
