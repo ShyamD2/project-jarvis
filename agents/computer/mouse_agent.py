@@ -22,6 +22,7 @@ class MouseAgent:
         self._user32 = ctypes.windll.user32 if sys.platform == "win32" else None
 
         # Win32 Mouse Event Flags
+        self.MOUSEEVENTF_MOVE = 0x0001
         self.MOUSEEVENTF_LEFTDOWN = 0x0002
         self.MOUSEEVENTF_LEFTUP = 0x0004
         self.MOUSEEVENTF_RIGHTDOWN = 0x0008
@@ -29,6 +30,18 @@ class MouseAgent:
         self.MOUSEEVENTF_MIDDLEDOWN = 0x0020
         self.MOUSEEVENTF_MIDDLEUP = 0x0040
         self.MOUSEEVENTF_WHEEL = 0x0800
+
+    def _ensure_desktop(self):
+        """Attaches calling thread to active input desktop to prevent ERROR_ACCESS_DENIED (Error 5)"""
+        if not self._user32:
+            return
+        try:
+            hdesk = self._user32.OpenInputDesktop(0, False, 0x01FF)
+            if hdesk:
+                self._user32.SetThreadDesktop(hdesk)
+                self._user32.CloseDesktop(hdesk)
+        except Exception:
+            pass
 
     def _check_emergency(self) -> bool:
         """Returns True if emergency stop is active"""
@@ -42,9 +55,20 @@ class MouseAgent:
         """Returns current (x, y) coordinates of mouse cursor"""
         if not self._user32:
             return (0, 0)
+        self._ensure_desktop()
         pt = POINT()
         self._user32.GetCursorPos(ctypes.byref(pt))
         return (pt.x, pt.y)
+
+    def move_relative(self, dx: float, dy: float) -> Dict[str, Any]:
+        """Instantly moves cursor relative to current position via Win32 hardware event"""
+        if self._check_emergency():
+            return {"success": False, "status": "aborted_by_emergency_stop"}
+        if not self._user32:
+            return {"success": False, "error": "Win32 unavailable"}
+        self._ensure_desktop()
+        self._user32.mouse_event(self.MOUSEEVENTF_MOVE, int(dx), int(dy), 0, 0)
+        return {"success": True, "dx": dx, "dy": dy}
 
     def move_cursor(self, x: int, y: int, smooth: bool = False) -> Dict[str, Any]:
         """Moves mouse cursor to target coordinates (x, y)"""
@@ -54,6 +78,7 @@ class MouseAgent:
         if not self._user32:
             return {"success": False, "error": "Win32 unavailable"}
 
+        self._ensure_desktop()
         if not smooth:
             self._user32.SetCursorPos(int(x), int(y))
             return {"success": True, "x": x, "y": y}
@@ -80,6 +105,7 @@ class MouseAgent:
         if not self._user32:
             return {"success": False, "error": "Win32 unavailable"}
 
+        self._ensure_desktop()
         b = button.lower().strip()
         for i in range(count):
             if self._check_emergency():
@@ -116,6 +142,7 @@ class MouseAgent:
         if not self._user32:
             return {"success": False, "error": "Win32 unavailable"}
 
+        self._ensure_desktop()
         # WHEEL_DELTA is 120
         delta = 120 * abs(clicks)
         if direction.lower().strip() in ["down", "scroll_down"]:

@@ -35,6 +35,18 @@ class KeyboardAgent:
             "f11": 0x7A, "f12": 0x7B
         }
 
+    def _ensure_desktop(self):
+        """Attaches calling thread to active input desktop to prevent ERROR_ACCESS_DENIED (Error 5)"""
+        if not self._user32:
+            return
+        try:
+            hdesk = self._user32.OpenInputDesktop(0, False, 0x01FF)
+            if hdesk:
+                self._user32.SetThreadDesktop(hdesk)
+                self._user32.CloseDesktop(hdesk)
+        except Exception:
+            pass
+
     def _check_emergency(self) -> bool:
         try:
             from agents.intelligence.emergency_stop import emergency_stop
@@ -44,10 +56,12 @@ class KeyboardAgent:
 
     def _key_down(self, vk: int):
         if self._user32:
+            self._ensure_desktop()
             self._user32.keybd_event(vk, 0, 0, 0)
 
     def _key_up(self, vk: int):
         if self._user32:
+            self._ensure_desktop()
             self._user32.keybd_event(vk, 0, 2, 0) # 2 = KEYEVENTF_KEYUP
 
     def press_shortcut(self, keys: List[str]) -> Dict[str, Any]:
