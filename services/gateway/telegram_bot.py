@@ -952,25 +952,22 @@ class JarvisTelegramGateway:
                 from agents.computer.power_agent import power_agent
                 power_agent.wake_display()
 
-                # 2. Check if Floating Agent window is already running
+                # 2. Bind current thread to active input desktop so FindWindowW & foreground work
                 import ctypes
                 user32 = ctypes.windll.user32 if sys.platform == "win32" else None
-                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent") if user32 else None
-                if hwnd:
-                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-                    user32.SetForegroundWindow(hwnd)
+                if user32:
+                    try:
+                        hdesk = user32.OpenInputDesktop(0, False, 0x01FF) or user32.OpenDesktopW("Default", 0, False, 0x01FF)
+                        if hdesk:
+                            user32.SetThreadDesktop(hdesk)
+                    except Exception:
+                        pass
+
+                from agents.computer.windows_agent import launch_floating_hud
+                hud_res = launch_floating_hud()
+                if hud_res.get("action") == "focused":
                     status_note = "• 🛸 J.A.R.V.I.S. was already running; brought to active foreground!"
                 else:
-                    flags = 0
-                    if sys.platform == "win32":
-                        flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-
-                    py_exe = sys.executable or "python.exe"
-                    subprocess.Popen(
-                        [py_exe, "services/floating-agent/floating_app.py"],
-                        cwd=PROJECT_ROOT,
-                        creationflags=flags
-                    )
                     status_note = "• 🛸 3D Holographic Arc Reactor is now active on your desktop."
 
                 # 3. Audio greeting through laptop speakers so user hears confirmation across the room
@@ -986,13 +983,29 @@ class JarvisTelegramGateway:
                 import threading
                 threading.Thread(target=announce_boot, daemon=True).start()
 
-                # 4. Give WebView2 window brief moment to initialize, then send desktop snapshot confirmation
-                await asyncio.sleep(2.0)
+                # 4. Poll for window to be created and visible (up to 5 seconds)
+                if user32:
+                    HWND_TOPMOST = ctypes.c_void_p(-1)
+                    SWP_NOMOVE = 0x0002
+                    SWP_NOSIZE = 0x0001
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+                    for _ in range(12):
+                        await asyncio.sleep(0.4)
+                        hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+                        if hwnd and user32.IsWindowVisible(hwnd):
+                            user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+                            user32.ShowWindow(hwnd, 9)
+                            user32.SetForegroundWindow(hwnd)
+                            break
+
+                await asyncio.sleep(0.5)
                 from agents.computer.screen_agent import screen_agent
                 snap = screen_agent.capture_screenshot()
                 caption = (
                     "🚀 *J.A.R.V.I.S. Online on Your PC!*\n\n"
                     f"{status_note}\n"
+                    "• 🛸 Visible on your laptop screen right now.\n"
                     "• 🎙️ Hands-free continuous voice recognition is listening.\n"
                     "• 👁️ Multimodal AI Screen Vision is ready.\n"
                     "• ⚡ Press `Alt + J` or tap 'Mini Orb' anytime."
@@ -1012,7 +1025,14 @@ class JarvisTelegramGateway:
             try:
                 import ctypes
                 user32 = ctypes.windll.user32
-                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+                if user32:
+                    try:
+                        hdesk = user32.OpenInputDesktop(0, False, 0x01FF) or user32.OpenDesktopW("Default", 0, False, 0x01FF)
+                        if hdesk:
+                            user32.SetThreadDesktop(hdesk)
+                    except Exception:
+                        pass
+                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent") if user32 else None
                 if hwnd:
                     user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
                     await self.send_message(chat_id, "🛑 *J.A.R.V.I.S. Floating Window closed successfully, sir.*", parse_mode="Markdown")

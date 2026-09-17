@@ -9,6 +9,17 @@ import os
 import sys
 import subprocess
 import time
+
+if sys.stdout is None:
+    try:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    except Exception:
+        pass
+if sys.stderr is None:
+    try:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+    except Exception:
+        pass
 import threading
 import ctypes
 import urllib.request
@@ -31,7 +42,7 @@ def get_target_url():
     """Returns local server URL if responsive, else falls back to local file URL."""
     try:
         req = urllib.request.Request("http://127.0.0.1:8000/health", headers={"User-Agent": "JarvisLauncher"})
-        with urllib.request.urlopen(req, timeout=1.0) as resp:
+        with urllib.request.urlopen(req, timeout=0.05) as resp:
             if resp.status == 200:
                 return SERVER_URL
     except Exception:
@@ -40,51 +51,17 @@ def get_target_url():
 
 
 def ensure_interactive_desktop():
-    """Binds calling thread to WinSta0\\Default interactive desktop so GUI windows appear on active display."""
+    """Binds calling thread to active input desktop so GUI windows appear on active display."""
     if sys.platform == "win32":
         try:
             user32 = ctypes.windll.user32
-            h_default_desk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
-            if h_default_desk:
-                user32.SetThreadDesktop(h_default_desk)
+            hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+            if not hdesk:
+                hdesk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if hdesk:
+                user32.SetThreadDesktop(hdesk)
         except Exception:
             pass
-
-
-def ensure_backend_server():
-    """Checks if the jarvis-core server is running on port 8000; if not, starts it."""
-    url = "http://127.0.0.1:8000/health"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "JarvisLauncher"})
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
-            if resp.status == 200:
-                logger.info("⚡ [FloatingApp] J.A.R.V.I.S. Core server verified online.")
-                return
-    except Exception:
-        pass
-
-    logger.info("🚀 [FloatingApp] Starting J.A.R.V.I.S. Core server daemon on port 8000...")
-    try:
-        core_dir = os.path.join(PROJECT_ROOT, "services", "jarvis-core")
-        flags = 0
-        if sys.platform == "win32":
-            flags = 0x00000008 | 0x00000200
-        subprocess.Popen(
-            [sys.executable, "main.py"],
-            cwd=core_dir,
-            creationflags=flags
-        )
-        for _ in range(12):
-            time.sleep(0.5)
-            try:
-                with urllib.request.urlopen(url, timeout=1.0) as resp:
-                    if resp.status == 200:
-                        logger.info("✅ [FloatingApp] J.A.R.V.I.S. Core server started successfully.")
-                        return
-            except Exception:
-                continue
-    except Exception as e:
-        logger.warning(f"Could not auto-start core server: {e}")
 
 
 class FloatingAgentAPI:
@@ -292,15 +269,27 @@ def start_global_hotkey_listener(window):
 
 
 def focus_on_start():
-    """Brings window to foreground once displayed."""
-    time.sleep(1.0)
-    if sys.platform == "win32":
-        try:
-            ensure_interactive_desktop()
-            from agents.computer.windows_agent import focus_window_by_name
-            focus_window_by_name("JARVIS")
-        except Exception:
-            pass
+    """Brings window to foreground and ensures HWND_TOPMOST once displayed."""
+    for _ in range(16):
+        time.sleep(0.3)
+        if sys.platform == "win32":
+            try:
+                ensure_interactive_desktop()
+                user32 = ctypes.windll.user32
+                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+                if hwnd and user32.IsWindowVisible(hwnd):
+                    HWND_TOPMOST = ctypes.c_void_p(-1)
+                    SWP_NOMOVE = 0x0002
+                    SWP_NOSIZE = 0x0001
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+                    user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    user32.SetForegroundWindow(hwnd)
+                    logger.info(f"⚡ [FloatingApp] Window pinned TOPMOST and focused (HWND: {hwnd})")
+                    break
+            except Exception as e:
+                logger.debug(f"[FloatingApp] Focus attempt notice: {e}")
 
 
 def main():
@@ -312,13 +301,12 @@ def main():
     # 1. Bind to active user desktop
     ensure_interactive_desktop()
 
-    # 2. Ensure Core backend server is running
-    ensure_backend_server()
-
-    # 3. Isolate WebView2 profile
-    profile_dir = os.path.join(PROJECT_ROOT, "data", "webview2_profile")
+    # 2. Isolate WebView2 profile with unique directory to prevent 0x800700AA resource locked error
+    import tempfile
+    profile_dir = os.path.join(tempfile.gettempdir(), f"jarvis_hud_{os.getpid()}")
     os.makedirs(profile_dir, exist_ok=True)
     os.environ["WEBVIEW2_USER_DATA_FOLDER"] = profile_dir
+    os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--use-fake-ui-for-media-stream --disable-features=msSmartScreenProtection"
 
     # 4. Compact Floating Window Geometry (NOT full screen)
     user32 = ctypes.windll.user32 if sys.platform == "win32" else None
@@ -362,6 +350,9 @@ def main():
 
     except Exception as e:
         logger.error(f"[FloatingApp] Desktop agent error: {e}")
+        import traceback
+        with open(r"d:\Project J.A.R.V.I.S\services\sensory\screenshots\floating_app_error.log", "w") as f:
+            traceback.print_exc(file=f)
         try:
             from agents.computer.windows_agent import windows_agent
             windows_agent.open_url(get_target_url())
@@ -370,4 +361,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        with open(r"d:\Project J.A.R.V.I.S\services\sensory\screenshots\floating_app_error.log", "w") as f:
+            traceback.print_exc(file=f)

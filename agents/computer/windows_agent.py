@@ -14,6 +14,8 @@ from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("WindowsAgent")
 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
 
 
 def ensure_interactive_desktop():
@@ -95,6 +97,127 @@ def focus_window_by_name(keyword: str):
                 logger.info(f"[WindowsAgent] Brought '{keyword}' (HWND: {hwnd}) to front display cleanly")
         except Exception as e:
             logger.warning(f"[WindowsAgent] focus_window_by_name error: {e}")
+
+
+def launch_process_on_interactive_desktop(cmd: str, cwd: Optional[str] = None) -> bool:
+    """
+    Launches a command directly onto WinSta0\\Default (the active physical desktop)
+    using Win32 CreateProcessW with lpDesktop = 'Default'.
+    Ensures GUI windows and WebViews render visibly on the physical display even if
+    the calling process was launched in a service or sandbox desktop.
+    """
+    if sys.platform != "win32":
+        try:
+            subprocess.Popen(cmd, shell=True, cwd=cwd)
+            return True
+        except Exception:
+            return False
+
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.windll.kernel32
+
+        class STARTUPINFO(ctypes.Structure):
+            _fields_ = [
+                ('cb', wintypes.DWORD),
+                ('lpReserved', wintypes.LPWSTR),
+                ('lpDesktop', wintypes.LPWSTR),
+                ('lpTitle', wintypes.LPWSTR),
+                ('dwX', wintypes.DWORD),
+                ('dwY', wintypes.DWORD),
+                ('dwXSize', wintypes.DWORD),
+                ('dwYSize', wintypes.DWORD),
+                ('dwXCountChars', wintypes.DWORD),
+                ('dwYCountChars', wintypes.DWORD),
+                ('dwFillAttribute', wintypes.DWORD),
+                ('dwFlags', wintypes.DWORD),
+                ('wShowWindow', wintypes.WORD),
+                ('cbReserved2', wintypes.WORD),
+                ('lpReserved2', ctypes.c_void_p),
+                ('hStdInput', wintypes.HANDLE),
+                ('hStdOutput', wintypes.HANDLE),
+                ('hStdError', wintypes.HANDLE),
+            ]
+
+        class PROCESS_INFORMATION(ctypes.Structure):
+            _fields_ = [
+                ('hProcess', wintypes.HANDLE),
+                ('hThread', wintypes.HANDLE),
+                ('dwProcessId', wintypes.DWORD),
+                ('dwThreadId', wintypes.DWORD),
+            ]
+
+        si = STARTUPINFO()
+        si.cb = ctypes.sizeof(STARTUPINFO)
+        si.lpDesktop = "Default"
+
+        pi = PROCESS_INFORMATION()
+
+        kernel32.CreateProcessW.argtypes = [
+            wintypes.LPCWSTR, wintypes.LPWSTR, ctypes.c_void_p, ctypes.c_void_p,
+            wintypes.BOOL, wintypes.DWORD, ctypes.c_void_p, wintypes.LPCWSTR,
+            ctypes.POINTER(STARTUPINFO), ctypes.POINTER(PROCESS_INFORMATION)
+        ]
+        kernel32.CreateProcessW.restype = wintypes.BOOL
+
+        flags = 0x00000200  # CREATE_NEW_PROCESS_GROUP
+        success = kernel32.CreateProcessW(
+            None, cmd, None, None, False, flags, None, cwd,
+            ctypes.byref(si), ctypes.byref(pi)
+        )
+
+        if success:
+            kernel32.CloseHandle(pi.hProcess)
+            kernel32.CloseHandle(pi.hThread)
+            logger.info(f"[WindowsAgent] Launched PID {pi.dwProcessId} on Default desktop: {cmd}")
+            return True
+        else:
+            err = kernel32.GetLastError()
+            logger.warning(f"[WindowsAgent] CreateProcessW returned error {err}, falling back to subprocess.Popen")
+    except Exception as e:
+        logger.warning(f"[WindowsAgent] launch_process_on_interactive_desktop error: {e}")
+
+    try:
+        subprocess.Popen(cmd, cwd=cwd, shell=True)
+        return True
+    except Exception as e_sub:
+        logger.error(f"[WindowsAgent] Subprocess fallback failed: {e_sub}")
+        return False
+
+
+def launch_floating_hud() -> Dict[str, Any]:
+    """
+    Brings J.A.R.V.I.S. 3D Floating HUD to the front if already running,
+    or launches it directly onto WinSta0\\Default so it appears visibly on the screen.
+    """
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            h_def = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if h_def:
+                user32.SetThreadDesktop(h_def)
+            hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+            if hwnd and user32.IsWindowVisible(hwnd):
+                HWND_TOPMOST = ctypes.c_void_p(-1)
+                SWP_NOMOVE = 0x0002
+                SWP_NOSIZE = 0x0001
+                SWP_SHOWWINDOW = 0x0040
+                user32.SetWindowPos.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+                user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW)
+                user32.ShowWindow(hwnd, 9)
+                user32.SetForegroundWindow(hwnd)
+                return {"success": True, "action": "focused", "message": "J.A.R.V.I.S. was already open; brought to foreground."}
+        except Exception:
+            pass
+
+    py_exe = sys.executable or "python.exe"
+    hud_script = os.path.join(PROJECT_ROOT, "services", "floating-agent", "floating_app.py")
+    cmd = f'"{py_exe}" -X utf8 "{hud_script}"'
+    ok = launch_process_on_interactive_desktop(cmd, cwd=PROJECT_ROOT)
+    return {"success": ok, "action": "launched", "message": "J.A.R.V.I.S. 3D Floating Agent launched on desktop."}
 
 
 def find_start_menu_app(name: str) -> Optional[str]:
@@ -1040,7 +1163,47 @@ class WindowsAgent:
             "message": "Diagnosed clipboard error, sir. The verified fix has been placed in your clipboard for instant Ctrl+V pasting."
         }
 
+    def focus_window_by_name(self, name_query: str) -> bool:
+        """Finds a window by partial title match and brings it to foreground/focus."""
+        if sys.platform != "win32":
+            return False
+        try:
+            ensure_interactive_desktop()
+            user32 = ctypes.windll.user32
+            target_name = name_query.lower().strip()
+            found_hwnd = None
+
+            def enum_cb(hwnd, lparam):
+                nonlocal found_hwnd
+                if user32.IsWindowVisible(hwnd):
+                    length = user32.GetWindowTextLengthW(hwnd)
+                    if length > 0:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        user32.GetWindowTextW(hwnd, buff, length + 1)
+                        if target_name in buff.value.lower():
+                            found_hwnd = hwnd
+                            return False
+                return True
+
+            WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+            user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+
+            if found_hwnd:
+                user32.ShowWindow(found_hwnd, 9)  # SW_RESTORE
+                user32.SetForegroundWindow(found_hwnd)
+                return True
+            return False
+        except Exception as e:
+            logger.debug(f"[WindowsAgent] focus_window_by_name error: {e}")
+            return False
+
 
 windows_agent = WindowsAgent()
+
+
+def focus_window_by_name(name_query: str) -> bool:
+    """Convenience top-level wrapper for focusing window by title."""
+    return windows_agent.focus_window_by_name(name_query)
+
 
 

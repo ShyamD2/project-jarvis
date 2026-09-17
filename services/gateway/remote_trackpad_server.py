@@ -143,12 +143,24 @@ class KeyRequest(BaseModel):
     key: str
 
 
+def _capture_desktop_frame():
+    if sys.platform == "win32":
+        try:
+            u32 = ctypes.windll.user32
+            hd = u32.OpenInputDesktop(0, False, 0x01FF) or u32.OpenDesktopW("Default", 0, False, 0x01FF)
+            if hd:
+                u32.SetThreadDesktop(hd)
+        except Exception:
+            pass
+    return ImageGrab.grab(all_screens=False)
+
+
 async def generate_mjpeg_frames():
     """Asynchronously streams JPEG frames of the desktop without blocking event loop."""
     loop = asyncio.get_event_loop()
     while True:
         try:
-            img = await loop.run_in_executor(None, lambda: ImageGrab.grab(all_screens=False))
+            img = await loop.run_in_executor(None, _capture_desktop_frame)
             w, h = img.size
             ratio = 600 / max(w, 1)
             target_size = (600, int(h * ratio))
@@ -165,6 +177,42 @@ async def generate_mjpeg_frames():
             break
         except Exception:
             await asyncio.sleep(0.2)
+
+
+def launch_floating_hud() -> Dict[str, Any]:
+    """Ensures the 3D floating HUD window is launched on Default desktop, restored, and brought to foreground."""
+    try:
+        from agents.computer.power_agent import power_agent
+        power_agent.wake_display()
+
+        from agents.computer.windows_agent import launch_floating_hud as _win_launch_hud
+        return _win_launch_hud()
+    except Exception as e:
+        logger.error(f"[TrackpadServer] Error launching HUD: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def close_floating_hud() -> Dict[str, Any]:
+    """Closes the floating HUD window."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32 if sys.platform == "win32" else None
+        if user32:
+            try:
+                hdesk = user32.OpenInputDesktop(0, False, 0x01FF) or user32.OpenDesktopW("Default", 0, False, 0x01FF)
+                if hdesk:
+                    user32.SetThreadDesktop(hdesk)
+            except Exception:
+                pass
+            hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent")
+            if hwnd:
+                user32.PostMessageW(hwnd, 0x0010, 0, 0)  # WM_CLOSE
+                return {"success": True, "action": "closed"}
+        subprocess.run(["taskkill", "/F", "/FI", "WINDOWTITLE eq J.A.R.V.I.S. Floating Agent*"], capture_output=True)
+        return {"success": True, "action": "killed"}
+    except Exception as e:
+        logger.error(f"[TrackpadServer] Error closing HUD: {e}")
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/stream")
@@ -250,6 +298,10 @@ async def trackpad_websocket(websocket: WebSocket):
                 windows_agent.switch_tab("prev")
             elif t == "win_switch":
                 windows_agent.switch_window()
+            elif t == "launch_hud":
+                launch_floating_hud()
+            elif t == "close_hud":
+                close_floating_hud()
             elif t == "media":
                 from agents.computer.audio_agent import audio_agent
                 audio_agent.control_media(msg.get("action", "play_pause"))
@@ -259,6 +311,16 @@ async def trackpad_websocket(websocket: WebSocket):
         pass
     except Exception as e:
         logger.debug(f"[TrackpadWS] Notice: {e}")
+
+
+@app.post("/api/hud/launch")
+def api_launch_hud():
+    return launch_floating_hud()
+
+
+@app.post("/api/hud/close")
+def api_close_hud():
+    return close_floating_hud()
 
 
 @app.post("/api/mouse/move")
@@ -531,6 +593,8 @@ def remote_trackpad_page():
     <div class="screen-overlay">🎯 TAP SCREEN TO CLICK DIRECTLY</div>
     <img id="screenImg" src="/stream" alt="Live PC Screen" onclick="handleScreenTap(event)" />
     <div class="screen-tools">
+      <button class="btn-tool" style="color:#00f0ff; border-color:#00f0ff; font-weight:700;" onclick="sendAction('launch_hud')">🚀 START HUD</button>
+      <button class="btn-tool" style="color:#ef4444; border-color:#ef4444;" onclick="sendAction('close_hud')">🛑 CLOSE</button>
       <button class="btn-tool" onclick="sendAction('media', {action: 'play_pause'})">⏯️ PLAY</button>
       <button class="btn-tool" onclick="sendAction('media', {action: 'next'})">⏭️ NEXT</button>
     </div>
@@ -551,6 +615,7 @@ def remote_trackpad_page():
 
   <!-- TAB & WINDOW CONTROLS -->
   <div class="tabs-bar">
+    <button class="btn tab-btn" style="border-color:#00f0ff; color:#00f0ff; font-weight:bold;" onclick="sendAction('launch_hud')">🚀 HUD</button>
     <button class="btn tab-btn" onclick="sendAction('tab_new')">➕ Tab</button>
     <button class="btn tab-btn" onclick="sendAction('tab_close')">❌ Close</button>
     <button class="btn tab-btn" onclick="sendAction('tab_prev')">◀ Prev</button>
@@ -813,6 +878,11 @@ def remote_trackpad_page():
 
     function sendAction(actionType, extra = {}) {
       wsSend({ t: actionType, ...extra });
+      if (actionType === 'launch_hud') {
+        fetch('/api/hud/launch', { method: 'POST' }).catch(()=>{});
+      } else if (actionType === 'close_hud') {
+        fetch('/api/hud/close', { method: 'POST' }).catch(()=>{});
+      }
     }
 
     function sendType() {

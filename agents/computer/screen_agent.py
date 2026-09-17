@@ -37,6 +37,17 @@ class ScreenAgent:
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = os.path.join(SCREENSHOTS_DIR, f"screen_{ts}.png")
 
+        if sys.platform == "win32":
+            try:
+                user32 = ctypes.windll.user32
+                hdesk = user32.OpenInputDesktop(0, False, 0x01FF)
+                if not hdesk:
+                    hdesk = user32.OpenDesktopW("Default", 0, False, 0x01FF)
+                if hdesk:
+                    user32.SetThreadDesktop(hdesk)
+            except Exception:
+                pass
+
         try:
             from PIL import ImageGrab
             img = ImageGrab.grab(all_screens=True)
