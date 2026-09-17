@@ -18,6 +18,8 @@ import socket
 import asyncio
 import threading
 import subprocess
+import ctypes
+import secrets
 from typing import Optional, Dict, Any
 from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -48,6 +50,28 @@ app.add_middleware(
 
 _public_url: str = ""
 _tunnel_process: Optional[subprocess.Popen] = None
+
+_OPERATOR_TOKEN_FILE = os.path.join(PROJECT_ROOT, "services", "gateway", "operator_token.txt")
+
+def get_operator_token() -> str:
+    """Returns persistent secure operator authentication token."""
+    if os.path.exists(_OPERATOR_TOKEN_FILE):
+        try:
+            with open(_OPERATOR_TOKEN_FILE, "r", encoding="utf-8") as f:
+                tok = f.read().strip()
+                if tok:
+                    return tok
+        except Exception:
+            pass
+    tok = secrets.token_urlsafe(12)
+    try:
+        with open(_OPERATOR_TOKEN_FILE, "w", encoding="utf-8") as f:
+            f.write(tok)
+    except Exception:
+        pass
+    return tok
+
+OPERATOR_TOKEN = get_operator_token()
 
 
 def get_local_ip() -> str:
@@ -143,16 +167,106 @@ class KeyRequest(BaseModel):
     key: str
 
 
+def is_workstation_locked() -> bool:
+    """Checks if the Windows workstation is currently locked or in Winlogon."""
+    if sys.platform != "win32":
+        return False
+    try:
+        u32 = ctypes.windll.user32
+        hdesk = u32.OpenInputDesktop(0, False, 0x01FF)
+        if not hdesk:
+            return True
+        buf = ctypes.create_unicode_buffer(256)
+        needed = ctypes.c_ulong(0)
+        u32.GetUserObjectInformationW(hdesk, 2, buf, 256, ctypes.byref(needed))
+        desk_name = buf.value.lower()
+        u32.CloseDesktop(hdesk)
+        return desk_name != "default"
+    except Exception:
+        return False
+
+
+def _create_locked_screen_image():
+    """Generates a stylish HUD card when Windows is locked to avoid showing a confusing pitch-black screen."""
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (960, 540), color=(6, 10, 18))
+    draw = ImageDraw.Draw(img)
+    # HUD neon frame
+    draw.rectangle([20, 20, 940, 520], outline=(0, 240, 255), width=2)
+    draw.rectangle([24, 24, 936, 516], outline=(255, 51, 102), width=1)
+
+    draw.text((310, 150), "🔒 WINDOWS WORKSTATION IS LOCKED", fill=(255, 60, 90))
+    draw.text((210, 210), "• Windows kernel (Winlogon) isolates desktop framebuffer while locked.", fill=(200, 215, 235))
+    draw.text((210, 245), "• Screen grabbers receive black frames from Windows OS architecture.", fill=(200, 215, 235))
+    draw.text((210, 305), "💡 RECOMMENDED ZERO-PASSWORD SCREEN SOLUTION:", fill=(0, 240, 255))
+    draw.text((210, 340), "Use '🌙 Stealth Screen Off' (/stealth) in Telegram instead of Win+L.", fill=(0, 255, 136))
+    draw.text((210, 375), "Monitors turn completely black in the room while your phone keeps 100% live access!", fill=(180, 200, 220))
+    return img
+
+
+def _draw_cursor_on_image(img):
+    """Draws a prominent, high-contrast mouse pointer directly onto the PIL image at actual cursor coordinates."""
+    if sys.platform != "win32":
+        return img
+    try:
+        from ctypes import wintypes
+        class CURSORINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.c_uint),
+                ("flags", ctypes.c_uint),
+                ("hCursor", ctypes.c_void_p),
+                ("ptScreenPos", wintypes.POINT)
+            ]
+
+        ci = CURSORINFO()
+        ci.cbSize = ctypes.sizeof(CURSORINFO)
+        u32 = ctypes.windll.user32
+        if u32.GetCursorInfo(ctypes.byref(ci)):
+            if ci.flags & 1:  # CURSOR_SHOWING
+                cx = ci.ptScreenPos.x
+                cy = ci.ptScreenPos.y
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(img)
+                # Scaled pointer arrow polygon: 28px height, clearly visible even when image is scaled down on mobile
+                arrow = [
+                    (cx, cy),
+                    (cx, cy + 28),
+                    (cx + 8, cy + 22),
+                    (cx + 14, cy + 33),
+                    (cx + 19, cy + 30),
+                    (cx + 13, cy + 19),
+                    (cx + 22, cy + 19)
+                ]
+                # High-contrast double stroke: solid black outer border (3px), bright neon cyan core
+                draw.polygon(arrow, fill=(0, 240, 255), outline=(0, 0, 0), width=3)
+                # Precision red hotspot marker at the exact tip
+                draw.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=(255, 50, 70), outline=(255, 255, 255), width=1)
+    except Exception:
+        pass
+    return img
+
+
 def _capture_desktop_frame():
     if sys.platform == "win32":
         try:
             u32 = ctypes.windll.user32
+            # Wake display monitor from power saving if asleep so framebuffer is active
+            u32.SendMessageW(0xFFFF, 0x0112, 0xF170, -1)
             hd = u32.OpenInputDesktop(0, False, 0x01FF) or u32.OpenDesktopW("Default", 0, False, 0x01FF)
             if hd:
                 u32.SetThreadDesktop(hd)
         except Exception:
             pass
-    return ImageGrab.grab(all_screens=False)
+
+    if is_workstation_locked():
+        return _create_locked_screen_image()
+
+    try:
+        frame = ImageGrab.grab(all_screens=False)
+        frame = _draw_cursor_on_image(frame)
+        return frame
+    except Exception:
+        return _create_locked_screen_image()
 
 
 async def generate_mjpeg_frames():
@@ -162,17 +276,17 @@ async def generate_mjpeg_frames():
         try:
             img = await loop.run_in_executor(None, _capture_desktop_frame)
             w, h = img.size
-            ratio = 600 / max(w, 1)
-            target_size = (600, int(h * ratio))
+            ratio = 960 / max(w, 1)
+            target_size = (960, int(h * ratio))
             img = img.resize(target_size)
 
             buf = io.BytesIO()
-            img.save(buf, format="JPEG", quality=40)
+            img.save(buf, format="JPEG", quality=72)
             frame = buf.getvalue()
 
             header = b"--frame\r\nContent-Type: image/jpeg\r\n\r\n"
             yield header + frame + b"\r\n"
-            await asyncio.sleep(0.08)  # ~12 FPS
+            await asyncio.sleep(0.09)  # ~11 FPS
         except asyncio.CancelledError:
             break
         except Exception:
@@ -215,34 +329,54 @@ def close_floating_hud() -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
+def verify_token(token: Optional[str]) -> bool:
+    """Verifies that request originates from authenticated operator phone."""
+    return bool(token and token == get_operator_token())
+
+
 @app.get("/stream")
-async def stream_screen():
-    """Live MJPEG video stream of the Windows desktop."""
+async def stream_screen(token: Optional[str] = None):
+    """Live MJPEG video stream of the Windows desktop (Token Authenticated)."""
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return StreamingResponse(
         generate_mjpeg_frames(),
-        media_type="multipart/x-mixed-replace; boundary=frame"
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={
+            "Cache-Control": "no-cache, no-transform, no-store, must-revalidate",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
     )
 
 
 @app.get("/api/screen/snapshot")
-async def get_screen_snapshot():
-    """Returns an instantaneous single JPEG frame of the active desktop."""
+async def get_screen_snapshot(token: Optional[str] = None):
+    """Returns an instantaneous single JPEG frame of the active desktop (Token Authenticated)."""
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     loop = asyncio.get_event_loop()
     try:
-        img = await loop.run_in_executor(None, lambda: ImageGrab.grab(all_screens=False))
+        img = await loop.run_in_executor(None, _capture_desktop_frame)
         w, h = img.size
-        ratio = 720 / max(w, 1)
-        img = img.resize((720, int(h * ratio)))
+        ratio = 960 / max(w, 1)
+        target_size = (960, int(h * ratio))
+        img = img.resize(target_size)
         buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=55)
-        return Response(content=buf.getvalue(), media_type="image/jpeg")
+        img.save(buf, format="JPEG", quality=75)
+        return Response(content=buf.getvalue(), media_type="image/jpeg", headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache"
+        })
     except Exception:
         return Response(content=b"", status_code=500)
 
 
 @app.get("/api/screen/info")
-def get_screen_info():
-    """Returns the primary screen width and height."""
+def get_screen_info(token: Optional[str] = None):
+    """Returns the primary screen width and height (Token Authenticated)."""
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     try:
         import ctypes
         u32 = ctypes.windll.user32
@@ -258,6 +392,10 @@ async def trackpad_websocket(websocket: WebSocket):
     """
     Sub-millisecond full-duplex WebSocket connection for mobile touch trackpad.
     """
+    token = websocket.query_params.get("token")
+    if not verify_token(token):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     mouse_agent._ensure_desktop()
     await websocket.send_json({"status": "connected"})
@@ -314,45 +452,75 @@ async def trackpad_websocket(websocket: WebSocket):
 
 
 @app.post("/api/hud/launch")
-def api_launch_hud():
+def api_launch_hud(token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return launch_floating_hud()
 
 
 @app.post("/api/hud/close")
-def api_close_hud():
+def api_close_hud(token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return close_floating_hud()
 
 
 @app.post("/api/mouse/move")
-def move_mouse(req: MoveRequest):
+def move_mouse(req: MoveRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return mouse_agent.move_relative(req.dx, req.dy)
 
 
 @app.post("/api/mouse/abs_click")
-def abs_click_mouse(req: AbsClickRequest):
+def abs_click_mouse(req: AbsClickRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     mouse_agent.move_cursor(int(req.x), int(req.y), smooth=False)
     return mouse_agent.click(button=req.button)
 
 
 @app.post("/api/mouse/click")
-def click_mouse(req: ClickRequest):
+def click_mouse(req: ClickRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return mouse_agent.click(button=req.button.lower())
 
 
 @app.post("/api/mouse/scroll")
-def scroll_mouse(req: ScrollRequest):
+def scroll_mouse(req: ScrollRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     direction = "down" if req.delta < 0 else "up"
     return mouse_agent.scroll(clicks=abs(req.delta), direction=direction)
 
 
 @app.post("/api/keyboard/type")
-def type_text(req: TypeRequest):
+def type_text(req: TypeRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return keyboard_agent.type_text(req.text)
 
 
 @app.post("/api/keyboard/key")
-def press_key(req: KeyRequest):
+def press_key(req: KeyRequest, token: Optional[str] = None):
+    if not verify_token(token):
+        return Response(content=b"Unauthorized", status_code=403)
     return keyboard_agent.press_key(req.key)
+
+
+class PinVerifyRequest(BaseModel):
+    pin: str
+
+
+@app.post("/api/auth/verify_pin")
+def api_verify_pin(req: PinVerifyRequest):
+    """Authenticates mobile operator using persistent Master Security PIN."""
+    from services.security.cyber_lock import get_stored_pin
+    correct = get_stored_pin()
+    if req.pin.strip() == correct:
+        return {"success": True, "token": get_operator_token()}
+    return {"success": False, "error": "Invalid Master PIN"}
 
 
 @app.get("/remote", response_class=HTMLResponse)
@@ -439,6 +607,22 @@ def remote_trackpad_page():
       font-size: 9px;
       color: #00f0ff;
       pointer-events: none;
+    }
+    .tap-indicator {
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #00f0ff;
+      background: rgba(0, 240, 255, 0.4);
+      transform: translate(-50%, -50%) scale(0.5);
+      animation: tapPulse 0.4s ease-out forwards;
+      pointer-events: none;
+      z-index: 10;
+    }
+    @keyframes tapPulse {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
     }
     .screen-tools {
       position: absolute;
@@ -568,20 +752,172 @@ def remote_trackpad_page():
       color: #000;
       border: none;
       padding: 0 14px;
-      border-radius: 6px;
-      font-weight: 700;
       font-size: 11px;
       cursor: pointer;
+    }
+    /* PIN MODAL GATE */
+    .pin-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(5, 8, 17, 0.98);
+      z-index: 99999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+    .pin-card {
+      background: rgba(13, 24, 41, 0.98);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.2);
+      border-radius: 16px;
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .pin-badge {
+      display: inline-block;
+      background: rgba(0, 240, 255, 0.12);
+      color: #00f0ff;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .pin-card h2 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    .pin-card p {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+    .pin-input-box {
+      margin-bottom: 8px;
+    }
+    .pin-input-box input {
+      width: 180px;
+      height: 44px;
+      background: #070d18;
+      border: 2px solid #00f0ff;
+      border-radius: 8px;
+      color: #00f0ff;
+      font-size: 26px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 8px;
+      outline: none;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+    .pin-error-msg {
+      font-size: 11px;
+      color: #ff3366;
+      font-weight: 700;
+      height: 16px;
+      margin-bottom: 10px;
+    }
+    .pin-keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .pin-key {
+      background: rgba(20, 32, 54, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 12px 0;
+      border-radius: 10px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .pin-key:active {
+      background: #00f0ff;
+      color: #000;
+    }
+    .pin-key.clr {
+      color: #ff3366;
+      border-color: rgba(255, 51, 102, 0.4);
+      font-size: 14px;
+    }
+    .pin-key.unlock {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      color: #00f0ff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .pin-hint {
+      font-size: 9px;
+      color: #64748b;
+    }
+    .pin-hint code {
+      color: #00f0ff;
+      background: rgba(0, 240, 255, 0.1);
+      padding: 2px 4px;
+      border-radius: 3px;
     }
   </style>
 </head>
 <body>
+  <!-- HIGH SECURITY MASTER PIN GATE -->
+  <div id="pinModal" class="pin-modal-overlay">
+    <div class="pin-card">
+      <div class="pin-badge">🛡️ J.A.R.V.I.S. SECURE CONSOLE</div>
+      <h2>OPERATOR ACCESS</h2>
+      <p>Enter Master Security PIN to unlock live screen & mouse trackpad</p>
+      
+      <div class="pin-input-box">
+        <input type="password" id="modalPinInput" maxlength="8" placeholder="••••" readonly />
+      </div>
+      
+      <div id="pinError" class="pin-error-msg"></div>
+
+      <!-- Touch keypad for mobile phone screens -->
+      <div class="pin-keypad">
+        <button class="pin-key" onclick="pinPress('1')">1</button>
+        <button class="pin-key" onclick="pinPress('2')">2</button>
+        <button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button>
+        <button class="pin-key" onclick="pinPress('5')">5</button>
+        <button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button>
+        <button class="pin-key" onclick="pinPress('8')">8</button>
+        <button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key clr" onclick="pinClear()">CLR</button>
+        <button class="pin-key" onclick="pinPress('0')">0</button>
+        <button class="pin-key unlock" onclick="pinSubmit()">🔓 UNLOCK</button>
+      </div>
+
+      <div class="pin-hint">
+        Change PIN in Telegram anytime: <code>/setpin &lt;current_pin&gt; &lt;new_pin&gt;</code>
+      </div>
+    </div>
+  </div>
+
   <header>
     <div class="header-left">
       <div id="statusDot" class="status-dot"></div>
       <h1 id="statusText">CONNECTING...</h1>
     </div>
     <div style="display: flex; gap: 4px;">
+      <button class="btn-header" onclick="lockConsole()" style="color:#ff3366; border-color:#ff3366;">🔒 LOCK</button>
+      <button class="btn-header" id="modeToggle" onclick="toggleStreamMode()">⚡ FAST</button>
       <button class="btn-header" id="speedToggle" onclick="toggleSpeed()">🚀 2.2x</button>
       <button class="btn-header" onclick="refreshSnapshot()">📸 REFRESH</button>
       <button class="btn-header" onclick="toggleScreenHeight()">↕️ SCREEN</button>
@@ -591,7 +927,7 @@ def remote_trackpad_page():
   <!-- LIVE INTERACTIVE SCREEN WITH TAP-TO-CLICK -->
   <div id="screenSection">
     <div class="screen-overlay">🎯 TAP SCREEN TO CLICK DIRECTLY</div>
-    <img id="screenImg" src="/stream" alt="Live PC Screen" onclick="handleScreenTap(event)" />
+    <img id="screenImg" src="/api/screen/snapshot" alt="Live PC Screen" onclick="handleScreenTap(event)" />
     <div class="screen-tools">
       <button class="btn-tool" style="color:#00f0ff; border-color:#00f0ff; font-weight:700;" onclick="sendAction('launch_hud')">🚀 START HUD</button>
       <button class="btn-tool" style="color:#ef4444; border-color:#ef4444;" onclick="sendAction('close_hud')">🛑 CLOSE</button>
@@ -643,6 +979,82 @@ def remote_trackpad_page():
   </div>
 
   <script>
+    let authToken = sessionStorage.getItem('jarvis_auth_token') || '';
+
+    function checkAuthOnLoad() {
+      const modal = document.getElementById('pinModal');
+      if (authToken) {
+        modal.style.display = 'none';
+        initWebSocket();
+        startFastPolling();
+      } else {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function lockConsole() {
+      authToken = '';
+      sessionStorage.removeItem('jarvis_auth_token');
+      if (ws) { try { ws.close(); } catch(e){} }
+      if (pollTimer) clearTimeout(pollTimer);
+      const modal = document.getElementById('pinModal');
+      document.getElementById('modalPinInput').value = '';
+      document.getElementById('pinError').innerText = '';
+      modal.style.display = 'flex';
+    }
+
+    function pinPress(num) {
+      const inp = document.getElementById('modalPinInput');
+      if (inp.value.length < 8) {
+        inp.value += num;
+      }
+    }
+
+    function pinClear() {
+      document.getElementById('modalPinInput').value = '';
+      document.getElementById('pinError').innerText = '';
+    }
+
+    async function pinSubmit() {
+      const inp = document.getElementById('modalPinInput');
+      const err = document.getElementById('pinError');
+      const pin = inp.value.trim();
+      if (!pin) {
+        err.innerText = 'Enter your 4-digit Master PIN';
+        return;
+      }
+      err.innerText = 'AUTHENTICATING...';
+      err.style.color = '#00f0ff';
+      try {
+        const res = await fetch('/api/auth/verify_pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: pin })
+        });
+        const data = await res.json();
+        if (data.success && data.token) {
+          authToken = data.token;
+          sessionStorage.setItem('jarvis_auth_token', authToken);
+          err.innerText = '✅ ACCESS GRANTED';
+          err.style.color = '#00ff88';
+          setTimeout(() => {
+            document.getElementById('pinModal').style.display = 'none';
+            initWebSocket();
+            startFastPolling();
+          }, 300);
+        } else {
+          err.innerText = '❌ ACCESS DENIED: INCORRECT PIN';
+          err.style.color = '#ff3366';
+          inp.value = '';
+        }
+      } catch (e) {
+        err.innerText = 'Error connecting to J.A.R.V.I.S.';
+        err.style.color = '#ffaa00';
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', checkAuthOnLoad);
+
     // -------------------------------------------------------------
     // 1. WEBSOCKET PIPELINE WITH AUTO RECONNECT
     // -------------------------------------------------------------
@@ -650,8 +1062,10 @@ def remote_trackpad_page():
     let isConnected = false;
 
     function initWebSocket() {
+      if (!authToken) return;
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = `${proto}//${window.location.host}/ws/trackpad`;
+      const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+      const url = `${proto}//${window.location.host}/ws/trackpad${tokenParam}`;
       try {
         ws = new WebSocket(url);
         ws.onopen = () => {
@@ -663,21 +1077,20 @@ def remote_trackpad_page():
           isConnected = false;
           document.getElementById('statusDot').style.background = '#ffaa00';
           document.getElementById('statusText').innerText = 'RECONNECTING...';
-          setTimeout(initWebSocket, 1200);
+          setTimeout(initWebSocket, 1500);
         };
         ws.onerror = () => { isConnected = false; };
       } catch (e) {
         setTimeout(initWebSocket, 2000);
       }
     }
-    initWebSocket();
 
     function wsSend(payload) {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify(payload));
       } else {
-        if (payload.t === 'm') {
-          fetch('/api/mouse/move', {
+        if (payload.t === 'm' && authToken) {
+          fetch(`/api/mouse/move?token=${encodeURIComponent(authToken)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dx: payload.dx, dy: payload.dy })
@@ -687,15 +1100,85 @@ def remote_trackpad_page():
     }
 
     // -------------------------------------------------------------
-    // 2. SCREEN TAP-TO-CLICK (DIRECT PIXEL MAPPING)
+    // 2. DUAL-ENGINE LIVE SCREEN (FAST SNAPSHOT POLLING + MJPEG STREAM)
     // -------------------------------------------------------------
-    let pcScreenWidth = 1536, pcScreenHeight = 864;
-    fetch('/api/screen/info')
+    let pcScreenWidth = 1920, pcScreenHeight = 1080;
+    fetch(`/api/screen/info?token=${encodeURIComponent(authToken)}`)
       .then(r => r.json())
       .then(data => {
         if (data.width) pcScreenWidth = data.width;
         if (data.height) pcScreenHeight = data.height;
       }).catch(()=>{});
+
+    let isFastPolling = true; // High-speed double-buffered snapshot polling eliminates Cloudflare proxy buffering
+    let pollTimer = null;
+    let isFetchingFrame = false;
+
+    function fetchNextSnapshot() {
+      if (!isFastPolling) return;
+      if (isFetchingFrame) return;
+      isFetchingFrame = true;
+      const screenImg = document.getElementById('screenImg');
+      const tempImg = new Image();
+      tempImg.onload = () => {
+        screenImg.src = tempImg.src;
+        isFetchingFrame = false;
+        if (isFastPolling) {
+          pollTimer = setTimeout(fetchNextSnapshot, 120); // ~8-10 FPS smooth video
+        }
+      };
+      tempImg.onerror = () => {
+        isFetchingFrame = false;
+        if (isFastPolling) {
+          pollTimer = setTimeout(fetchNextSnapshot, 900);
+        }
+      };
+      tempImg.src = `/api/screen/snapshot?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+    }
+
+    function startFastPolling() {
+      isFastPolling = true;
+      if (pollTimer) clearTimeout(pollTimer);
+      const btn = document.getElementById('modeToggle');
+      if (btn) { btn.innerText = '⚡ FAST'; btn.style.color = '#00f0ff'; }
+      fetchNextSnapshot();
+    }
+
+    function startMjpegStream() {
+      isFastPolling = false;
+      if (pollTimer) clearTimeout(pollTimer);
+      const btn = document.getElementById('modeToggle');
+      if (btn) { btn.innerText = '🎥 STREAM'; btn.style.color = '#a78bfa'; }
+      const screenImg = document.getElementById('screenImg');
+      screenImg.src = `/stream?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+    }
+
+    function toggleStreamMode() {
+      if (isFastPolling) {
+        startMjpegStream();
+      } else {
+        startFastPolling();
+      }
+    }
+
+    // Auto-fallback if MJPEG stream encounters a network stall or error
+    const screenImgEl = document.getElementById('screenImg');
+    screenImgEl.onerror = () => {
+      console.log("[Stream] MJPEG stream stalled/error. Activating Fast Polling fallback...");
+      startFastPolling();
+    };
+
+    // Begin with fast polling (works everywhere worldwide without proxy buffering)
+    startFastPolling();
+
+    function refreshSnapshot() {
+      if (isFastPolling) {
+        fetchNextSnapshot();
+      } else {
+        const img = document.getElementById('screenImg');
+        img.src = `/api/screen/snapshot?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+      }
+    }
 
     function handleScreenTap(e) {
       const img = document.getElementById('screenImg');
@@ -713,14 +1196,14 @@ def remote_trackpad_page():
 
       wsSend({ t: 'abs_click', x: targetX, y: targetY, b: 'left' });
 
-      // Visual flash feedback
-      img.style.opacity = '0.7';
-      setTimeout(() => { img.style.opacity = '1'; }, 100);
-    }
-
-    function refreshSnapshot() {
-      const img = document.getElementById('screenImg');
-      img.src = '/api/screen/snapshot?t=' + Date.now();
+      // Visual tap indicator
+      const container = document.getElementById('screenSection');
+      const indicator = document.createElement('div');
+      indicator.className = 'tap-indicator';
+      indicator.style.left = `${clickX}px`;
+      indicator.style.top = `${clickY}px`;
+      container.appendChild(indicator);
+      setTimeout(() => indicator.remove(), 400);
     }
 
     let screenExpanded = false;
@@ -879,9 +1362,9 @@ def remote_trackpad_page():
     function sendAction(actionType, extra = {}) {
       wsSend({ t: actionType, ...extra });
       if (actionType === 'launch_hud') {
-        fetch('/api/hud/launch', { method: 'POST' }).catch(()=>{});
+        fetch(`/api/hud/launch?token=${encodeURIComponent(authToken)}`, { method: 'POST' }).catch(()=>{});
       } else if (actionType === 'close_hud') {
-        fetch('/api/hud/close', { method: 'POST' }).catch(()=>{});
+        fetch(`/api/hud/close?token=${encodeURIComponent(authToken)}`, { method: 'POST' }).catch(()=>{});
       }
     }
 

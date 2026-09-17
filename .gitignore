@@ -76,3 +76,6 @@ services/sensory/screenshots/
 data/webview2_profile/
 services/gateway/cloudflared.exe
 services/gateway/trackpad_url.txt
+services/gateway/operator_token.txt
+services/security/lock_pin.txt
+services/security/lock_pid.txt

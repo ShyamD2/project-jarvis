@@ -908,11 +908,11 @@
   }
 
   // DISPATCH COMMAND VIA PYWEBVIEW NATIVE BRIDGE OR FASTAPI
-  async function submitCommand() {
+  async function submitCommand(overrideText) {
     const input = document.getElementById("command-input");
-    const text = input.value.trim();
+    const text = (typeof overrideText === "string" && overrideText ? overrideText : (input ? input.value : "")).trim();
     if (!text) return;
-    input.value = "";
+    if (input) input.value = "";
 
     // Voice / text shortcut commands
     const lower = text.toLowerCase();
@@ -1015,8 +1015,8 @@
       if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
       voiceSilenceTimer = setTimeout(() => {
         if (micBtn) micBtn.classList.remove("speaking");
-        submitCommand();
-      }, 600);
+        submitCommand(text);
+      }, 500);
     }
   };
 
@@ -1050,6 +1050,11 @@
   window.addEventListener("pywebviewready", tryStartHardwareVoice);
   setTimeout(tryStartHardwareVoice, 1200);
   setTimeout(tryStartHardwareVoice, 3000);
+  setTimeout(() => {
+    if (!window.pywebview) {
+      initSpeechRecognition();
+    }
+  }, 3500);
 
   // Always-on speech recognition (Web Speech API fallback if not running pywebview)
   function initSpeechRecognition() {

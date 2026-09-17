@@ -63,6 +63,47 @@ def ensure_interactive_desktop():
         except Exception:
             pass
 
+def get_best_hardware_microphone_index() -> Optional[int]:
+    """
+    Scans system audio input devices and returns the device index of the active
+    physical hardware microphone (Intel Smart Sound, Realtek, Microphone Array, etc.),
+    explicitly filtering out silent/virtual loopbacks (DroidCam, Stereo Mix, Steam).
+    """
+    try:
+        import pyaudio
+        p = pyaudio.PyAudio()
+        candidates = []
+        for i in range(p.get_device_count()):
+            try:
+                info = p.get_device_info_by_index(i)
+            except Exception:
+                continue
+            name = info.get("name", "")
+            max_in = int(info.get("maxInputChannels", 0))
+            if max_in > 0:
+                name_low = name.lower()
+                is_virtual = any(bad in name_low for bad in [
+                    "droidcam", "virtual", "stereo mix", "steam", "cable", "mapper"
+                ])
+                score = 0
+                if "array" in name_low: score += 10
+                if "intel" in name_low: score += 8
+                if "realtek" in name_low: score += 6
+                if "smart sound" in name_low: score += 5
+                if is_virtual: score -= 50
+                candidates.append((score, i, name, info.get("defaultSampleRate")))
+        p.terminate()
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        if candidates and candidates[0][0] > 0:
+            selected_idx = candidates[0][1]
+            selected_name = candidates[0][2]
+            safe_name = selected_name.encode('ascii', 'ignore').decode('ascii')
+            logger.info(f"🎙️ [VoiceBridge] Selected physical hardware microphone [{selected_idx}]: '{safe_name}' (Score: {candidates[0][0]})")
+            return selected_idx
+    except Exception as e:
+        logger.warning(f"[VoiceBridge] Microphone resolution notice: {e}")
+    return None
+
 
 class FloatingAgentAPI:
     def __init__(self):
@@ -119,14 +160,24 @@ class FloatingAgentAPI:
                 pass
 
     def _init_audio(self):
-        if self._recognizer is None:
+        if self._recognizer is None or self._microphone is None:
             try:
                 import speech_recognition as sr
+                best_idx = get_best_hardware_microphone_index()
                 self._recognizer = sr.Recognizer()
-                self._recognizer.energy_threshold = 280
+                self._recognizer.energy_threshold = 300
                 self._recognizer.dynamic_energy_threshold = True
-                self._microphone = sr.Microphone()
-                logger.info("🎙️ [VoiceBridge] Hardware microphone initialized successfully.")
+                self._recognizer.dynamic_energy_adjustment_damping = 0.15
+                self._recognizer.dynamic_energy_ratio = 1.5
+                self._recognizer.pause_threshold = 0.7
+                self._recognizer.non_speaking_duration = 0.4
+
+                if best_idx is not None:
+                    self._microphone = sr.Microphone(device_index=best_idx)
+                    logger.info(f"🎙️ [VoiceBridge] Initialized hardware microphone on device index {best_idx}.")
+                else:
+                    self._microphone = sr.Microphone()
+                    logger.info("🎙️ [VoiceBridge] Initialized default microphone.")
             except Exception as e:
                 logger.error(f"[VoiceBridge] Microphone initialization notice: {e}")
 
@@ -167,13 +218,16 @@ class FloatingAgentAPI:
             try:
                 with self._microphone as source:
                     try:
-                        self._recognizer.adjust_for_ambient_noise(source, duration=0.3)
-                    except Exception:
-                        pass
+                        logger.info("🎙️ [VoiceBridge] Calibrating microphone for ambient room noise...")
+                        self._recognizer.adjust_for_ambient_noise(source, duration=0.6)
+                        logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold: {self._recognizer.energy_threshold:.1f}")
+                    except Exception as cal_e:
+                        logger.warning(f"[VoiceBridge] Calibration note: {cal_e}")
 
                     while self._is_listening:
                         try:
-                            audio = self._recognizer.listen(source, timeout=2.0, phrase_time_limit=10.0)
+                            # 4.0s timeout ensures it gives the user time to speak without immediately timing out
+                            audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=12.0)
                             if not self._is_listening:
                                 break
 
@@ -191,6 +245,9 @@ class FloatingAgentAPI:
                             continue
                         except sr.UnknownValueError:
                             continue
+                        except sr.RequestError as req_err:
+                            logger.warning(f"[VoiceBridge] STT Network error: {req_err}")
+                            time.sleep(0.5)
                         except Exception as loop_e:
                             logger.debug(f"[VoiceBridge] Recognition cycle notice: {loop_e}")
                             time.sleep(0.1)
@@ -229,9 +286,9 @@ class FloatingAgentAPI:
         import speech_recognition as sr
         try:
             with self._microphone as source:
-                self._recognizer.adjust_for_ambient_noise(source, duration=0.25)
+                self._recognizer.adjust_for_ambient_noise(source, duration=0.4)
                 logger.info("🎙️ [VoiceBridge] Listening for single speech utterance...")
-                audio = self._recognizer.listen(source, timeout=4.5, phrase_time_limit=8.0)
+                audio = self._recognizer.listen(source, timeout=5.0, phrase_time_limit=10.0)
                 text = self._recognizer.recognize_google(audio, language="en-US").strip()
                 clean = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", text, flags=re.IGNORECASE).strip()
                 logger.info(f"🎙️ [VoiceBridge] Captured single utterance: '{clean}'")

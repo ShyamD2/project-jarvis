@@ -466,16 +466,20 @@ class JarvisTelegramGateway:
         # ======================================================================
         # MOUSE TRACKPAD & LIVE SCREEN STREAM
         # ======================================================================
-        if lower in ["🖱️ mouse trackpad", "/trackpad", "/mouse", "/stream", "/live", "trackpad", "mouse"]:
+        if lower in ["🖱️ mouse trackpad", "/trackpad", "/mouse", "/stream", "/live", "/remote", "trackpad", "mouse", "remote"]:
             from services.gateway.remote_trackpad_server import get_local_ip, get_public_url
+            from services.security.cyber_lock import get_stored_pin
             local_ip = get_local_ip()
             public_url = get_public_url()
-            remote_link = f"{public_url}/remote" if public_url.startswith("https://") else f"http://{local_ip}:8085/remote"
+            base_url = public_url if public_url.startswith("https://") else f"http://{local_ip}:8085"
+            remote_link = f"{base_url}/remote"
+            wifi_link = f"http://{local_ip}:8085/remote"
+            current_pin = get_stored_pin()
 
             trackpad_keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "📱 Open Mobile Touchpad (HTTPS)", "url": remote_link}
+                        {"text": "📱 Open Secure Touchpad & Live Screen", "url": remote_link}
                     ],
                     [
                         {"text": "↖️", "callback_data": "mouse_move:-30:-30"},
@@ -501,14 +505,18 @@ class JarvisTelegramGateway:
             }
             msg = (
                 "🖱️ *J.A.R.V.I.S. Master Touchpad & Live Screen*\n\n"
-                "👉 *Open this link directly on your phone:*\n"
+                "👉 *Tap to open your secure control console on phone:*\n"
                 f"🌐 {remote_link}\n\n"
-                f"_(Local Wi-Fi fallback: `http://{local_ip}:8085/remote`)_\n\n"
-                "✨ *Interactive Touchpad Features:*\n"
-                "• 🎯 **Live Screen Tap-To-Click**: Tap any button or tab on your phone screen to click it on PC!\n"
+                f"_(Home Wi-Fi direct link: `{wifi_link}`)_\n\n"
+                "🛡️ *Unified Master PIN Gate Active:*\n"
+                f"• Master PIN: `{current_pin}` (One single PIN for BOTH Web Trackpad & Cyber Lock)\n"
+                f"• _To change Master PIN for both:_ `/setpin {current_pin} <new_pin>`\n"
+                "• High-contrast cyan mouse pointer is visible on the live stream!\n\n"
+                "✨ *Touchpad & Live Screen Features:*\n"
+                "• 🎯 **Live Screen Tap-To-Click**: Tap anywhere on your phone screen to click on PC!\n"
                 "• 🖱️ **Fluid Glide Mouse**: Ultra-responsive 1ms trackpad\n"
                 "• 📜 **2-Finger Gliding Scroll**: Drag 2 fingers up/down to scroll web pages\n"
-                "• 🗂️ **Tab Controls**: New Tab (`Ctrl+T`), Close Tab (`Ctrl+W`), Switch Tab\n"
+                "• 🗂️ **Tab Controls**: New Tab (`Ctrl+T`), Close Tab (`Ctrl+W`), Next/Prev Tab\n"
                 "• ⏎ **Big ENTER Button**, ESC, Backspace & Keyboard"
             )
             await self.send_message(chat_id, msg, parse_mode="Markdown", reply_markup=trackpad_keyboard)
@@ -533,19 +541,19 @@ class JarvisTelegramGateway:
                 await self.send_message(chat_id, f"⚠️ Notice: {res.get('error', 'Browser tab not found')}")
             return
 
-        if lower in ["next tab", "/next_tab", "switch tab", "next browser tab"]:
+        if any(w in lower for w in ["next tab", "switch tab", "change tab", "switch the tab", "change the tab", "/next_tab", "next browser tab"]):
             from agents.computer.windows_agent import windows_agent
             windows_agent.switch_tab("next")
             await self.send_message(chat_id, "➡️ Switched to next tab (Ctrl + Tab).")
             return
 
-        if lower in ["prev tab", "previous tab", "/prev_tab", "prev browser tab"]:
+        if any(w in lower for w in ["prev tab", "previous tab", "back tab", "switch to previous tab", "/prev_tab", "prev browser tab"]):
             from agents.computer.windows_agent import windows_agent
             windows_agent.switch_tab("prev")
             await self.send_message(chat_id, "⬅️ Switched to previous tab (Ctrl + Shift + Tab).")
             return
 
-        if lower in ["switch window", "/switch_window", "change window", "next window", "switch app", "next app", "change app"]:
+        if any(w in lower for w in ["switch window", "change window", "next window", "switch app", "next app", "change app", "alt tab", "/switch_window"]):
             from agents.computer.windows_agent import windows_agent
             windows_agent.switch_window()
             await self.send_message(chat_id, "🪟 Switched active foreground window (Alt + Tab).")
@@ -631,8 +639,9 @@ class JarvisTelegramGateway:
                 "🔒 *Safety & Power*\n"
                 "• `/stealth` — Turn off monitors for silent master background control (no lock needed!)\n"
                 "• `/wake` — Wake monitors back up and restore normal desktop display\n"
-                "• `/lock` — Lock your computer immediately\n"
-                "• `/unlock <PIN>` — Unlock Windows remotely from your phone (auto-deletes password)\n"
+                "• `/lock` — Lock computer into Windows (Win+L)\n"
+                "• `/unlock <password_or_PIN>` — Unlock Windows remotely from your phone\n"
+                "• `/setpin <current_pin> <new_pin>` — Change Master Security PIN\n"
                 "• `/sleep`, `/restart`, `/shutdown` — PC power controls"
             )
             await self.send_message(chat_id, help_text, parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
@@ -1196,10 +1205,84 @@ class JarvisTelegramGateway:
             power_agent.lock_workstation()
             await self.send_message(
                 chat_id,
-                "🔒 *Computer Locked Safely!*\n"
-                "Your Windows screen has been locked.\n\n"
-                "• _To unlock remotely from phone, send:_ `/unlock <PIN_or_password>`\n"
+                "🔒 *Windows Workstation Locked (Win+L)*\n\n"
+                "Your computer is now locked into Windows native security.\n"
+                "• To unlock remotely from phone, send: `/unlock <password_or_pin>`\n"
                 "_(Your password message will be auto-deleted immediately from chat for your privacy.)_",
+                parse_mode="Markdown"
+            )
+            return
+
+        if lower.startswith("/setpin") or lower.startswith("set pin") or lower.startswith("setpin"):
+            try:
+                msg_id = message.get("message_id")
+                if msg_id:
+                    await self.delete_message(chat_id, msg_id)
+            except Exception:
+                pass
+
+            parts = text.split()
+            from services.security.cyber_lock import cyber_lock, get_stored_pin
+            current_stored = get_stored_pin()
+
+            if len(parts) < 3:
+                await self.send_message(
+                    chat_id,
+                    "🔐 *PIN Change Security Verification Required*\n\n"
+                    "To change your PIN, you must verify your current PIN:\n"
+                    "👉 `/setpin <current_pin> <new_pin>`\n\n"
+                    f"_Current PIN is required to authorize the change._\n"
+                    "_(Your message was auto-deleted immediately from chat for privacy.)_",
+                    parse_mode="Markdown"
+                )
+                return
+
+            entered_current = parts[1].strip()
+            new_pin = parts[2].strip()
+
+            if entered_current != current_stored:
+                await self.send_message(
+                    chat_id,
+                    "❌ *PIN Change Rejected: Current PIN is Incorrect!*\n\n"
+                    "Unauthorized change attempt prevented. Please provide your valid current PIN.",
+                    parse_mode="Markdown"
+                )
+                return
+
+            if len(new_pin) < 4:
+                await self.send_message(
+                    chat_id,
+                    "⚠️ *PIN must be at least 4 digits.* Please choose a 4-8 digit PIN.",
+                    parse_mode="Markdown"
+                )
+                return
+
+            if cyber_lock.set_pin(new_pin):
+                await self.send_message(
+                    chat_id,
+                    "✅ *Master Security PIN Successfully Updated!*\n\n"
+                    "• One Unified Master PIN is now active for BOTH Web Touchpad and Cyber Lock.\n"
+                    "• Your PIN command was auto-deleted from chat for your privacy.",
+                    parse_mode="Markdown"
+                )
+            else:
+                await self.send_message(chat_id, "❌ Could not save new PIN to storage.")
+            return
+
+        if lower in ["/cyberlock", "cyberlock", "barrier lock"]:
+            from services.security.cyber_lock import cyber_lock
+            res = cyber_lock.lock()
+            stored_pin = cyber_lock.get_pin()
+            await self.send_message(
+                chat_id,
+                "🔒 *J.A.R.V.I.S. Cyber Security Barrier Activated!*\n"
+                "Your physical laptop monitors are locked.\n\n"
+                "🛡️ *Zero-Blackout Remote Control:* \n"
+                "• Anyone in the room sees the locked J.A.R.V.I.S. security barrier.\n"
+                "• **Your phone live screen remains 100% active & crystal-clear!**\n"
+                f"• _To unlock remotely from phone, send:_ `/unlock {stored_pin}`\n"
+                "• _To change your PIN anytime, send:_ `/setpin <current_pin> <new_pin>`\n"
+                "_(Your PIN message is auto-deleted immediately from chat for privacy.)_",
                 parse_mode="Markdown"
             )
             return
@@ -1214,7 +1297,33 @@ class JarvisTelegramGateway:
                 pass
 
             parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
+            pin_or_pass = parts[1].strip() if len(parts) >= 2 else ""
+
+            from services.security.cyber_lock import cyber_lock
+            if cyber_lock.is_locked():
+                if not pin_or_pass:
+                    stored_pin = cyber_lock.get_pin()
+                    await self.send_message(
+                        chat_id,
+                        f"⚠️ *Usage:* `/unlock <your_PIN>`\n_(Default PIN is `{stored_pin}`. Your message is auto-deleted immediately.)_",
+                        parse_mode="Markdown"
+                    )
+                    return
+                res = cyber_lock.unlock(pin_or_pass)
+                if res.get("success"):
+                    from agents.computer.screen_agent import screen_agent
+                    snap = screen_agent.capture_screenshot()
+                    caption = "🔓 *Workstation Unlocked Successfully, sir!*\nFull desktop master control is restored."
+                    if snap.get("success") and snap.get("screenshot_path") and os.path.exists(snap["screenshot_path"]):
+                        await self.send_photo(chat_id, snap["screenshot_path"], caption=caption, parse_mode="Markdown")
+                    else:
+                        await self.send_message(chat_id, caption, parse_mode="Markdown")
+                else:
+                    await self.send_message(chat_id, f"⚠️ *Unlock Failed:* {res.get('error', 'Invalid PIN.')}", parse_mode="Markdown")
+                return
+
+            # Fallback to Windows native lock unlocker if native Winlogon lock was used
+            if not pin_or_pass:
                 await self.send_message(
                     chat_id,
                     "⚠️ *Usage:* `/unlock <your_PIN_or_password>`\n"
@@ -1223,7 +1332,6 @@ class JarvisTelegramGateway:
                 )
                 return
 
-            pin_or_pass = parts[1].strip()
             await self.send_message(
                 chat_id,
                 "🔓 *Attempting remote workstation unlock...*\n"

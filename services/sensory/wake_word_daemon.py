@@ -69,11 +69,45 @@ class WakeWordDaemon:
         self.recognizer.pause_threshold = 0.8
 
         try:
-            self.microphone = sr.Microphone()
+            import pyaudio
+            p = pyaudio.PyAudio()
+            best_idx = None
+            candidates = []
+            for i in range(p.get_device_count()):
+                try:
+                    info = p.get_device_info_by_index(i)
+                except Exception:
+                    continue
+                name = info.get("name", "")
+                max_in = int(info.get("maxInputChannels", 0))
+                if max_in > 0:
+                    name_low = name.lower()
+                    is_virt = any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "cable", "mapper"])
+                    score = 0
+                    if "array" in name_low: score += 10
+                    if "intel" in name_low: score += 8
+                    if "realtek" in name_low: score += 6
+                    if "smart sound" in name_low: score += 5
+                    if is_virt: score -= 50
+                    candidates.append((score, i, name))
+            p.terminate()
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            if candidates and candidates[0][0] > 0:
+                best_idx = candidates[0][1]
+                safe_name = candidates[0][2].encode('ascii', 'ignore').decode('ascii')
+                logger.info(f"🎙 [WakeWordDaemon] Bound to hardware microphone [{best_idx}]: '{safe_name}'")
+
+            if best_idx is not None:
+                self.microphone = sr.Microphone(device_index=best_idx)
+            else:
+                self.microphone = sr.Microphone()
         except Exception as e:
-            logger.error(f"Failed to access default microphone: {e}")
-            self.is_running = False
-            return
+            logger.error(f"Failed to access microphone: {e}")
+            try:
+                self.microphone = sr.Microphone()
+            except Exception:
+                self.is_running = False
+                return
 
         with self.microphone as source:
             logger.info("Calibrating microphone for ambient room noise...")

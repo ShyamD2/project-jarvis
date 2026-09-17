@@ -183,6 +183,78 @@ class ConversationEngine:
         except Exception as e_web:
             logger.debug(f"[ConversationEngine] Web/music fast-path notice: {e_web}")
 
+        # 3.6. BROWSER TAB & WINDOW SWITCHING FAST-PATH
+        # Fulfills user requirement: "switch tab", "next tab", "prev tab", "new tab", "close tab", "switch window"
+        if re.search(r"\b(switch\s+(?:the\s+)?tab|change\s+(?:the\s+)?tab|next\s+tab|switch\s+to\s+next\s+tab)\b", lower_text):
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_tab("next")
+            reply = "Switched to the next browser tab, sir."
+            context_manager.add_turn("user", user_text)
+            context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
+            return {
+                "response": reply,
+                "intent": "manage_browser",
+                "actions_executed": [{"tool": "manage_browser", "action": "switch_tab", "direction": "next"}],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000
+            }
+
+        if re.search(r"\b(previous\s+tab|prev\s+tab|switch\s+(?:to\s+)?previous\s+tab|back\s+tab)\b", lower_text):
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_tab("prev")
+            reply = "Switched to the previous browser tab, sir."
+            context_manager.add_turn("user", user_text)
+            context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
+            return {
+                "response": reply,
+                "intent": "manage_browser",
+                "actions_executed": [{"tool": "manage_browser", "action": "switch_tab", "direction": "prev"}],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000
+            }
+
+        if re.search(r"\b(open\s+(?:a\s+)?new\s+tab|create\s+(?:a\s+)?new\s+tab|new\s+tab)\b", lower_text):
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.open_new_tab()
+            reply = "Opened a new browser tab, sir."
+            context_manager.add_turn("user", user_text)
+            context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
+            return {
+                "response": reply,
+                "intent": "manage_browser",
+                "actions_executed": [{"tool": "manage_browser", "action": "new_tab"}],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000
+            }
+
+        if re.search(r"\b(close\s+(?:the\s+|this\s+|active\s+)?tab)\b", lower_text):
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.close_active_tab()
+            reply = "Closed the active browser tab, sir."
+            context_manager.add_turn("user", user_text)
+            context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
+            return {
+                "response": reply,
+                "intent": "manage_browser",
+                "actions_executed": [{"tool": "manage_browser", "action": "close_tab"}],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000
+            }
+
+        if re.search(r"\b(switch\s+(?:the\s+)?window|change\s+(?:the\s+)?window|switch\s+app|next\s+window|alt\s+tab)\b", lower_text):
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_window()
+            reply = "Switched active application window, sir."
+            context_manager.add_turn("user", user_text)
+            context_manager.add_turn("jarvis", reply, {"intent": "manage_window"})
+            return {
+                "response": reply,
+                "intent": "manage_window",
+                "actions_executed": [{"tool": "manage_window", "action": "switch_window"}],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000
+            }
+
         # 4. CONTEXT & REFERENCE RESOLUTION ("and RAM?", "the first result", "do that again")
         resolved_query, hints = context_manager.resolve_references(user_text)
         if resolved_query != user_text:
