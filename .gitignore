@@ -74,3 +74,5 @@ vision_cache/
 services/sensory/audio_cache/
 services/sensory/screenshots/
 data/webview2_profile/
+services/gateway/cloudflared.exe
+services/gateway/trackpad_url.txt

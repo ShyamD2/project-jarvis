@@ -576,6 +576,34 @@ class WindowsAgent:
         u32.keybd_event(0x11, 0, 2, 0)  # Ctrl up
         return {"success": True, "action": "switch_tab", "direction": direction}
 
+    def open_new_tab(self) -> Dict[str, Any]:
+        """Opens a new browser tab using native Ctrl+T."""
+        ensure_interactive_desktop()
+        if sys.platform != "win32":
+            return {"success": False, "error": "Not running on Windows"}
+        import ctypes
+        u32 = ctypes.windll.user32
+        u32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
+        u32.keybd_event(0x54, 0, 0, 0)  # T down
+        time.sleep(0.04)
+        u32.keybd_event(0x54, 0, 2, 0)  # T up
+        u32.keybd_event(0x11, 0, 2, 0)  # Ctrl up
+        return {"success": True, "action": "new_tab"}
+
+    def switch_window(self) -> Dict[str, Any]:
+        """Switches active foreground window using native Alt+Tab."""
+        ensure_interactive_desktop()
+        if sys.platform != "win32":
+            return {"success": False, "error": "Not running on Windows"}
+        import ctypes
+        u32 = ctypes.windll.user32
+        u32.keybd_event(0x12, 0, 0, 0)  # Alt down
+        u32.keybd_event(0x09, 0, 0, 0)  # Tab down
+        time.sleep(0.05)
+        u32.keybd_event(0x09, 0, 2, 0)  # Tab up
+        u32.keybd_event(0x12, 0, 2, 0)  # Alt up
+        return {"success": True, "action": "switch_window"}
+
     def close_active_window(self, window_name: Optional[str] = None) -> Dict[str, Any]:
         """Closes targeted or foreground window via WM_CLOSE / Alt+F4."""
         logger.info(f"[WindowsAgent] Closing window: {window_name or 'active'}")

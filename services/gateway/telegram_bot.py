@@ -280,6 +280,10 @@ class JarvisTelegramGateway:
                 direction = data.split(":")[1]
                 mouse_agent.scroll(clicks=3, direction=direction)
 
+            elif data == "key_enter":
+                from agents.computer.keyboard_agent import keyboard_agent
+                keyboard_agent.press_key("enter")
+
             elif data.startswith("mouse_snap"):
                 from agents.computer.screen_agent import screen_agent
                 snap = screen_agent.capture_screenshot()
@@ -463,48 +467,62 @@ class JarvisTelegramGateway:
         # MOUSE TRACKPAD & LIVE SCREEN STREAM
         # ======================================================================
         if lower in ["🖱️ mouse trackpad", "/trackpad", "/mouse", "/stream", "/live", "trackpad", "mouse"]:
-            from services.gateway.remote_trackpad_server import get_local_ip
+            from services.gateway.remote_trackpad_server import get_local_ip, get_public_url
             local_ip = get_local_ip()
+            public_url = get_public_url()
+            remote_link = f"{public_url}/remote" if public_url.startswith("https://") else f"http://{local_ip}:8085/remote"
+
             trackpad_keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "↖️", "callback_data": "mouse_move:-40:-40"},
-                        {"text": "⬆️ Up", "callback_data": "mouse_move:0:-50"},
-                        {"text": "↗️", "callback_data": "mouse_move:40:-40"},
+                        {"text": "📱 Open Mobile Touchpad (HTTPS)", "url": remote_link}
                     ],
                     [
-                        {"text": "⬅️ Left", "callback_data": "mouse_move:-50:0"},
+                        {"text": "↖️", "callback_data": "mouse_move:-30:-30"},
+                        {"text": "⬆️ Up", "callback_data": "mouse_move:0:-35"},
+                        {"text": "↗️", "callback_data": "mouse_move:30:-30"},
+                    ],
+                    [
+                        {"text": "⬅️ Left", "callback_data": "mouse_move:-35:0"},
                         {"text": "🎯 Click", "callback_data": "mouse_click:left"},
-                        {"text": "➡️ Right", "callback_data": "mouse_move:50:0"},
+                        {"text": "➡️ Right", "callback_data": "mouse_move:35:0"},
                     ],
                     [
-                        {"text": "↙️", "callback_data": "mouse_move:-40:40"},
-                        {"text": "⬇️ Down", "callback_data": "mouse_move:0:50"},
-                        {"text": "↘️", "callback_data": "mouse_move:40:40"},
+                        {"text": "↙️", "callback_data": "mouse_move:-30:30"},
+                        {"text": "⬇️ Down", "callback_data": "mouse_move:0:35"},
+                        {"text": "↘️", "callback_data": "mouse_move:30:30"},
                     ],
                     [
                         {"text": "🖱️ Right Click", "callback_data": "mouse_click:right"},
-                        {"text": "🔼 Scroll Up", "callback_data": "mouse_scroll:up"},
-                        {"text": "🔽 Scroll Down", "callback_data": "mouse_scroll:down"},
-                    ],
-                    [
-                        {"text": "📸 Screen Snapshot", "callback_data": "mouse_snap"}
+                        {"text": "⏎ ENTER", "callback_data": "key_enter"},
+                        {"text": "📸 Snapshot", "callback_data": "mouse_snap"}
                     ]
                 ]
             }
             msg = (
-                "🖱️ *Remote Mouse Trackpad & Live Screen Controller*\n\n"
-                "• Use the buttons below for quick precision clicks & movement\n\n"
-                "📱 *High-Speed Mobile Touch Trackpad & Screen Stream:*\n"
-                f"👉 `http://{local_ip}:8085/remote`\n\n"
-                "_(Provides live 16 FPS screen display right on your phone, fluid finger drag mouse, tap to click, two-finger right click, and direct mobile typing!)_"
+                "🖱️ *J.A.R.V.I.S. Master Touchpad & Live Screen*\n\n"
+                "👉 *Open this link directly on your phone:*\n"
+                f"🌐 {remote_link}\n\n"
+                f"_(Local Wi-Fi fallback: `http://{local_ip}:8085/remote`)_\n\n"
+                "✨ *Interactive Touchpad Features:*\n"
+                "• 🎯 **Live Screen Tap-To-Click**: Tap any button or tab on your phone screen to click it on PC!\n"
+                "• 🖱️ **Fluid Glide Mouse**: Ultra-responsive 1ms trackpad\n"
+                "• 📜 **2-Finger Gliding Scroll**: Drag 2 fingers up/down to scroll web pages\n"
+                "• 🗂️ **Tab Controls**: New Tab (`Ctrl+T`), Close Tab (`Ctrl+W`), Switch Tab\n"
+                "• ⏎ **Big ENTER Button**, ESC, Backspace & Keyboard"
             )
             await self.send_message(chat_id, msg, parse_mode="Markdown", reply_markup=trackpad_keyboard)
             return
 
         # ======================================================================
-        # TAB-SPECIFIC CLOSING & TAB SWITCHING (PREVENTS CLOSING ENTIRE BROWSER!)
+        # TAB-SPECIFIC CLOSING, SWITCHING & OPENING (BROWSER WINDOW PRESERVED!)
         # ======================================================================
+        if lower in ["new tab", "/new_tab", "open new tab", "open tab", "create tab"]:
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.open_new_tab()
+            await self.send_message(chat_id, "➕ *Opened new browser tab* (Ctrl + T).", parse_mode="Markdown")
+            return
+
         if any(lower == t for t in ["close tab", "/close_tab", "close active tab", "close current tab", "close the tab", "close browser tab", "close opera tab", "close chrome tab", "close edge tab"]) or (lower.startswith("close ") and lower.endswith(" tab")):
             target = "opera" if "opera" in lower else ("chrome" if "chrome" in lower else ("edge" if "edge" in lower else None))
             from agents.computer.windows_agent import windows_agent
@@ -525,6 +543,12 @@ class JarvisTelegramGateway:
             from agents.computer.windows_agent import windows_agent
             windows_agent.switch_tab("prev")
             await self.send_message(chat_id, "⬅️ Switched to previous tab (Ctrl + Shift + Tab).")
+            return
+
+        if lower in ["switch window", "/switch_window", "change window", "next window", "switch app", "next app", "change app"]:
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_window()
+            await self.send_message(chat_id, "🪟 Switched active foreground window (Alt + Tab).")
             return
 
         # ======================================================================

@@ -149,6 +149,19 @@ class WebAppResolver:
         plat_name, search_base = MUSIC_PLATFORM_PATTERNS.get(detected_platform, ("YouTube", "https://www.youtube.com/results?search_query="))
         encoded = urllib.parse.quote(song_name)
         final_url = f"{search_base}{encoded}"
+
+        # If YouTube, resolve top direct video ID for immediate autoplay
+        if detected_platform in ["youtube", "yt"]:
+            try:
+                import httpx
+                resp = httpx.get(f"https://www.youtube.com/results?search_query={encoded}+song", timeout=4.0, headers={"User-Agent": "Mozilla/5.0"})
+                vids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', resp.text)
+                if vids:
+                    final_url = f"https://www.youtube.com/watch?v={vids[0]}&autoplay=1"
+                    logger.info(f"🎵 [WebAppResolver] Resolved direct YouTube autoplay video: {final_url}")
+            except Exception as e:
+                logger.debug(f"[WebAppResolver] Direct video extraction note: {e}")
+
         return song_name, plat_name, final_url
 
     def resolve_destination(self, query: str) -> Dict[str, Any]:
@@ -207,6 +220,8 @@ class WebAppResolver:
 
     def open_target(self, query: str) -> Dict[str, Any]:
         """Resolves target and opens it in default Windows browser."""
+        import threading
+
         def _launch_url(target_url: str):
             try:
                 from agents.computer.windows_agent import windows_agent
@@ -218,15 +233,28 @@ class WebAppResolver:
         music_info = self.parse_music_intent(query)
         if music_info:
             song, platform, url = music_info
-            logger.info(f"🎵 [WebAppResolver] Opening '{song}' on {platform}: {url}")
+            logger.info(f"🎵 [WebAppResolver] Opening and playing '{song}' on {platform}: {url}")
             _launch_url(url)
+
+            # Automated web operator: ensure playback initiates on the web page
+            def _auto_play_operator():
+                import time
+                time.sleep(3.0) # Wait for browser to load page
+                try:
+                    from agents.computer.keyboard_agent import keyboard_agent
+                    # If Amazon Music or Spotify, trigger Play/Space
+                    keyboard_agent.press_key("space")
+                except Exception:
+                    pass
+            threading.Thread(target=_auto_play_operator, daemon=True).start()
+
             return {
                 "success": True,
                 "is_music": True,
                 "song": song,
                 "platform": platform,
                 "url": url,
-                "message": f"🎵 Playing *{song.title()}* on *{platform}*!"
+                "message": f"🎵 Playing *{song.title()}* on *{platform}*!\n(Selected and playing in your browser)"
             }
 
         # 2. Otherwise resolve destination URL
