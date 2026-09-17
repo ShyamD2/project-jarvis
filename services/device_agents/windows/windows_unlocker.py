@@ -115,33 +115,55 @@ class WindowsUnlocker:
 
         logger.info("🔓 [Unlocker] Remote unlock sequence initiated.")
 
-        # 1. Wake screen
+        # 1. Wake physical display
         self.wake_screen()
         time.sleep(0.4)
 
         # 2. Attach desktop
         self._attach_input_desktop()
 
-        # 3. Dismiss lock screen overlay (press Space)
+        # 3. Dismiss lock screen overlay: click center & send Space + Enter
+        try:
+            # Click center of screen to prompt password field
+            w = self._user32.GetSystemMetrics(0)
+            h = self._user32.GetSystemMetrics(1)
+            self._user32.SetCursorPos(w // 2, h // 2)
+            time.sleep(0.05)
+            self._user32.mouse_event(0x0002, 0, 0, 0, 0) # Left down
+            time.sleep(0.02)
+            self._user32.mouse_event(0x0004, 0, 0, 0, 0) # Left up
+        except Exception:
+            pass
+
+        # Send Space to trigger PIN prompt animation
         self._send_key(0x20, True)
         time.sleep(0.05)
         self._send_key(0x20, False)
-        time.sleep(0.8)
 
+        # Generous wait for Windows 11 lock screen slide animation to complete and focus input box
+        time.sleep(1.4)
         self._attach_input_desktop()
 
-        # 4. Type credentials
+        # Clear any stray characters already in PIN box
+        for _ in range(4):
+            self._send_key(0x08, True) # Backspace
+            time.sleep(0.02)
+            self._send_key(0x08, False)
+            time.sleep(0.02)
+
+        # 4. Type credentials cleanly
         for ch in pin_or_password:
             self._type_char(ch)
+            time.sleep(0.03)
 
         # 5. Submit with Enter
-        time.sleep(0.2)
+        time.sleep(0.25)
         self._send_key(0x0D, True)
         time.sleep(0.05)
         self._send_key(0x0D, False)
 
-        # 6. Wait for logon animation
-        time.sleep(1.8)
+        # 6. Wait for logon session transition
+        time.sleep(2.0)
 
         # 7. Verify unlock state
         still_locked = self.is_locked()
@@ -167,7 +189,7 @@ class WindowsUnlocker:
             logger.warning("⚠️ [Unlocker] Workstation may still be locked.")
             return {
                 "success": False,
-                "error": "Workstation credential rejected or still on lock screen. Please verify your PIN/password.",
+                "error": "Workstation credential prompt did not complete or Windows Winlogon security is blocking user-space keystrokes. Use '🌙 Stealth Screen Off' mode to keep workstation accessible with zero password friction!",
                 "screenshot_path": screenshot_path
             }
 

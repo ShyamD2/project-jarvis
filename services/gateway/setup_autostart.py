@@ -21,7 +21,8 @@ def create_vbs_script():
     """Generates the silent VBScript launcher with absolute paths."""
     content = f'''Set WshShell = CreateObject("WScript.Shell")
 WshShell.CurrentDirectory = "{PROJECT_ROOT}"
-WshShell.Run """{PYTHON_EXE}""" """{GATEWAY_SCRIPT}""", 0, False
+cmd = Chr(34) & "{PYTHON_EXE}" & Chr(34) & " " & Chr(34) & "{GATEWAY_SCRIPT}" & Chr(34)
+WshShell.Run cmd, 0, False
 '''
     with open(VBS_PATH, "w", encoding="ascii") as f:
         f.write(content)

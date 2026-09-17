@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 43,
-  "average_latency_ms": 5594.64,
+  "total_commands_learned": 45,
+  "average_latency_ms": 5090.4,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -228,7 +228,8 @@
     "going": 1,
     "to": 1,
     "a": 1,
-    "game": 1
+    "game": 1,
+    "type": 2
   },
   "history": [
     {
@@ -368,6 +369,18 @@
       "tool": "launch_app",
       "latency_ms": 6778.42,
       "timestamp": 1789488924.029955
+    },
+    {
+      "query": "/type",
+      "tool": "mouse_keyboard",
+      "latency_ms": 2688.47,
+      "timestamp": 1789586350.2283366
+    },
+    {
+      "query": "/type",
+      "tool": "mouse_keyboard",
+      "latency_ms": 3167.85,
+      "timestamp": 1789635483.2854495
     }
   ]
 }

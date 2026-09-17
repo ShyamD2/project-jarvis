@@ -522,22 +522,59 @@ class WindowsAgent:
             logger.error(f"[WindowsAgent] Error checking process {process_name}: {e}")
         return False
 
-    def close_active_tab(self, browser: str = "opera") -> Dict[str, Any]:
-        """Closes active tab in Opera GX or targeted browser using native Ctrl+W key event."""
-        logger.info(f"[WindowsAgent] Closing active tab in {browser}")
+    def close_active_tab(self, target_or_browser: Optional[str] = None) -> Dict[str, Any]:
+        """Closes targeted tab or active browser tab using native Ctrl+W key event without killing the browser."""
+        logger.info(f"[WindowsAgent] Closing tab with target: {target_or_browser}")
         ensure_interactive_desktop()
-        focus_window_by_name(browser)
-        time.sleep(0.15)
-        if sys.platform == "win32":
-            import ctypes
-            u32 = ctypes.windll.user32
-            u32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
-            u32.keybd_event(0x57, 0, 0, 0)  # W down
-            time.sleep(0.04)
-            u32.keybd_event(0x57, 0, 2, 0)  # W up
-            u32.keybd_event(0x11, 0, 2, 0)  # Ctrl up
-            return {"success": True, "action": "close_tab", "browser": browser, "channel_1_logical": True}
-        return {"success": False, "error": "Not running on Windows"}
+        if sys.platform != "win32":
+            return {"success": False, "error": "Not running on Windows"}
+
+        import ctypes
+        u32 = ctypes.windll.user32
+
+        # If a target or tab keyword is provided, search window titles
+        focused_target = None
+        if target_or_browser:
+            t_clean = target_or_browser.strip()
+            # Focus window containing the keyword (e.g. "YouTube", "Amazon", "Opera")
+            focused_target = focus_window_by_name(t_clean)
+
+        if not focused_target:
+            # Fallback to active window or prominent browsers
+            active_proc = self.get_active_window_info().get("process", "").lower()
+            if not any(b in active_proc for b in ["opera", "chrome", "msedge", "edge", "brave", "firefox", "code"]):
+                for b in ["opera", "chrome", "msedge", "edge", "brave", "firefox"]:
+                    if focus_window_by_name(b):
+                        break
+
+        time.sleep(0.12)
+        # Send Ctrl + W to cleanly close active tab
+        u32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
+        u32.keybd_event(0x57, 0, 0, 0)  # W down
+        time.sleep(0.04)
+        u32.keybd_event(0x57, 0, 2, 0)  # W up
+        u32.keybd_event(0x11, 0, 2, 0)  # Ctrl up
+        return {"success": True, "action": "close_tab", "target": target_or_browser or "active_tab"}
+
+    def switch_tab(self, direction: str = "next") -> Dict[str, Any]:
+        """Switches to the next or previous tab in the active browser."""
+        ensure_interactive_desktop()
+        if sys.platform != "win32":
+            return {"success": False, "error": "Not running on Windows"}
+        import ctypes
+        u32 = ctypes.windll.user32
+        is_prev = direction.lower().strip() in ["prev", "previous", "left"]
+
+        u32.keybd_event(0x11, 0, 0, 0)  # Ctrl down
+        if is_prev:
+            u32.keybd_event(0x10, 0, 0, 0)  # Shift down
+        u32.keybd_event(0x09, 0, 0, 0)  # Tab down
+        time.sleep(0.04)
+        u32.keybd_event(0x09, 0, 2, 0)  # Tab up
+        if is_prev:
+            u32.keybd_event(0x10, 0, 2, 0)  # Shift up
+        u32.keybd_event(0x11, 0, 2, 0)  # Ctrl up
+        return {"success": True, "action": "switch_tab", "direction": direction}
 
     def close_active_window(self, window_name: Optional[str] = None) -> Dict[str, Any]:
         """Closes targeted or foreground window via WM_CLOSE / Alt+F4."""

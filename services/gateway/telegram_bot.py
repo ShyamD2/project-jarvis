@@ -52,10 +52,22 @@ MAIN_KEYBOARD = {
     "keyboard": [
         [{"text": "🚀 Start J.A.R.V.I.S."}, {"text": "🛑 Close HUD"}],
         [{"text": "🌙 Stealth Screen Off"}, {"text": "☀️ Wake Screen"}],
+        [{"text": "🖱️ Mouse Trackpad"}, {"text": "✍️ Writing Space"}],
         [{"text": "📸 Screen Snapshot"}, {"text": "👁️ What's on Screen?"}],
         [{"text": "💻 PC Status"}, {"text": "📋 Open Apps"}],
         [{"text": "🔊 Volume 50%"}, {"text": "🔒 Lock PC"}],
         [{"text": "❓ Help & Commands"}]
+    ],
+    "resize_keyboard": True,
+    "one_time_keyboard": False
+}
+
+WRITING_KEYBOARD = {
+    "keyboard": [
+        [{"text": "🔙 Erase 1 Char"}, {"text": "🔙 Erase 5 Chars"}],
+        [{"text": "🗑️ Clear Field"}, {"text": "⏎ Press Enter"}],
+        [{"text": "📋 Paste Clipboard"}, {"text": "📸 Screen Snapshot"}],
+        [{"text": "⬅️ Main Menu"}]
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False
@@ -75,6 +87,7 @@ class JarvisTelegramGateway:
         self._base_url = f"https://api.telegram.org/bot{self.token}" if self.token else ""
         self._file_url = f"https://api.telegram.org/file/bot{self.token}" if self.token else ""
         self._pending_confirmations: Dict[str, Dict[str, Any]] = {}
+        self._writing_mode: Dict[str, bool] = {}
 
     @property
     def is_configured(self) -> bool:
@@ -162,6 +175,21 @@ class JarvisTelegramGateway:
         except Exception:
             return False
 
+    async def answer_callback_query(self, callback_query_id: str, text: Optional[str] = None) -> bool:
+        """Acknowledges an interactive Telegram inline callback query"""
+        if not self.token or not callback_query_id:
+            return False
+        url = f"{self._base_url}/answerCallbackQuery"
+        payload = {"callback_query_id": callback_query_id}
+        if text:
+            payload["text"] = text
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(url, json=payload)
+                return resp.status_code == 200
+        except Exception:
+            return False
+
     async def download_file(self, file_id: str) -> Optional[bytes]:
         """Downloads a file or voice note from Telegram servers"""
         if not self.token:
@@ -222,8 +250,51 @@ class JarvisTelegramGateway:
 
         return None
 
+    async def handle_callback_query(self, cb: Dict[str, Any]):
+        """Handles interactive inline keyboard trackpad clicks and mouse controls"""
+        cb_id = cb.get("id")
+        from_user = cb.get("from", {}).get("id")
+        data = cb.get("data", "")
+        chat_id = cb.get("message", {}).get("chat", {}).get("id")
+
+        if not self.is_authorized(from_user):
+            await self.answer_callback_query(cb_id, text="Unauthorized")
+            return
+
+        await self.answer_callback_query(cb_id)
+
+        try:
+            from agents.computer.mouse_agent import mouse_agent
+            if data.startswith("mouse_move:"):
+                parts = data.split(":")
+                dx = int(parts[1])
+                dy = int(parts[2])
+                cx, cy = mouse_agent.get_cursor_position()
+                mouse_agent.move_cursor(cx + dx, cy + dy)
+
+            elif data.startswith("mouse_click:"):
+                btn = data.split(":")[1]
+                mouse_agent.click(button=btn)
+
+            elif data.startswith("mouse_scroll:"):
+                direction = data.split(":")[1]
+                mouse_agent.scroll(clicks=3, direction=direction)
+
+            elif data.startswith("mouse_snap"):
+                from agents.computer.screen_agent import screen_agent
+                snap = screen_agent.capture_screenshot()
+                if snap.get("success") and snap.get("screenshot_path") and os.path.exists(snap["screenshot_path"]):
+                    await self.send_photo(chat_id, snap["screenshot_path"], caption="🖥️ *Screen Snapshot (Trackpad)*", parse_mode="Markdown")
+        except Exception as e:
+            logger.debug(f"[TelegramGateway] Callback query handling error: {e}")
+
     async def handle_update(self, update: Dict[str, Any]):
         """Processes an incoming Telegram message update with full system control and simple words"""
+        callback_query = update.get("callback_query")
+        if callback_query:
+            await self.handle_callback_query(callback_query)
+            return
+
         message = update.get("message") or update.get("edited_message")
         if not message:
             return
@@ -266,12 +337,241 @@ class JarvisTelegramGateway:
         logger.info(f"[TelegramGateway] Authorized command from {user_id}: '{text}'")
 
         # ======================================================================
+        # 0. SUDO MASTER COMMAND (IMMEDIATE PRIVILEGED OVERRIDE - NO CONFIRMATION)
+        # ======================================================================
+        if lower.startswith("/sudo ") or lower.startswith("sudo "):
+            sudo_raw = text[6:] if lower.startswith("/sudo ") else text[5:]
+            sudo_cmd = sudo_raw.strip()
+            sudo_lower = sudo_cmd.lower()
+
+            if sudo_lower.startswith("close ") or sudo_lower.startswith("kill "):
+                target = (sudo_cmd[6:] if sudo_lower.startswith("close ") else sudo_cmd[5:]).strip()
+                from agents.computer.windows_agent import windows_agent
+                windows_agent.close_active_window(target)
+                await self.send_message(chat_id, f"⚡ *[SUDO MASTER]* Force-closed: `{target}`", parse_mode="Markdown")
+                return
+
+            elif sudo_lower in ["shutdown", "shutdown pc", "poweroff"]:
+                from agents.computer.power_agent import power_agent
+                await self.send_message(chat_id, "⚡ *[SUDO MASTER]* Executing immediate workstation shutdown...", parse_mode="Markdown")
+                power_agent.shutdown_pc()
+                return
+
+            elif sudo_lower in ["restart", "reboot"]:
+                from agents.computer.power_agent import power_agent
+                await self.send_message(chat_id, "⚡ *[SUDO MASTER]* Executing immediate workstation restart...", parse_mode="Markdown")
+                power_agent.restart_pc()
+                return
+
+            elif sudo_lower in ["sleep"]:
+                from agents.computer.power_agent import power_agent
+                await self.send_message(chat_id, "⚡ *[SUDO MASTER]* Putting PC to sleep immediately...", parse_mode="Markdown")
+                power_agent.sleep_pc()
+                return
+
+            elif sudo_lower.startswith("cmd ") or sudo_lower.startswith("run ") or sudo_lower.startswith("powershell "):
+                if sudo_lower.startswith("powershell "):
+                    c = sudo_cmd[11:].strip()
+                elif sudo_lower.startswith("cmd "):
+                    c = sudo_cmd[4:].strip()
+                else:
+                    c = sudo_cmd[4:].strip()
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(c, shell=True, capture_output=True, text=True, timeout=25, cwd=PROJECT_ROOT)
+                )
+                out = result.stdout.strip() or result.stderr.strip() or "Executed with zero output."
+                if len(out) > 3500:
+                    out = out[:3500] + "\n... [Truncated]"
+                await self.send_message(chat_id, f"⚡ *[SUDO CMD Output]:*\n```\n{out}\n```", parse_mode="Markdown")
+                return
+
+            else:
+                # Direct subprocess fallback for any other sudo command
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    lambda: subprocess.run(sudo_cmd, shell=True, capture_output=True, text=True, timeout=25, cwd=PROJECT_ROOT)
+                )
+                out = result.stdout.strip() or result.stderr.strip() or "Executed successfully."
+                if len(out) > 3500:
+                    out = out[:3500] + "\n... [Truncated]"
+                await self.send_message(chat_id, f"⚡ *[SUDO Output]:*\n```\n{out}\n```", parse_mode="Markdown")
+                return
+
+        # ======================================================================
+        # REMOTE WRITING SPACE & INPUT ERASER
+        # ======================================================================
+        if lower in ["✍️ writing space", "/writing", "/writer", "writing space"]:
+            self._writing_mode[str(user_id)] = True
+            intro = (
+                "✍️ *Remote Writing Space Activated!*\n\n"
+                "You can now type anything into your active PC window directly from your phone.\n\n"
+                "• Send any message to type it into your active window (Antigravity, LinkedIn, ChatGPT, Browser, etc.)\n"
+                "• Tap *🔙 Erase 1 Char* or send `/erase 1` to backspace\n"
+                "• Tap *🗑️ Clear Field* or send `/clear` to clear current input field\n"
+                "• Tap *⏎ Press Enter* or send `/enter` to submit / send\n"
+                "• Tap *📋 Paste Clipboard* to paste copied text\n"
+                "• Tap *⬅️ Main Menu* to return to standard controls"
+            )
+            await self.send_message(chat_id, intro, parse_mode="Markdown", reply_markup=WRITING_KEYBOARD)
+            return
+
+        if lower in ["⬅️ main menu", "/menu", "main menu"]:
+            self._writing_mode[str(user_id)] = False
+            await self.send_message(chat_id, "Returned to Main Menu.", reply_markup=MAIN_KEYBOARD)
+            return
+
+        if lower.startswith("/erase") or lower.startswith("erase ") or lower in ["🔙 erase 1 char", "🔙 erase 5 chars", "erase"]:
+            from agents.computer.keyboard_agent import keyboard_agent
+            count = 1
+            if lower in ["🔙 erase 5 chars", "/erase 5", "erase 5"]:
+                count = 5
+            elif lower.startswith("/erase ") or lower.startswith("erase "):
+                arg = (text[7:] if lower.startswith("/erase ") else text[6:]).strip()
+                if arg.isdigit():
+                    count = min(int(arg), 100)
+            for _ in range(count):
+                keyboard_agent.press_key("backspace")
+                time.sleep(0.02)
+            await self.send_message(chat_id, f"🔙 Erased {count} character{'s' if count > 1 else ''}.", reply_markup=WRITING_KEYBOARD if self._writing_mode.get(str(user_id)) else MAIN_KEYBOARD)
+            return
+
+        if lower in ["/clear", "clear", "🗑️ clear field", "clear field"]:
+            from agents.computer.keyboard_agent import keyboard_agent
+            keyboard_agent.press_shortcut(["ctrl", "a"])
+            time.sleep(0.05)
+            keyboard_agent.press_key("backspace")
+            await self.send_message(chat_id, "🗑️ Cleared active input field (Ctrl + A -> Backspace).", reply_markup=WRITING_KEYBOARD if self._writing_mode.get(str(user_id)) else MAIN_KEYBOARD)
+            return
+
+        if lower in ["/enter", "enter", "⏎ press enter", "press enter"]:
+            from agents.computer.keyboard_agent import keyboard_agent
+            keyboard_agent.press_key("enter")
+            await self.send_message(chat_id, "⏎ Sent Enter key.", reply_markup=WRITING_KEYBOARD if self._writing_mode.get(str(user_id)) else MAIN_KEYBOARD)
+            return
+
+        if lower.startswith("/write ") or lower.startswith("/prompt "):
+            to_write = (text[7:] if lower.startswith("/write ") else text[8:]).strip()
+            from services.device_agents.windows.windows_device_agent import windows_device_agent
+            await windows_device_agent.type_text(to_write)
+            await self.send_message(chat_id, f"✍️ Typed: `{to_write[:60]}`", parse_mode="Markdown")
+            return
+
+        # ======================================================================
+        # MOUSE TRACKPAD & LIVE SCREEN STREAM
+        # ======================================================================
+        if lower in ["🖱️ mouse trackpad", "/trackpad", "/mouse", "/stream", "/live", "trackpad", "mouse"]:
+            from services.gateway.remote_trackpad_server import get_local_ip
+            local_ip = get_local_ip()
+            trackpad_keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "↖️", "callback_data": "mouse_move:-40:-40"},
+                        {"text": "⬆️ Up", "callback_data": "mouse_move:0:-50"},
+                        {"text": "↗️", "callback_data": "mouse_move:40:-40"},
+                    ],
+                    [
+                        {"text": "⬅️ Left", "callback_data": "mouse_move:-50:0"},
+                        {"text": "🎯 Click", "callback_data": "mouse_click:left"},
+                        {"text": "➡️ Right", "callback_data": "mouse_move:50:0"},
+                    ],
+                    [
+                        {"text": "↙️", "callback_data": "mouse_move:-40:40"},
+                        {"text": "⬇️ Down", "callback_data": "mouse_move:0:50"},
+                        {"text": "↘️", "callback_data": "mouse_move:40:40"},
+                    ],
+                    [
+                        {"text": "🖱️ Right Click", "callback_data": "mouse_click:right"},
+                        {"text": "🔼 Scroll Up", "callback_data": "mouse_scroll:up"},
+                        {"text": "🔽 Scroll Down", "callback_data": "mouse_scroll:down"},
+                    ],
+                    [
+                        {"text": "📸 Screen Snapshot", "callback_data": "mouse_snap"}
+                    ]
+                ]
+            }
+            msg = (
+                "🖱️ *Remote Mouse Trackpad & Live Screen Controller*\n\n"
+                "• Use the buttons below for quick precision clicks & movement\n\n"
+                "📱 *High-Speed Mobile Touch Trackpad & Screen Stream:*\n"
+                f"👉 `http://{local_ip}:8085/remote`\n\n"
+                "_(Provides live 16 FPS screen display right on your phone, fluid finger drag mouse, tap to click, two-finger right click, and direct mobile typing!)_"
+            )
+            await self.send_message(chat_id, msg, parse_mode="Markdown", reply_markup=trackpad_keyboard)
+            return
+
+        # ======================================================================
+        # TAB-SPECIFIC CLOSING & TAB SWITCHING (PREVENTS CLOSING ENTIRE BROWSER!)
+        # ======================================================================
+        if any(lower == t for t in ["close tab", "/close_tab", "close active tab", "close current tab", "close the tab", "close browser tab", "close opera tab", "close chrome tab", "close edge tab"]) or (lower.startswith("close ") and lower.endswith(" tab")):
+            target = "opera" if "opera" in lower else ("chrome" if "chrome" in lower else ("edge" if "edge" in lower else None))
+            from agents.computer.windows_agent import windows_agent
+            res = windows_agent.close_active_tab(target)
+            if res.get("success"):
+                await self.send_message(chat_id, "🗂️ *Closed browser tab* (active browser window preserved).", parse_mode="Markdown")
+            else:
+                await self.send_message(chat_id, f"⚠️ Notice: {res.get('error', 'Browser tab not found')}")
+            return
+
+        if lower in ["next tab", "/next_tab", "switch tab", "next browser tab"]:
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_tab("next")
+            await self.send_message(chat_id, "➡️ Switched to next tab (Ctrl + Tab).")
+            return
+
+        if lower in ["prev tab", "previous tab", "/prev_tab", "prev browser tab"]:
+            from agents.computer.windows_agent import windows_agent
+            windows_agent.switch_tab("prev")
+            await self.send_message(chat_id, "⬅️ Switched to previous tab (Ctrl + Shift + Tab).")
+            return
+
+        # ======================================================================
+        # INTELLIGENT MUSIC & SMART WEB OPENER
+        # ======================================================================
+        from agents.computer.web_app_resolver import web_app_resolver
+        music_info = web_app_resolver.parse_music_intent(text)
+        if music_info:
+            song, platform, url = music_info
+            res = web_app_resolver.open_target(text)
+            await self.send_message(
+                chat_id,
+                f"🎵 *Playing on {platform}!*\n• *Song:* `{song.title()}`\n• *Streaming URL:* {url}",
+                parse_mode="Markdown"
+            )
+            return
+
+        # Check for natural "<target> on web" or "open <destination>"
+        if lower.endswith(" on web") or (lower.startswith("open ") and not any(lower.startswith(f"open {w}") for w in ["folder", "workspace", "apps", "jarvis", "hud"])):
+            target = text
+            if lower.startswith("open "):
+                target = text[5:].strip()
+            from agents.computer.windows_agent import windows_agent
+            if not windows_agent.find_app_path(target):
+                res = web_app_resolver.open_target(target)
+                if res.get("success"):
+                    msg = res.get("message", f"🌐 Opened {target}.")
+                    await self.send_message(chat_id, msg, parse_mode="Markdown")
+                    return
+
+        # ======================================================================
         # 1. HELP & START MENU (SIMPLE EVERYDAY WORDS)
         # ======================================================================
         if lower in ["/start", "/help", "/menu", "help", "menu", "commands", "❓ help & commands"]:
             help_text = (
                 "👋 *Welcome, sir! I am J.A.R.V.I.S.*\n"
                 "💡 *Quick Ways to Control Your PC:*\n\n"
+                "⚡ *Privileged Master Sudo*\n"
+                "• `/sudo <command>` — Immediate execution with no confirmation prompts (e.g. `/sudo close opera`, `/sudo shutdown`)\n\n"
+                "🖱️ *Live Screen & Touch Trackpad*\n"
+                "• Tap *'🖱️ Mouse Trackpad'* or `/trackpad` — Mobile touch trackpad & 16 FPS live screen stream\n\n"
+                "✍️ *Remote Writing Space*\n"
+                "• Tap *'✍️ Writing Space'* — Type into active PC windows with character erase (`/erase [n]`) & clear field (`/clear`)\n\n"
+                "🎵 *Music & Smart Web*\n"
+                "• `play <song> in <platform>` — e.g. `play believer in amazon music`, `play starboy on spotify`\n"
+                "• `open <website>` — e.g. `open prime video`, `open ibm career website`, `amazon music on web`\n"
+                "• `close tab` / `next tab` — Close only the active tab without closing your browser\n\n"
                 "🛸 *Start J.A.R.V.I.S. Floating Agent*\n"
                 "• Tap *'🚀 Start J.A.R.V.I.S.'* or `/start_jarvis` — Launch 3D Floating Window on your monitor\n"
                 "• Tap *'🛑 Close HUD'* or `/close_hud` — Close the floating window\n\n"
@@ -284,8 +584,8 @@ class JarvisTelegramGateway:
                 "• `/shortcut <keys>` — Press shortcut (e.g. `/shortcut win d` to see desktop)\n\n"
                 "💻 *Run Commands & Terminal*\n"
                 "• `/cmd <command>` — Run any command on your PC (e.g. `/cmd dir`, `/cmd ipconfig`)\n\n"
-                "🚀 *Open Apps & Websites*\n"
-                "• `/open <app or link>` — Open any app or website (e.g. `/open chrome`, `/open youtube.com`)\n"
+                "🚀 *Open Apps & Windows*\n"
+                "• `/open <app>` — Open any app (e.g. `/open notepad`, `/open chrome`)\n"
                 "• `/close <app>` — Close an application\n"
                 "• `/apps` — Show what apps are currently open\n"
                 "• `/minimize` — Minimize windows to see your desktop\n\n"
@@ -293,10 +593,10 @@ class JarvisTelegramGateway:
                 "• `/copy <text>` — Put text on your PC clipboard so you can paste it (Ctrl+V)\n"
                 "• `/paste` — Paste clipboard on your PC\n"
                 "• `/clip` — Check what is currently copied on your PC\n\n"
-                "🔊 *Volume & Music*\n"
+                "🔊 *Volume & Sound*\n"
+                "• `/vol max` / `/vol min` / `/vol mute` / `/vol unmute`\n"
                 "• `/volume <0-100>` — Set volume percentage (e.g. `/volume 50`)\n"
-                "• `/mute` / `/unmute` — Mute or unmute sound\n"
-                "• `/play` / `/pause` / `/next` / `/prev` — Control music playback\n"
+                "• `/play` / `/pause` / `/next` / `/prev` — Media controls\n"
                 "• `/say <words>` — Speak words aloud through your computer speakers!\n\n"
                 "📁 *Files & Folders*\n"
                 "• `/files` — List files in your project or downloads\n"
@@ -309,8 +609,7 @@ class JarvisTelegramGateway:
                 "• `/wake` — Wake monitors back up and restore normal desktop display\n"
                 "• `/lock` — Lock your computer immediately\n"
                 "• `/unlock <PIN>` — Unlock Windows remotely from your phone (auto-deletes password)\n"
-                "• `/sleep`, `/restart`, `/shutdown` — PC power controls\n\n"
-                "✨ *Tip:* You can also simply speak or type natural sentences! For example: _'take a screenshot'_, _'type hello in notepad'_, or _'open chrome'_."
+                "• `/sleep`, `/restart`, `/shutdown` — PC power controls"
             )
             await self.send_message(chat_id, help_text, parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
             return
@@ -746,7 +1045,31 @@ class JarvisTelegramGateway:
         # ======================================================================
         # 9. AUDIO & MEDIA CONTROLS
         # ======================================================================
-        if lower.startswith("/volume") or lower.startswith("volume"):
+        if lower in ["/vol max", "vol max", "/volume max", "volume max"]:
+            from agents.computer.audio_agent import audio_agent
+            audio_agent.set_volume_percent(100)
+            await self.send_message(chat_id, "🔊 Master volume set to *100% (MAX)*, sir.", parse_mode="Markdown")
+            return
+
+        if lower in ["/vol min", "vol min", "/volume min", "volume min"]:
+            from agents.computer.audio_agent import audio_agent
+            audio_agent.set_volume_percent(5)
+            await self.send_message(chat_id, "🔉 Master volume set to *5% (MIN)*, sir.", parse_mode="Markdown")
+            return
+
+        if lower in ["/vol mute", "vol mute"]:
+            from agents.computer.audio_agent import audio_agent
+            audio_agent.adjust_volume("mute")
+            await self.send_message(chat_id, "🔇 Computer sound muted, sir.")
+            return
+
+        if lower in ["/vol unmute", "vol unmute"]:
+            from agents.computer.audio_agent import audio_agent
+            audio_agent.adjust_volume("unmute")
+            await self.send_message(chat_id, "🔊 Computer sound unmuted, sir.")
+            return
+
+        if lower.startswith("/vol ") or lower.startswith("vol ") or lower.startswith("/volume") or lower.startswith("volume"):
             parts = lower.split()
             from agents.computer.audio_agent import audio_agent
 
@@ -761,7 +1084,7 @@ class JarvisTelegramGateway:
                 audio_agent.adjust_volume("down")
                 await self.send_message(chat_id, "🔉 Volume turned down, sir.")
             else:
-                await self.send_message(chat_id, "Usage: `/volume 50` (sets volume to 50%) or `/volume up` / `/volume down`", parse_mode="Markdown")
+                await self.send_message(chat_id, "Usage: `/vol 50`, `/vol max`, `/vol min`, `/vol mute`, `/vol unmute`", parse_mode="Markdown")
             return
 
         if lower in ["🔊 volume 50%"]:
@@ -961,6 +1284,16 @@ class JarvisTelegramGateway:
             power_agent.shutdown_pc()
             return
 
+        # Remote Writing Space Active: type incoming messages directly onto PC
+        if self._writing_mode.get(str(user_id)) and not text.startswith("/"):
+            from services.device_agents.windows.windows_device_agent import windows_device_agent
+            res = await windows_device_agent.type_text(text)
+            if res.get("success"):
+                await self.send_message(chat_id, f"✍️ Typed: \"{text[:45]}\"", reply_markup=WRITING_KEYBOARD)
+            else:
+                await self.send_message(chat_id, f"⚠️ Typing notice: {res.get('message', 'Failed')}", reply_markup=WRITING_KEYBOARD)
+            return
+
         # ======================================================================
         # 12. NATURAL LANGUAGE & CROSS-DEVICE ROUTING FALLBACK
         # ======================================================================
@@ -988,6 +1321,10 @@ class JarvisTelegramGateway:
         try:
             url = f"{self._base_url}/setMyCommands"
             commands = [
+                {"command": "trackpad", "description": "🖱️ Touch trackpad & 16 FPS live screen stream"},
+                {"command": "writing", "description": "✍️ Remote typing space into active PC window"},
+                {"command": "sudo", "description": "⚡ Master admin override (no confirmation)"},
+                {"command": "vol", "description": "🔊 Volume: max, min, mute, unmute, 0-100"},
                 {"command": "stealth", "description": "🌙 Turn monitors off for silent master control"},
                 {"command": "wake", "description": "☀️ Wake display monitors & show desktop"},
                 {"command": "status", "description": "💻 Simple PC health, speed, and battery"},
@@ -997,7 +1334,6 @@ class JarvisTelegramGateway:
                 {"command": "open", "description": "🚀 Open an app or website"},
                 {"command": "close", "description": "🛑 Close an application"},
                 {"command": "apps", "description": "📋 See open applications"},
-                {"command": "volume", "description": "🔊 Set volume or mute sound"},
                 {"command": "lock", "description": "🔒 Lock computer safely"},
                 {"command": "clip", "description": "📋 Check clipboard & diagnose errors"},
                 {"command": "files", "description": "📁 Browse project files"},
@@ -1017,6 +1353,13 @@ class JarvisTelegramGateway:
 
         self._running = True
         logger.info(f"⚡ [Telegram Gateway] Online. Authorized users: {self.allowed_users or 'ALL'}")
+
+        # Automatically launch live screen stream & touch trackpad server on LAN (port 8085)
+        try:
+            from services.gateway.remote_trackpad_server import start_trackpad_server
+            start_trackpad_server(host="0.0.0.0", port=8085)
+        except Exception as e:
+            logger.warning(f"[TelegramGateway] Could not auto-start trackpad server: {e}")
 
         async with httpx.AsyncClient(timeout=40.0) as client:
             await self._register_bot_menu(client)
