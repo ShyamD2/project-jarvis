@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 45,
-  "average_latency_ms": 5090.4,
+  "total_commands_learned": 46,
+  "average_latency_ms": 4959.12,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -183,6 +183,13 @@
         "mode": "system"
       },
       "hits": 1
+    },
+    "open notepad": {
+      "tool": "launch_app",
+      "args": {
+        "app": "notepad"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -202,7 +209,7 @@
     "my": 5,
     "cpu": 5,
     "usage": 5,
-    "open": 20,
+    "open": 21,
     "snapchat": 5,
     "whatsapp": 6,
     "instagram": 3,
@@ -229,7 +236,8 @@
     "to": 1,
     "a": 1,
     "game": 1,
-    "type": 2
+    "type": 2,
+    "notepad": 1
   },
   "history": [
     {
@@ -381,6 +389,12 @@
       "tool": "mouse_keyboard",
       "latency_ms": 3167.85,
       "timestamp": 1789635483.2854495
+    },
+    {
+      "query": "open notepad",
+      "tool": "launch_app",
+      "latency_ms": 3777.57,
+      "timestamp": 1789654583.5697522
     }
   ]
 }

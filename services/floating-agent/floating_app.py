@@ -67,6 +67,10 @@ def ensure_interactive_desktop():
 class FloatingAgentAPI:
     def __init__(self):
         self._window = None
+        self._recognizer = None
+        self._microphone = None
+        self._is_listening = False
+        self._listen_thread = None
 
     def bind_window(self, window):
         self._window = window
@@ -114,19 +118,187 @@ class FloatingAgentAPI:
             except Exception as e:
                 pass
 
+    def _init_audio(self):
+        if self._recognizer is None:
+            try:
+                import speech_recognition as sr
+                self._recognizer = sr.Recognizer()
+                self._recognizer.energy_threshold = 280
+                self._recognizer.dynamic_energy_threshold = True
+                self._microphone = sr.Microphone()
+                logger.info("🎙️ [VoiceBridge] Hardware microphone initialized successfully.")
+            except Exception as e:
+                logger.error(f"[VoiceBridge] Microphone initialization notice: {e}")
+
+    def toggle_voice_capture(self, state: Optional[bool] = None) -> dict:
+        """Toggles hardware microphone listening on or off."""
+        if state is None:
+            new_state = not self._is_listening
+        else:
+            new_state = bool(state)
+
+        if new_state:
+            return self.start_voice_listening()
+        else:
+            return self.stop_voice_listening()
+
+    def start_voice_listening(self) -> dict:
+        """Starts continuous hardware microphone capture loop in background thread."""
+        self._init_audio()
+        if not self._microphone:
+            return {"success": False, "listening": False, "error": "Microphone not available"}
+
+        if self._is_listening:
+            return {"success": True, "listening": True}
+
+        self._is_listening = True
+
+        def _mic_worker():
+            import speech_recognition as sr
+            import json
+            logger.info("🎙️ [VoiceBridge] Continuous hardware microphone capture active.")
+
+            if self._window:
+                try:
+                    self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(true)")
+                except Exception:
+                    pass
+
+            try:
+                with self._microphone as source:
+                    try:
+                        self._recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                    except Exception:
+                        pass
+
+                    while self._is_listening:
+                        try:
+                            audio = self._recognizer.listen(source, timeout=2.0, phrase_time_limit=10.0)
+                            if not self._is_listening:
+                                break
+
+                            transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+                            if transcription:
+                                logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}'")
+                                clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip()
+                                if not clean_cmd:
+                                    clean_cmd = "hello jarvis"
+
+                                if self._window:
+                                    safe_text = json.dumps(clean_cmd)
+                                    self._window.evaluate_js(f"window.onVoiceTranscriptReceived && window.onVoiceTranscriptReceived({safe_text}, true)")
+                        except sr.WaitTimeoutError:
+                            continue
+                        except sr.UnknownValueError:
+                            continue
+                        except Exception as loop_e:
+                            logger.debug(f"[VoiceBridge] Recognition cycle notice: {loop_e}")
+                            time.sleep(0.1)
+            except Exception as e:
+                logger.error(f"[VoiceBridge] Hardware mic error: {e}")
+            finally:
+                self._is_listening = False
+                if self._window:
+                    try:
+                        self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(false)")
+                    except Exception:
+                        pass
+                logger.info("🎙️ [VoiceBridge] Microphone loop stopped.")
+
+        self._listen_thread = threading.Thread(target=_mic_worker, daemon=True)
+        self._listen_thread.start()
+        return {"success": True, "listening": True}
+
+    def stop_voice_listening(self) -> dict:
+        """Stops hardware microphone listening."""
+        self._is_listening = False
+        logger.info("🎙️ [VoiceBridge] Hardware microphone stopped.")
+        if self._window:
+            try:
+                self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(false)")
+            except Exception:
+                pass
+        return {"success": True, "listening": False}
+
+    def listen_once(self) -> dict:
+        """Single phrase capture directly from hardware microphone."""
+        self._init_audio()
+        if not self._microphone:
+            return {"success": False, "error": "Microphone not available"}
+
+        import speech_recognition as sr
+        try:
+            with self._microphone as source:
+                self._recognizer.adjust_for_ambient_noise(source, duration=0.25)
+                logger.info("🎙️ [VoiceBridge] Listening for single speech utterance...")
+                audio = self._recognizer.listen(source, timeout=4.5, phrase_time_limit=8.0)
+                text = self._recognizer.recognize_google(audio, language="en-US").strip()
+                clean = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", text, flags=re.IGNORECASE).strip()
+                logger.info(f"🎙️ [VoiceBridge] Captured single utterance: '{clean}'")
+                return {"success": True, "text": clean}
+        except sr.WaitTimeoutError:
+            return {"success": False, "error": "Listening timed out"}
+        except sr.UnknownValueError:
+            return {"success": False, "error": "Could not understand audio"}
+        except Exception as e:
+            logger.error(f"[VoiceBridge] Single listen error: {e}")
+            return {"success": False, "error": str(e)}
+
     def execute_command(self, query: str) -> dict:
-        """Direct native bridge to device_router for immediate autonomous execution."""
+        """
+        Executes user command directly through the J.A.R.V.I.S. Conversational Brain:
+        - Music streaming (YouTube, Amazon Music, Spotify)
+        - Smart web applications (Prime Video, IBM careers, etc.)
+        - Desktop application controls (open/close apps, tabs, windows)
+        - System operations (volume, screenshots, clipboard diagnostics)
+        - British neural speech generation
+        """
         import asyncio
-        from services.cloud.device_router import device_router
+        from services.brain.conversation_engine import conversation_engine
+        from services.sensory.soundboard import soundboard
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-            res = loop.run_until_complete(device_router.route_and_execute(query, source_device_id="desktop-shyam"))
+
+            matched_clip = soundboard.match_audio_clip(query)
+            soundboard_url = matched_clip.get("url") if matched_clip else None
+
+            res = loop.run_until_complete(conversation_engine.process_turn(query))
+            response_text = res.get("response", "Instruction processed, sir.")
+            actions = res.get("actions_executed", [])
+
+            # Synthesize British Neural TTS if no soundboard clip
+            audio_b64 = ""
+            if soundboard_url and matched_clip and matched_clip.get("file_path"):
+                clip_path = matched_clip["file_path"]
+                if os.path.exists(clip_path):
+                    with open(clip_path, "rb") as af:
+                        b64 = base64.b64encode(af.read()).decode("utf-8")
+                        audio_b64 = f"data:audio/wav;base64,{b64}"
+            elif response_text:
+                synth = self.synthesize_speech(response_text)
+                if synth.get("success"):
+                    audio_b64 = synth.get("audio_b64", "")
+
             loop.close()
-            return res
+            return {
+                "success": True,
+                "message": response_text,
+                "response": response_text,
+                "intent": res.get("intent"),
+                "actions_executed": actions,
+                "audio_b64": audio_b64,
+                "soundboard_url": soundboard_url
+            }
         except Exception as e:
-            logger.error(f"[FloatingApp] Direct execution error: {e}")
-            return {"success": False, "message": f"Execution error: {str(e)}", "target_device": "DESKTOP-SHYAM"}
+            logger.error(f"[FloatingApp] Brain execution error: {e}")
+            return {
+                "success": False,
+                "message": f"Execution error: {str(e)}",
+                "response": f"Execution error: {str(e)}",
+                "actions_executed": [],
+                "audio_b64": ""
+            }
 
     def analyze_screen_vision(self, prompt: str = "Analyze what is on my screen") -> dict:
         """Multimodal Screen Vision bridge using real desktop capture + AI analysis."""

@@ -163,8 +163,9 @@ def launch_process_on_interactive_desktop(cmd: str, cwd: Optional[str] = None) -
         kernel32.CreateProcessW.restype = wintypes.BOOL
 
         flags = 0x00000200  # CREATE_NEW_PROCESS_GROUP
+        cmd_buf = ctypes.create_unicode_buffer(cmd)
         success = kernel32.CreateProcessW(
-            None, cmd, None, None, False, flags, None, cwd,
+            None, cmd_buf, None, None, False, flags, None, cwd,
             ctypes.byref(si), ctypes.byref(pi)
         )
 

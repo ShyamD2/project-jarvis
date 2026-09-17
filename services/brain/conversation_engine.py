@@ -122,6 +122,67 @@ class ConversationEngine:
                     "latency_ms": (time.time() - start_time) * 1000
                 }
 
+        # 3.5. INTELLIGENT WEB APP, MUSIC STREAMING & DESTINATION FAST-PATH
+        # Fulfills user requirements:
+        # - "play believer in amazon music", "play starboy on spotify", "play believer on youtube", "play believer"
+        # - "amazon music on web", "open prime video", "open ibm career website", "open hotstar"
+        try:
+            from agents.computer.web_app_resolver import web_app_resolver
+
+            # A. Music Streaming Intent
+            music_info = web_app_resolver.parse_music_intent(user_text)
+            if music_info:
+                song, platform, url = music_info
+                res = web_app_resolver.open_target(user_text)
+                reply = f"Playing {song.title()} on {platform}, sir."
+                action_record = {
+                    "tool": "browse_web",
+                    "arguments": {"url": url, "song": song, "platform": platform, "mode": "music_streaming"},
+                    "result": res,
+                    "status": "completed"
+                }
+                context_manager.add_turn("user", user_text)
+                context_manager.add_turn("jarvis", reply, {"intent": "music_stream", "song": song, "platform": platform})
+                return {
+                    "response": reply,
+                    "intent": "music_stream",
+                    "actions_executed": [action_record],
+                    "verified": True,
+                    "latency_ms": (time.time() - start_time) * 1000
+                }
+
+            # B. Smart Web Destination & Online Services
+            is_explicit_web = bool(re.search(r"\b(on\s+web|in\s+browser|website|web\s+page|online)\b", lower_text))
+            is_open_prefix = bool(re.search(r"^(?:open|launch|go to|visit)\s+", lower_text))
+            
+            if is_explicit_web or is_open_prefix:
+                dest = web_app_resolver.resolve_destination(user_text)
+                is_canonical_or_url = dest.get("success") and dest.get("type") in ["canonical", "url", "domain"]
+                is_career_or_site = any(w in lower_text for w in ["website", "site", "careers", "career", ".com", ".org", ".net", ".io"])
+                
+                if is_canonical_or_url or (is_explicit_web and dest.get("success")) or (is_career_or_site and dest.get("success")):
+                    res = web_app_resolver.open_target(user_text)
+                    dest_name = dest.get("name", "the requested website")
+                    target_url = dest.get("url")
+                    reply = f"Opening {dest_name} in your browser, sir."
+                    action_record = {
+                        "tool": "browse_web",
+                        "arguments": {"url": target_url, "name": dest_name, "mode": "web_destination"},
+                        "result": res,
+                        "status": "completed"
+                    }
+                    context_manager.add_turn("user", user_text)
+                    context_manager.add_turn("jarvis", reply, {"intent": "browse_web", "url": target_url})
+                    return {
+                        "response": reply,
+                        "intent": "browse_web",
+                        "actions_executed": [action_record],
+                        "verified": True,
+                        "latency_ms": (time.time() - start_time) * 1000
+                    }
+        except Exception as e_web:
+            logger.debug(f"[ConversationEngine] Web/music fast-path notice: {e_web}")
+
         # 4. CONTEXT & REFERENCE RESOLUTION ("and RAM?", "the first result", "do that again")
         resolved_query, hints = context_manager.resolve_references(user_text)
         if resolved_query != user_text:

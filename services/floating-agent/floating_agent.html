@@ -941,12 +941,12 @@
     setSpeechText(`Ingesting instruction: "${text}"`);
 
     try {
-      setTimeout(() => setAgentState("PLANNING"), 250);
-      setTimeout(() => setAgentState("ROUTING"), 500);
+      setTimeout(() => setAgentState("PLANNING"), 200);
+      setTimeout(() => setAgentState("ROUTING"), 400);
 
       let data = null;
 
-      // Check pywebview Native Bridge First
+      // Check pywebview Native Bridge First (calls J.A.R.V.I.S. Conversational Brain)
       if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.execute_command === "function") {
         data = await window.pywebview.api.execute_command(text);
       } else {
@@ -960,16 +960,31 @@
 
       setAgentState("EXECUTING");
 
+      const reply = data.response || data.message || "Instruction completed successfully, sir.";
+      
+      // If there are actions executed, show summary in speech bubble
+      let actionNotice = "";
+      if (data.actions_executed && Array.isArray(data.actions_executed) && data.actions_executed.length > 0) {
+        const act = data.actions_executed[0];
+        if (act.tool === "browse_web" && act.arguments && act.arguments.url) {
+          actionNotice = `\n🌐 ${act.arguments.url}`;
+        } else if (act.tool === "launch_app" && act.arguments && act.arguments.app) {
+          actionNotice = `\n⚡ Launched ${act.arguments.app}`;
+        }
+      }
+
       setTimeout(() => {
-        setAgentState("VERIFYING");
-        setTimeout(() => {
-          setAgentState("RESPONDING");
-          const reply = data.message || "Instruction completed successfully, sir.";
-          setSpeechText(reply);
+        setAgentState("RESPONDING");
+        setSpeechText(reply + actionNotice);
+
+        // Play audio synthesized by J.A.R.V.I.S. Brain if available
+        if (data.audio_b64) {
+          playAudioDataUri(data.audio_b64);
+        } else {
           speakResponse(reply);
           setTimeout(() => setAgentState("IDLE"), 4000);
-        }, 500);
-      }, 600);
+        }
+      }, 500);
 
     } catch (e) {
       console.error("Execution error:", e);
@@ -978,7 +993,65 @@
     }
   }
 
-  // ALWAYS-ON HANDS-FREE VOICE RECOGNITION
+  // =========================================================================
+  // HARDWARE MICROPHONE & VOICE BRIDGE (PYTHON NATIVE + WEB SPEECH FALLBACK)
+  // =========================================================================
+
+  // Global callbacks invoked by Python FloatingAgentAPI
+  window.onVoiceTranscriptReceived = function(transcription, isFinal) {
+    if (!transcription || !transcription.trim()) return;
+    const text = transcription.trim();
+    console.log("🎙️ [VoiceBridge] Hardware speech received:", text);
+
+    const input = document.getElementById("command-input");
+    if (input) input.value = text;
+    setSpeechText(`🎙️ "${text}"`);
+    setAgentState("LISTENING");
+
+    const micBtn = document.getElementById("mic-btn");
+    if (micBtn) micBtn.classList.add("speaking");
+
+    if (isFinal) {
+      if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
+      voiceSilenceTimer = setTimeout(() => {
+        if (micBtn) micBtn.classList.remove("speaking");
+        submitCommand();
+      }, 600);
+    }
+  };
+
+  window.onVoiceStatusChanged = function(isListening) {
+    console.log("🎙️ [VoiceBridge] Mic listening state:", isListening);
+    alwaysVoiceActive = isListening;
+    const micBtn = document.getElementById("mic-btn");
+    if (micBtn) {
+      if (isListening) {
+        micBtn.classList.add("active");
+        micBtn.style.opacity = "1";
+        setSpeechText("Listening via hardware microphone, sir...");
+        setAgentState("LISTENING");
+      } else {
+        micBtn.classList.remove("active");
+        micBtn.classList.remove("speaking");
+        micBtn.style.opacity = "0.6";
+        setAgentState("IDLE");
+      }
+    }
+  };
+
+  // Auto-start hardware microphone listening once pywebview is initialized
+  function tryStartHardwareVoice() {
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.start_voice_listening === "function") {
+      console.log("⚡ [FloatingHUD] PyWebView ready. Activating hardware microphone bridge...");
+      window.pywebview.api.start_voice_listening();
+    }
+  }
+
+  window.addEventListener("pywebviewready", tryStartHardwareVoice);
+  setTimeout(tryStartHardwareVoice, 1200);
+  setTimeout(tryStartHardwareVoice, 3000);
+
+  // Always-on speech recognition (Web Speech API fallback if not running pywebview)
   function initSpeechRecognition() {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRec) {
@@ -994,7 +1067,7 @@
             micBtn.classList.add("active");
             micBtn.classList.remove("speaking");
           }
-          console.log("🎙️ [AlwaysOnVoice] Continuous hands-free loop active.");
+          console.log("🎙️ [WebSpeech] Fallback speech recognition active.");
         };
 
         recognition.onresult = (event) => {
@@ -1011,23 +1084,7 @@
 
           const currentText = (finalTranscript || interimTranscript).trim();
           if (currentText) {
-            const input = document.getElementById("command-input");
-            input.value = currentText;
-            setSpeechText(`🎙️ "${currentText}"`);
-            setAgentState("LISTENING");
-
-            const micBtn = document.getElementById("mic-btn");
-            if (micBtn) micBtn.classList.add("speaking");
-
-            // Hands-Free Auto-Submit on 1.2s silence pause
-            if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
-            voiceSilenceTimer = setTimeout(() => {
-              if (document.getElementById("command-input").value.trim().length > 0) {
-                console.log("⚡ Auto-submitting hands-free instruction:", currentText);
-                if (micBtn) micBtn.classList.remove("speaking");
-                submitCommand();
-              }
-            }, 1200);
+            window.onVoiceTranscriptReceived(currentText, Boolean(finalTranscript));
           }
         };
 
@@ -1060,10 +1117,24 @@
     }
   }
 
-  function toggleMic() {
-    alwaysVoiceActive = !alwaysVoiceActive;
+  async function toggleMic() {
     const micBtn = document.getElementById("mic-btn");
 
+    // 1. Try Native Python Hardware Bridge First
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.toggle_voice_capture === "function") {
+      try {
+        const res = await window.pywebview.api.toggle_voice_capture();
+        if (res && typeof res.listening === "boolean") {
+          window.onVoiceStatusChanged(res.listening);
+          return;
+        }
+      } catch (e) {
+        console.warn("Native mic toggle notice:", e);
+      }
+    }
+
+    // 2. Fallback to Web Speech API
+    alwaysVoiceActive = !alwaysVoiceActive;
     if (!alwaysVoiceActive) {
       if (recognition) {
         try { recognition.stop(); } catch(e) {}
