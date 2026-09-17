@@ -29,6 +29,19 @@ from typing import Optional, Dict, Any, List
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
 
+# If launched via pythonw.exe (Windows silent background mode), redirect stdout/stderr to gateway.log
+if sys.stdout is None or sys.stderr is None:
+    _log_dir = os.path.join(PROJECT_ROOT, "services", "gateway")
+    os.makedirs(_log_dir, exist_ok=True)
+    try:
+        _log_f = open(os.path.join(_log_dir, "gateway.log"), "a", encoding="utf-8", buffering=1)
+        if sys.stdout is None:
+            sys.stdout = _log_f
+        if sys.stderr is None:
+            sys.stderr = _log_f
+    except Exception:
+        pass
+
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 from shared.sdk_python.jarvis_sdk.config import config
 
@@ -612,24 +625,59 @@ class JarvisTelegramGateway:
             "open jarvis", "open floating agent", "launch floating agent"
         ]:
             try:
-                flags = 0
-                if sys.platform == "win32":
-                    flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+                # 1. Wake physical display if it was in stealth or asleep
+                from agents.computer.power_agent import power_agent
+                power_agent.wake_display()
 
-                subprocess.Popen(
-                    [sys.executable, "services/floating-agent/floating_app.py"],
-                    cwd=PROJECT_ROOT,
-                    creationflags=flags
-                )
-                await self.send_message(
-                    chat_id,
-                    "🚀 *J.A.R.V.I.S. Launched on Your PC!*\n\n"
-                    "• 🛸 3D Holographic Arc Reactor is now active on your desktop.\n"
+                # 2. Check if Floating Agent window is already running
+                import ctypes
+                user32 = ctypes.windll.user32 if sys.platform == "win32" else None
+                hwnd = user32.FindWindowW(None, "J.A.R.V.I.S. Floating Agent") if user32 else None
+                if hwnd:
+                    user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                    user32.SetForegroundWindow(hwnd)
+                    status_note = "• 🛸 J.A.R.V.I.S. was already running; brought to active foreground!"
+                else:
+                    flags = 0
+                    if sys.platform == "win32":
+                        flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+
+                    py_exe = sys.executable or "python.exe"
+                    subprocess.Popen(
+                        [py_exe, "services/floating-agent/floating_app.py"],
+                        cwd=PROJECT_ROOT,
+                        creationflags=flags
+                    )
+                    status_note = "• 🛸 3D Holographic Arc Reactor is now active on your desktop."
+
+                # 3. Audio greeting through laptop speakers so user hears confirmation across the room
+                def announce_boot():
+                    try:
+                        subprocess.run(
+                            ["powershell", "-WindowStyle", "Hidden", "-Command",
+                             "(New-Object -ComObject SAPI.SpVoice).Speak('J.A.R.V.I.S. is online and at your service, sir.')"],
+                            capture_output=True, timeout=5.0
+                        )
+                    except Exception:
+                        pass
+                import threading
+                threading.Thread(target=announce_boot, daemon=True).start()
+
+                # 4. Give WebView2 window brief moment to initialize, then send desktop snapshot confirmation
+                await asyncio.sleep(2.0)
+                from agents.computer.screen_agent import screen_agent
+                snap = screen_agent.capture_screenshot()
+                caption = (
+                    "🚀 *J.A.R.V.I.S. Online on Your PC!*\n\n"
+                    f"{status_note}\n"
                     "• 🎙️ Hands-free continuous voice recognition is listening.\n"
                     "• 👁️ Multimodal AI Screen Vision is ready.\n"
-                    "• ⚡ Press `Alt + J` or tap 'Mini Orb' anytime.",
-                    parse_mode="Markdown"
+                    "• ⚡ Press `Alt + J` or tap 'Mini Orb' anytime."
                 )
+                if snap.get("success") and snap.get("screenshot_path") and os.path.exists(snap["screenshot_path"]):
+                    await self.send_photo(chat_id, snap["screenshot_path"], caption=caption, parse_mode="Markdown")
+                else:
+                    await self.send_message(chat_id, caption, parse_mode="Markdown")
             except Exception as e:
                 await self.send_message(chat_id, f"⚠️ Error launching J.A.R.V.I.S.: {e}")
             return

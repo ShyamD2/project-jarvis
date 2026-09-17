@@ -31,10 +31,13 @@ def get_logger(name: str, json_format: bool = False) -> logging.Logger:
         if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
             try:
                 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-            except Exception as e:
-                # stdout may be a custom stream or redirected without reconfigure support
+            except Exception:
                 pass
-        handler = logging.StreamHandler(sys.stdout)
+        stream = sys.stdout if sys.stdout is not None else sys.stderr
+        if stream is None:
+            import io
+            stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
         if json_format:
             handler.setFormatter(JarvisJSONFormatter())
         else:
