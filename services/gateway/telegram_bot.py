@@ -51,12 +51,12 @@ logger = get_logger("JarvisTelegramGateway")
 MAIN_KEYBOARD = {
     "keyboard": [
         [{"text": "🚀 Start J.A.R.V.I.S."}, {"text": "🛑 Close HUD"}],
+        [{"text": "🎥 Live Video Screen"}, {"text": "🖱️ Mouse Trackpad"}],
         [{"text": "🌙 Stealth Screen Off"}, {"text": "☀️ Wake Screen"}],
-        [{"text": "🖱️ Mouse Trackpad"}, {"text": "✍️ Writing Space"}],
-        [{"text": "📸 Screen Snapshot"}, {"text": "👁️ What's on Screen?"}],
-        [{"text": "💻 PC Status"}, {"text": "📋 Open Apps"}],
+        [{"text": "✍️ Writing Space"}, {"text": "📸 Screen Snapshot"}],
+        [{"text": "👁️ What's on Screen?"}, {"text": "💻 PC Status"}],
         [{"text": "🔊 Volume 50%"}, {"text": "🔒 Lock PC"}],
-        [{"text": "❓ Help & Commands"}]
+        [{"text": "🛡️ Cyber Lock"}, {"text": "❓ Help & Commands"}]
     ],
     "resize_keyboard": True,
     "one_time_keyboard": False
@@ -466,20 +466,28 @@ class JarvisTelegramGateway:
         # ======================================================================
         # MOUSE TRACKPAD & LIVE SCREEN STREAM
         # ======================================================================
-        if lower in ["🖱️ mouse trackpad", "/trackpad", "/mouse", "/stream", "/live", "/remote", "trackpad", "mouse", "remote"]:
-            from services.gateway.remote_trackpad_server import get_local_ip, get_public_url
+        if lower in [
+            "🖱️ mouse trackpad", "🎥 live video screen", "live video screen", "live screen",
+            "/trackpad", "/mouse", "/stream", "/live", "/remote",
+            "trackpad", "mouse", "remote", "live", "stream", "video", "live stream"
+        ]:
+            from services.gateway.remote_trackpad_server import get_local_ip, get_public_url, get_operator_token
             from services.security.cyber_lock import get_stored_pin
             local_ip = get_local_ip()
             public_url = get_public_url()
+            token = get_operator_token()
             base_url = public_url if public_url.startswith("https://") else f"http://{local_ip}:8085"
+            live_link = f"{base_url}/live"
             remote_link = f"{base_url}/remote"
-            wifi_link = f"http://{local_ip}:8085/remote"
+            wifi_live = f"http://{local_ip}:8085/live"
+            wifi_remote = f"http://{local_ip}:8085/remote"
             current_pin = get_stored_pin()
 
             trackpad_keyboard = {
                 "inline_keyboard": [
                     [
-                        {"text": "📱 Open Secure Touchpad & Live Screen", "url": remote_link}
+                        {"text": "🎥 Watch Live Video Feed", "url": live_link},
+                        {"text": "📱 Open Touchpad & Remote", "url": remote_link}
                     ],
                     [
                         {"text": "↖️", "callback_data": "mouse_move:-30:-30"},
@@ -504,20 +512,25 @@ class JarvisTelegramGateway:
                 ]
             }
             msg = (
-                "🖱️ *J.A.R.V.I.S. Master Touchpad & Live Screen*\n\n"
-                "👉 *Tap to open your secure control console on phone:*\n"
-                f"🌐 {remote_link}\n\n"
-                f"_(Home Wi-Fi direct link: `{wifi_link}`)_\n\n"
+                "🖥️ *J.A.R.V.I.S. Master Live Screen & Mobile Touchpad*\n\n"
+                "👉 *1-Tap Instant Links on Your Phone:*\n\n"
+                "🎥 *Direct Live Video Stream:*\n"
+                f"🌐 {live_link}\n"
+                f"_(Home Wi-Fi Live Link: `{wifi_live}`)_\n\n"
+                "📱 *Interactive Touchpad & Remote Console:*\n"
+                f"🌐 {remote_link}\n"
+                f"_(Home Wi-Fi Touchpad Link: `{wifi_remote}`)_\n\n"
                 "🛡️ *Unified Master PIN Gate Active:*\n"
                 f"• Master PIN: `{current_pin}` (One single PIN for BOTH Web Trackpad & Cyber Lock)\n"
                 f"• _To change Master PIN for both:_ `/setpin {current_pin} <new_pin>`\n"
-                "• High-contrast cyan mouse pointer is visible on the live stream!\n\n"
-                "✨ *Touchpad & Live Screen Features:*\n"
+                "• High-contrast cyan mouse pointer is visible on the live video stream!\n\n"
+                "✨ *Features & Gestures:*\n"
+                "• 🎥 **Real-time Video Feed**: Crystal-clear desktop video with cursor hotspot\n"
                 "• 🎯 **Live Screen Tap-To-Click**: Tap anywhere on your phone screen to click on PC!\n"
-                "• 🖱️ **Fluid Glide Mouse**: Ultra-responsive 1ms trackpad\n"
+                "• 🖱️ **Fluid Glide Mouse**: Ultra-responsive 1ms touch trackpad\n"
                 "• 📜 **2-Finger Gliding Scroll**: Drag 2 fingers up/down to scroll web pages\n"
-                "• 🗂️ **Tab Controls**: New Tab (`Ctrl+T`), Close Tab (`Ctrl+W`), Next/Prev Tab\n"
-                "• ⏎ **Big ENTER Button**, ESC, Backspace & Keyboard"
+                "• 🗂️ **Browser Controls**: New Tab (`Ctrl+T`), Close Tab (`Ctrl+W`), Next/Prev Tab\n"
+                "• ⏎ **Quick Actions**: Big ENTER Button, ESC, Backspace & Keyboard input"
             )
             await self.send_message(chat_id, msg, parse_mode="Markdown", reply_markup=trackpad_keyboard)
             return
@@ -593,56 +606,50 @@ class JarvisTelegramGateway:
         if lower in ["/start", "/help", "/menu", "help", "menu", "commands", "❓ help & commands"]:
             help_text = (
                 "👋 *Welcome, sir! I am J.A.R.V.I.S.*\n"
-                "💡 *Quick Ways to Control Your PC:*\n\n"
+                "💡 *Complete Command Center Menu:*\n\n"
+                "🎥 *Live Video & Remote Control*\n"
+                "• `/live` or `/stream` — Direct live desktop video stream on your phone\n"
+                "• Tap *'🎥 Live Video Screen'* or *'🖱️ Mouse Trackpad'* (`/trackpad`) — Mobile touch trackpad & video stream\n"
+                "• Tap *'✍️ Writing Space'* (`/writing`) — Remote typing into active windows with `/erase` & `/clear`\n\n"
                 "⚡ *Privileged Master Sudo*\n"
-                "• `/sudo <command>` — Immediate execution with no confirmation prompts (e.g. `/sudo close opera`, `/sudo shutdown`)\n\n"
-                "🖱️ *Live Screen & Touch Trackpad*\n"
-                "• Tap *'🖱️ Mouse Trackpad'* or `/trackpad` — Mobile touch trackpad & 16 FPS live screen stream\n\n"
-                "✍️ *Remote Writing Space*\n"
-                "• Tap *'✍️ Writing Space'* — Type into active PC windows with character erase (`/erase [n]`) & clear field (`/clear`)\n\n"
-                "🎵 *Music & Smart Web*\n"
-                "• `play <song> in <platform>` — e.g. `play believer in amazon music`, `play starboy on spotify`\n"
-                "• `open <website>` — e.g. `open prime video`, `open ibm career website`, `amazon music on web`\n"
-                "• `close tab` / `next tab` — Close only the active tab without closing your browser\n\n"
-                "🛸 *Start J.A.R.V.I.S. Floating Agent*\n"
-                "• Tap *'🚀 Start J.A.R.V.I.S.'* or `/start_jarvis` — Launch 3D Floating Window on your monitor\n"
+                "• `/sudo <command>` — Immediate execution with zero confirmation prompts (e.g. `/sudo close opera`, `/sudo shutdown`)\n\n"
+                "🛸 *J.A.R.V.I.S. 3D Floating HUD*\n"
+                "• Tap *'🚀 Start J.A.R.V.I.S.'* or `/start_jarvis` — Launch 3D Arc Reactor HUD on desktop\n"
                 "• Tap *'🛑 Close HUD'* or `/close_hud` — Close the floating window\n\n"
-                "📸 *See Your Computer*\n"
-                "• `/screen` — Send me a photo of your PC screen right now\n"
-                "• `/whatscreen` — Tell me what is open and happening on your screen in plain words\n\n"
-                "⌨️ *Type & Press Keys*\n"
-                "• `/type <text>` — Type text into your active window (e.g. `/type Hello there`)\n"
-                "• `/press <key>` — Press a key (e.g. `/press enter`, `/press esc`, `/press space`)\n"
-                "• `/shortcut <keys>` — Press shortcut (e.g. `/shortcut win d` to see desktop)\n\n"
-                "💻 *Run Commands & Terminal*\n"
-                "• `/cmd <command>` — Run any command on your PC (e.g. `/cmd dir`, `/cmd ipconfig`)\n\n"
-                "🚀 *Open Apps & Windows*\n"
-                "• `/open <app>` — Open any app (e.g. `/open notepad`, `/open chrome`)\n"
+                "🔒 *Safety & Power*\n"
+                "• `/cyberlock` — Zero-blackout physical screen lock barrier (keeps phone stream active!)\n"
+                "• `/unlock <password_or_PIN>` — Unlock Windows or Cyber Barrier remotely from phone\n"
+                "• `/lock` — Lock computer into Windows (Win+L)\n"
+                "• `/setpin <current_pin> <new_pin>` — Change Master Security PIN\n"
+                "• `/stealth` — Turn off monitors for silent background control (no lock needed!)\n"
+                "• `/wake` — Wake monitors back up and restore normal desktop display\n"
+                "• `/sleep`, `/restart`, `/shutdown` — PC power controls\n\n"
+                "📸 *Screen & Vision*\n"
+                "• `/screen` — Instant photo snapshot of your PC screen\n"
+                "• `/whatscreen` — AI analyzes what is currently open and happening on screen\n\n"
+                "⌨️ *Type & Keys*\n"
+                "• `/type <text>` — Type text into active window\n"
+                "• `/press <key>` — Press single key (e.g. `/press enter`, `/press esc`)\n"
+                "• `/shortcut <keys>` — Press key combination (e.g. `/shortcut win d`)\n\n"
+                "🌐 *Tabs & Web*\n"
+                "• `/new_tab` — Open a new browser tab (Ctrl+T)\n"
+                "• `/close_tab` — Close active tab without closing the browser (Ctrl+W)\n"
+                "• `play <song> in <platform>` — e.g. `play believer in amazon music`\n"
+                "• `open <website>` — e.g. `open prime video`, `open youtube`\n\n"
+                "🚀 *Apps & Windows*\n"
+                "• `/open <app>` — Open app (e.g. `/open notepad`, `/open chrome`)\n"
                 "• `/close <app>` — Close an application\n"
                 "• `/apps` — Show what apps are currently open\n"
                 "• `/minimize` — Minimize windows to see your desktop\n\n"
-                "📋 *Clipboard*\n"
-                "• `/copy <text>` — Put text on your PC clipboard so you can paste it (Ctrl+V)\n"
-                "• `/paste` — Paste clipboard on your PC\n"
-                "• `/clip` — Check what is currently copied on your PC\n\n"
-                "🔊 *Volume & Sound*\n"
-                "• `/vol max` / `/vol min` / `/vol mute` / `/vol unmute`\n"
-                "• `/volume <0-100>` — Set volume percentage (e.g. `/volume 50`)\n"
-                "• `/play` / `/pause` / `/next` / `/prev` — Media controls\n"
-                "• `/say <words>` — Speak words aloud through your computer speakers!\n\n"
-                "📁 *Files & Folders*\n"
-                "• `/files` — List files in your project or downloads\n"
-                "• `/open_folder` — Open project folder in File Explorer\n\n"
-                "📊 *PC Health*\n"
-                "• `/status` — View simple PC health (CPU, RAM, Battery, Storage)\n"
-                "• `/battery` — Check battery charge and remaining time\n\n"
-                "🔒 *Safety & Power*\n"
-                "• `/stealth` — Turn off monitors for silent master background control (no lock needed!)\n"
-                "• `/wake` — Wake monitors back up and restore normal desktop display\n"
-                "• `/lock` — Lock computer into Windows (Win+L)\n"
-                "• `/unlock <password_or_PIN>` — Unlock Windows remotely from your phone\n"
-                "• `/setpin <current_pin> <new_pin>` — Change Master Security PIN\n"
-                "• `/sleep`, `/restart`, `/shutdown` — PC power controls"
+                "🔊 *Volume & Speech*\n"
+                "• `/vol max` / `/vol min` / `/vol mute` / `/vol unmute` / `/volume <0-100>`\n"
+                "• `/say <words>` — Speak words aloud through PC speakers\n"
+                "• `/play` / `/pause` / `/next` / `/prev` — Media controls\n\n"
+                "📊 *PC Health & Files*\n"
+                "• `/status` — Simple PC health (CPU, RAM, Battery, Storage)\n"
+                "• `/battery` — Check battery charge and health\n"
+                "• `/clip` — Check clipboard & diagnose errors\n"
+                "• `/files` — List files in project or downloads"
             )
             await self.send_message(chat_id, help_text, parse_mode="Markdown", reply_markup=MAIN_KEYBOARD)
             return
@@ -1269,7 +1276,7 @@ class JarvisTelegramGateway:
                 await self.send_message(chat_id, "❌ Could not save new PIN to storage.")
             return
 
-        if lower in ["/cyberlock", "cyberlock", "barrier lock"]:
+        if lower in ["/cyberlock", "cyberlock", "barrier lock", "🛡️ cyber lock", "cyber lock"]:
             from services.security.cyber_lock import cyber_lock
             res = cyber_lock.lock()
             stored_pin = cyber_lock.get_pin()
@@ -1473,23 +1480,36 @@ class JarvisTelegramGateway:
         try:
             url = f"{self._base_url}/setMyCommands"
             commands = [
-                {"command": "trackpad", "description": "🖱️ Touch trackpad & 16 FPS live screen stream"},
-                {"command": "writing", "description": "✍️ Remote typing space into active PC window"},
-                {"command": "sudo", "description": "⚡ Master admin override (no confirmation)"},
-                {"command": "vol", "description": "🔊 Volume: max, min, mute, unmute, 0-100"},
-                {"command": "stealth", "description": "🌙 Turn monitors off for silent master control"},
-                {"command": "wake", "description": "☀️ Wake display monitors & show desktop"},
-                {"command": "status", "description": "💻 Simple PC health, speed, and battery"},
-                {"command": "screen", "description": "📸 Send desktop screenshot photo"},
-                {"command": "whatscreen", "description": "👁️ Tell me what's on my screen"},
+                {"command": "menu", "description": "📋 Open Main Command Center Menu"},
+                {"command": "live", "description": "🎥 Watch live desktop video stream"},
+                {"command": "trackpad", "description": "🖱️ Touchpad & live remote control"},
+                {"command": "screen", "description": "📸 Desktop screenshot photo"},
+                {"command": "whatscreen", "description": "👁️ Analyze what is on screen"},
+                {"command": "writing", "description": "✍️ Remote typing into active window"},
                 {"command": "type", "description": "⌨️ Type text onto computer"},
+                {"command": "press", "description": "🔘 Press keyboard key (enter, esc, etc.)"},
+                {"command": "shortcut", "description": "🔤 Shortcut keys (e.g. win d, ctrl t)"},
+                {"command": "new_tab", "description": "➕ Open new browser tab"},
+                {"command": "close_tab", "description": "❌ Close current browser tab"},
+                {"command": "sudo", "description": "⚡ Master admin override execution"},
+                {"command": "unlock", "description": "🔓 Remote unlock Windows workstation"},
+                {"command": "lock", "description": "🔒 Lock computer safely (Win+L)"},
+                {"command": "cyberlock", "description": "🛡️ Zero-blackout physical screen lock barrier"},
+                {"command": "setpin", "description": "🛡️ Change Master Security PIN"},
+                {"command": "start_jarvis", "description": "🚀 Launch 3D Floating Arc Reactor HUD"},
+                {"command": "close_hud", "description": "🛑 Close 3D Floating Arc Reactor HUD"},
                 {"command": "open", "description": "🚀 Open an app or website"},
                 {"command": "close", "description": "🛑 Close an application"},
-                {"command": "apps", "description": "📋 See open applications"},
-                {"command": "lock", "description": "🔒 Lock computer safely"},
-                {"command": "clip", "description": "📋 Check clipboard & diagnose errors"},
-                {"command": "files", "description": "📁 Browse project files"},
-                {"command": "help", "description": "❓ Help & quick guide"}
+                {"command": "apps", "description": "📋 View open applications"},
+                {"command": "status", "description": "💻 Simple PC health & vitals"},
+                {"command": "battery", "description": "🔋 Check battery charge & status"},
+                {"command": "vol", "description": "🔊 Volume: max, min, mute, 0-100"},
+                {"command": "stealth", "description": "🌙 Turn monitors off for silent control"},
+                {"command": "wake", "description": "☀️ Wake display monitors & desktop"},
+                {"command": "clip", "description": "📋 Clipboard view & paste"},
+                {"command": "say", "description": "🗣️ Speak words aloud through PC"},
+                {"command": "files", "description": "📁 Browse project & download files"},
+                {"command": "help", "description": "❓ Full help guide & command instructions"}
             ]
             resp = await client.post(url, json={"commands": commands})
             if resp.status_code == 200:

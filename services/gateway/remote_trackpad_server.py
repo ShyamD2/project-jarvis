@@ -86,11 +86,18 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
-def get_public_url() -> str:
+def get_public_url(wait_timeout: float = 6.0) -> str:
     """Returns Cloudflare public HTTPS URL or local Wi-Fi URL if tunnel still connecting."""
     global _public_url
-    if _public_url:
+    if _public_url and _public_url.startswith("https://"):
         return _public_url
+    # If tunnel process is active, wait briefly for the public URL to register
+    if _tunnel_process and _tunnel_process.poll() is None:
+        start_t = time.time()
+        while time.time() - start_t < wait_timeout:
+            if _public_url and _public_url.startswith("https://"):
+                return _public_url
+            time.sleep(0.4)
     # Check cache file
     url_file = os.path.join(PROJECT_ROOT, "services", "gateway", "trackpad_url.txt")
     if os.path.exists(url_file):
@@ -106,8 +113,12 @@ def get_public_url() -> str:
 
 
 def start_cloudflare_tunnel(port: int = 8085):
-    """Launches cloudflared daemon and extracts the public https://xxxx.trycloudflare.com URL."""
+    """Launches cloudflared daemon and continuously keeps the public HTTPS tunnel active."""
     global _public_url, _tunnel_process
+    if _tunnel_process and _tunnel_process.poll() is None:
+        logger.info("[TrackpadServer] Cloudflare tunnel process is already running.")
+        return
+
     cf_exe = os.path.join(PROJECT_ROOT, "services", "gateway", "cloudflared.exe")
     if not os.path.exists(cf_exe):
         logger.warning("[TrackpadServer] cloudflared.exe not found; tunnel unavailable.")
@@ -124,15 +135,21 @@ def start_cloudflare_tunnel(port: int = 8085):
                 text=True,
                 bufsize=1
             )
-            for line in _tunnel_process.stdout:
-                m = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
-                if m:
-                    _public_url = m.group(0)
-                    logger.info(f"🌐 [TrackpadServer] Public Mobile HTTPS Trackpad URL: {_public_url}/remote")
-                    url_file = os.path.join(PROJECT_ROOT, "services", "gateway", "trackpad_url.txt")
-                    with open(url_file, "w", encoding="utf-8") as f:
-                        f.write(_public_url)
+            # Drain stdout continuously so cloudflared doesn't block on full pipe buffer
+            for line in iter(_tunnel_process.stdout.readline, ''):
+                if not line:
                     break
+                if not _public_url or not _public_url.startswith("https://"):
+                    m = re.search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+                    if m:
+                        _public_url = m.group(0)
+                        logger.info(f"🌐 [TrackpadServer] Public Mobile HTTPS Trackpad URL: {_public_url}/remote")
+                        url_file = os.path.join(PROJECT_ROOT, "services", "gateway", "trackpad_url.txt")
+                        try:
+                            with open(url_file, "w", encoding="utf-8") as f:
+                                f.write(_public_url)
+                        except Exception:
+                            pass
         except Exception as e:
             logger.warning(f"[TrackpadServer] Cloudflare tunnel exception: {e}")
 
@@ -223,8 +240,20 @@ def _draw_cursor_on_image(img):
         u32 = ctypes.windll.user32
         if u32.GetCursorInfo(ctypes.byref(ci)):
             if ci.flags & 1:  # CURSOR_SHOWING
-                cx = ci.ptScreenPos.x
-                cy = ci.ptScreenPos.y
+                raw_cx = ci.ptScreenPos.x
+                raw_cy = ci.ptScreenPos.y
+
+                # Accurately scale from logical desktop metrics (e.g. 1536x864) to real captured physical image pixels (e.g. 1920x1080)
+                sys_w = max(u32.GetSystemMetrics(0), 1)
+                sys_h = max(u32.GetSystemMetrics(1), 1)
+                phys_w, phys_h = img.size
+
+                scale_x = phys_w / sys_w
+                scale_y = phys_h / sys_h
+
+                cx = int(raw_cx * scale_x)
+                cy = int(raw_cy * scale_y)
+
                 from PIL import ImageDraw
                 draw = ImageDraw.Draw(img)
                 # Scaled pointer arrow polygon: 28px height, clearly visible even when image is scaled down on mobile
@@ -521,6 +550,437 @@ def api_verify_pin(req: PinVerifyRequest):
     if req.pin.strip() == correct:
         return {"success": True, "token": get_operator_token()}
     return {"success": False, "error": "Invalid Master PIN"}
+
+
+@app.get("/live", response_class=HTMLResponse)
+def live_screen_page(token: Optional[str] = None):
+    """Full-screen live desktop video stream viewer with zero-blackout architecture."""
+    html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>J.A.R.V.I.S. Live Screen Feed</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #050811;
+      color: #00f0ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+    header {
+      padding: 8px 14px;
+      background: rgba(10, 18, 32, 0.96);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.3);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 51, 102, 0.15);
+      border: 1px solid #ff3366;
+      color: #ff3366;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1px;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ff3366;
+      box-shadow: 0 0 8px #ff3366;
+      animation: pulseLive 1.2s infinite;
+    }
+    @keyframes pulseLive {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    header h1 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .btn-hdr {
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid #00f0ff;
+      color: #fff;
+      padding: 5px 9px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-hdr:active {
+      background: #00f0ff;
+      color: #000;
+    }
+    .viewer-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #020408;
+      overflow: hidden;
+    }
+    #screenFeed {
+      max-width: 100%;
+      max-height: 100%;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .hud-meta {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      background: rgba(4, 9, 18, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      color: #00f0ff;
+      letter-spacing: 0.5px;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+    }
+    .hud-toolbar {
+      position: absolute;
+      bottom: 16px;
+      display: flex;
+      gap: 8px;
+      background: rgba(8, 16, 30, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.35);
+      padding: 6px 12px;
+      border-radius: 24px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.2);
+    }
+    .btn-tool {
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 16px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-tool:active {
+      background: #00f0ff;
+      color: #000;
+    }
+    .btn-tool.primary {
+      background: #00f0ff;
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    }
+    /* PIN MODAL GATE */
+    .pin-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(5, 8, 17, 0.98);
+      z-index: 99999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      backdrop-filter: blur(10px);
+    }
+    .pin-card {
+      background: rgba(13, 24, 41, 0.98);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.2);
+      border-radius: 16px;
+      padding: 24px 20px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+    }
+    .pin-badge {
+      display: inline-block;
+      background: rgba(0, 240, 255, 0.12);
+      color: #00f0ff;
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .pin-card h2 {
+      font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px; letter-spacing: 0.5px;
+    }
+    .pin-card p {
+      font-size: 11px; color: #94a3b8; margin-bottom: 16px; line-height: 1.4;
+    }
+    .pin-input-box { margin-bottom: 8px; }
+    .pin-input-box input {
+      width: 180px; height: 44px; background: #070d18;
+      border: 2px solid #00f0ff; border-radius: 8px;
+      color: #00f0ff; font-size: 26px; font-weight: 700;
+      text-align: center; letter-spacing: 8px; outline: none;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+    }
+    .pin-error-msg {
+      font-size: 11px; color: #ff3366; font-weight: 700; height: 16px; margin-bottom: 10px;
+    }
+    .pin-keypad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px;
+    }
+    .pin-key {
+      background: rgba(20, 32, 54, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #fff; font-size: 20px; font-weight: 700; padding: 12px 0;
+      border-radius: 10px; cursor: pointer; touch-action: manipulation;
+    }
+    .pin-key:active { background: #00f0ff; color: #000; }
+    .pin-key.clr { color: #ff3366; border-color: rgba(255, 51, 102, 0.4); font-size: 14px; }
+    .pin-key.unlock {
+      background: rgba(0, 240, 255, 0.2); border-color: #00f0ff;
+      color: #00f0ff; font-size: 12px; font-weight: 800;
+    }
+  </style>
+</head>
+<body>
+  <!-- PIN GATE MODAL -->
+  <div id="pinModal" class="pin-modal-overlay">
+    <div class="pin-card">
+      <div class="pin-badge">🛡️ J.A.R.V.I.S. LIVE SCREEN SECURITY</div>
+      <h2>SECURE LIVE FEED</h2>
+      <p>Enter Master Security PIN to view live desktop stream</p>
+      <div class="pin-input-box">
+        <input type="password" id="modalPinInput" maxlength="8" placeholder="••••" readonly />
+      </div>
+      <div id="pinError" class="pin-error-msg"></div>
+      <div class="pin-keypad">
+        <button class="pin-key" onclick="pinPress('1')">1</button>
+        <button class="pin-key" onclick="pinPress('2')">2</button>
+        <button class="pin-key" onclick="pinPress('3')">3</button>
+        <button class="pin-key" onclick="pinPress('4')">4</button>
+        <button class="pin-key" onclick="pinPress('5')">5</button>
+        <button class="pin-key" onclick="pinPress('6')">6</button>
+        <button class="pin-key" onclick="pinPress('7')">7</button>
+        <button class="pin-key" onclick="pinPress('8')">8</button>
+        <button class="pin-key" onclick="pinPress('9')">9</button>
+        <button class="pin-key clr" onclick="pinClear()">CLR</button>
+        <button class="pin-key" onclick="pinPress('0')">0</button>
+        <button class="pin-key unlock" onclick="pinSubmit()">🔓 UNLOCK</button>
+      </div>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-left">
+      <div class="live-badge"><div class="live-dot"></div> LIVE FEED</div>
+      <h1 id="statusTxt">CONNECTED</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-hdr" id="modeBtn" onclick="toggleMode()">⚡ FAST</button>
+      <a class="btn-hdr" href="/remote" id="remoteLink">🖱️ TOUCHPAD</a>
+      <button class="btn-hdr" onclick="toggleFullscreen()">⛶ FULL</button>
+      <button class="btn-hdr" style="color:#ff3366; border-color:#ff3366;" onclick="lockConsole()">🔒</button>
+    </div>
+  </header>
+
+  <div class="viewer-area" id="viewerArea">
+    <div class="hud-meta" id="hudMeta">FPS: ~12 | RES: 960x540 | CURSOR: ACTIVE</div>
+    <img id="screenFeed" src="/api/screen/snapshot" alt="Live Screen Stream" />
+    <div class="hud-toolbar">
+      <button class="btn-tool" onclick="refreshFeed()">📸 REFRESH</button>
+      <a class="btn-tool primary" href="/remote" id="remoteLink2" style="text-decoration:none;">🖱️ OPEN TOUCHPAD</a>
+      <button class="btn-tool" onclick="toggleFullscreen()">⛶ FULLSCREEN</button>
+    </div>
+  </div>
+
+  <script>
+    let authToken = '';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('token')) {
+      authToken = params.get('token');
+      sessionStorage.setItem('jarvis_auth_token', authToken);
+    } else {
+      authToken = sessionStorage.getItem('jarvis_auth_token') || '';
+    }
+
+    function updateLinks() {
+      const rl = document.getElementById('remoteLink');
+      const rl2 = document.getElementById('remoteLink2');
+      if (rl && authToken) rl.href = `/remote?token=${encodeURIComponent(authToken)}`;
+      if (rl2 && authToken) rl2.href = `/remote?token=${encodeURIComponent(authToken)}`;
+    }
+
+    function checkAuth() {
+      const modal = document.getElementById('pinModal');
+      if (authToken) {
+        modal.style.display = 'none';
+        updateLinks();
+        startFastPolling();
+      } else {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function lockConsole() {
+      authToken = '';
+      sessionStorage.removeItem('jarvis_auth_token');
+      if (pollTimer) clearTimeout(pollTimer);
+      const modal = document.getElementById('pinModal');
+      document.getElementById('modalPinInput').value = '';
+      document.getElementById('pinError').innerText = '';
+      modal.style.display = 'flex';
+    }
+
+    function pinPress(n) {
+      const inp = document.getElementById('modalPinInput');
+      if (inp.value.length < 8) inp.value += n;
+    }
+    function pinClear() {
+      document.getElementById('modalPinInput').value = '';
+      document.getElementById('pinError').innerText = '';
+    }
+    async function pinSubmit() {
+      const inp = document.getElementById('modalPinInput');
+      const err = document.getElementById('pinError');
+      const pin = inp.value.trim();
+      if (!pin) { err.innerText = 'Enter 4-digit Master PIN'; return; }
+      err.innerText = 'VERIFYING...';
+      try {
+        const res = await fetch('/api/auth/verify_pin', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({pin: pin})
+        });
+        const d = await res.json();
+        if (d.success && d.token) {
+          authToken = d.token;
+          sessionStorage.setItem('jarvis_auth_token', authToken);
+          err.innerText = '✅ UNLOCKED';
+          err.style.color = '#00ff88';
+          setTimeout(() => {
+            document.getElementById('pinModal').style.display = 'none';
+            updateLinks();
+            startFastPolling();
+          }, 250);
+        } else {
+          err.innerText = '❌ INCORRECT PIN';
+          err.style.color = '#ff3366';
+          inp.value = '';
+        }
+      } catch (e) {
+        err.innerText = 'Connection error';
+      }
+    }
+
+    let isFast = true;
+    let pollTimer = null;
+    let isFetching = false;
+    let frameCount = 0;
+    let lastFpsTime = Date.now();
+
+    function fetchNext() {
+      if (!isFast) return;
+      if (isFetching) return;
+      isFetching = true;
+      const feed = document.getElementById('screenFeed');
+      const temp = new Image();
+      temp.onload = () => {
+        feed.src = temp.src;
+        isFetching = false;
+        frameCount++;
+        const now = Date.now();
+        if (now - lastFpsTime >= 1000) {
+          const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+          document.getElementById('hudMeta').innerText = `FPS: ${fps} | RES: LIVE | CURSOR: ACTIVE`;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+        if (isFast) pollTimer = setTimeout(fetchNext, 100);
+      };
+      temp.onerror = () => {
+        isFetching = false;
+        if (isFast) pollTimer = setTimeout(fetchNext, 800);
+      };
+      temp.src = `/api/screen/snapshot?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+    }
+
+    function startFastPolling() {
+      isFast = true;
+      if (pollTimer) clearTimeout(pollTimer);
+      const b = document.getElementById('modeBtn');
+      if (b) { b.innerText = '⚡ FAST'; b.style.color = '#00f0ff'; }
+      fetchNext();
+    }
+
+    function startMjpegStream() {
+      isFast = false;
+      if (pollTimer) clearTimeout(pollTimer);
+      const b = document.getElementById('modeBtn');
+      if (b) { b.innerText = '🎥 STREAM'; b.style.color = '#a78bfa'; }
+      const feed = document.getElementById('screenFeed');
+      feed.src = `/stream?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+    }
+
+    function toggleMode() {
+      if (isFast) startMjpegStream(); else startFastPolling();
+    }
+
+    function refreshFeed() {
+      if (isFast) fetchNext();
+      else {
+        const feed = document.getElementById('screenFeed');
+        feed.src = `/stream?token=${encodeURIComponent(authToken)}&_t=${Date.now()}`;
+      }
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(()=>{});
+      } else {
+        document.exitFullscreen().catch(()=>{});
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', checkAuth);
+  </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html_content)
 
 
 @app.get("/remote", response_class=HTMLResponse)
@@ -920,6 +1380,7 @@ def remote_trackpad_page():
       <button class="btn-header" id="modeToggle" onclick="toggleStreamMode()">⚡ FAST</button>
       <button class="btn-header" id="speedToggle" onclick="toggleSpeed()">🚀 2.2x</button>
       <button class="btn-header" onclick="refreshSnapshot()">📸 REFRESH</button>
+      <a class="btn-header" id="liveHdrBtn" style="text-decoration:none;" href="/live">🎥 LIVE</a>
       <button class="btn-header" onclick="toggleScreenHeight()">↕️ SCREEN</button>
     </div>
   </header>
@@ -979,12 +1440,27 @@ def remote_trackpad_page():
   </div>
 
   <script>
-    let authToken = sessionStorage.getItem('jarvis_auth_token') || '';
+    let authToken = '';
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('token')) {
+      authToken = urlParams.get('token');
+      sessionStorage.setItem('jarvis_auth_token', authToken);
+    } else {
+      authToken = sessionStorage.getItem('jarvis_auth_token') || '';
+    }
+
+    function updateLiveLink() {
+      const btn = document.getElementById('liveHdrBtn');
+      if (btn && authToken) {
+        btn.href = `/live?token=${encodeURIComponent(authToken)}`;
+      }
+    }
 
     function checkAuthOnLoad() {
       const modal = document.getElementById('pinModal');
       if (authToken) {
         modal.style.display = 'none';
+        updateLiveLink();
         initWebSocket();
         startFastPolling();
       } else {

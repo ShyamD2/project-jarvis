@@ -164,7 +164,7 @@
 ### 🔹 Day 9 — September 17, 2026: High-Security PIN Gate, Native Lock, Cursor Visibility & Hardware Mic Fix
 * **High-Security Master PIN Gate (`/remote`):**
   - Protected mobile touchpad and screen streaming behind an un-bypassable Cyber PIN Access Gate with a touch numeric keypad.
-  - Unified Master Security PIN (`1234` default) shared seamlessly across both Web Touchpad and Cyber Security Barrier.
+  - Unified Master Security PIN shared seamlessly across both Web Touchpad and Cyber Security Barrier.
   - Strict endpoint authorization: all control and video endpoints reject unauthorized requests with `403 Forbidden`.
   - Secure PIN change verification via Telegram: `/setpin <current_pin> <new_pin>` strictly validates current PIN before saving updates; messages auto-deleted for privacy.
 * **Native Windows Lock (`Win+L`):**
@@ -175,6 +175,23 @@
   - Diagnosed silent microphone bug: PyAudio had bound to `Microphone (DroidCam Virtual Audio)` streaming `0.48 RMS` (pure silence).
   - Built `get_best_hardware_microphone_index()` algorithm prioritizing physical hardware (`Microphone Array (Intel® Smart Sound Technology for Digital Microphones)`) with `+23` score and penalizing virtual devices (`-50`).
   - Added ambient noise room calibration and resilient phrase timeouts for seamless spoken interaction.
+
+### 🔹 Day 10 — September 18, 2026: Live Stream Master PIN Security, DPI Cursor Alignment, CyberLock & Sub-Second Floating HUD
+* **Live Video Stream & Touchpad Master PIN Protection:**
+  - Extended Master PIN protection to the live desktop video stream (`/live`).
+  - Removed URL authentication token auto-bypasses from Telegram links (`/live`, `/remote`), enforcing Master PIN entry via touch keypad for all mobile sessions.
+  - Hardened backend endpoints (`/stream`, `/api/screen/snapshot`, `/ws/trackpad`) to strictly return `403 Forbidden` for unauthenticated requests.
+* **Pixel-Perfect Cursor Alignment & DPI Scaling:**
+  - Resolved 125% Windows DPI scaling discrepancy (logical `1536×864` vs physical `1920×1080` screen frame).
+  - Dynamically scaled pointer coordinates (`scale_x = phys_w / sys_w`, `scale_y = phys_h / sys_h`) to match the exact mouse cursor tip.
+  - Rendered a high-contrast 28px neon cyan pointer with 3px black stroke and precision red hotspot dot on live frames.
+* **Telegram CyberLock Integration:**
+  - Added `🛡️ Cyber Lock` one-tap button to Telegram `MAIN_KEYBOARD`.
+  - Registered `/cyberlock` in Telegram's native command list via `setMyCommands` and added full syntax guide in `/help`.
+  - Enables zero-blackout physical screen barrier locking while maintaining 100% active live video feed and touch control on mobile.
+* **Floating HUD Voice Hearing & Sub-Second Latency (<405ms):**
+  - Resolved voice hearing issue on Intel Smart Sound Technology Digital Microphones: Implemented active RMS chunk probing and clamped ambient noise threshold between 180 and 400, preventing fan noise spikes from inflating the threshold to 3190+ and deafening the recognizer.
+  - Sub-second latency: Integrated Groq LPU (`qwen/qwen3.8-27b`) with Groq Whisper STT (~120ms) and non-blocking asynchronous speech synthesis, reducing warm command execution latency from >6.5s to **0.405 seconds**!
 
 ---
 

@@ -26,7 +26,7 @@ class AIManager(BaseLLMProvider):
         self.groq = GroqProvider()
         self.ollama = OllamaProvider()
         self.local = MockLLMProvider("jarvis-local-cognitive-brain")
-        default_pref = "openrouter" if self.openrouter.is_configured else "groq"
+        default_pref = "groq" if self.groq.is_configured else ("openrouter" if self.openrouter.is_configured else "gemini")
         self.preferred_provider = os.getenv("JARVIS_PRIMARY_AI", default_pref).strip().lower()
 
     def set_primary_provider(self, name: str):

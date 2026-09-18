@@ -17,7 +17,7 @@ logger = get_logger("GroqProvider")
 class GroqProvider(BaseLLMProvider):
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key if api_key is not None else os.getenv("GROQ_API_KEY", "").strip()
-        self.model = model or os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+        self.model = model or os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
         self.base_url = "https://api.groq.com/openai/v1"
 
     @property

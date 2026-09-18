@@ -63,14 +63,14 @@ def ensure_interactive_desktop():
         except Exception:
             pass
 
-def get_best_hardware_microphone_index() -> Optional[int]:
+def get_best_hardware_microphone() -> tuple[Optional[int], int]:
     """
-    Scans system audio input devices and returns the device index of the active
-    physical hardware microphone (Intel Smart Sound, Realtek, Microphone Array, etc.),
-    explicitly filtering out silent/virtual loopbacks (DroidCam, Stereo Mix, Steam).
+    Scans system audio input devices, actively probes their real RMS audio signal,
+    and returns (device_index, sample_rate) for the active, non-silent physical hardware microphone.
     """
     try:
         import pyaudio
+        import audioop
         p = pyaudio.PyAudio()
         candidates = []
         for i in range(p.get_device_count()):
@@ -78,31 +78,57 @@ def get_best_hardware_microphone_index() -> Optional[int]:
                 info = p.get_device_info_by_index(i)
             except Exception:
                 continue
-            name = info.get("name", "")
             max_in = int(info.get("maxInputChannels", 0))
-            if max_in > 0:
-                name_low = name.lower()
-                is_virtual = any(bad in name_low for bad in [
-                    "droidcam", "virtual", "stereo mix", "steam", "cable", "mapper"
-                ])
-                score = 0
-                if "array" in name_low: score += 10
-                if "intel" in name_low: score += 8
-                if "realtek" in name_low: score += 6
-                if "smart sound" in name_low: score += 5
-                if is_virtual: score -= 50
-                candidates.append((score, i, name, info.get("defaultSampleRate")))
+            if max_in <= 0:
+                continue
+            name = info.get("name", "")
+            name_low = name.lower()
+            if any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "mapper"]):
+                continue
+            sr = int(info.get("defaultSampleRate", 44100))
+            # Test opening and reading a quick chunk to verify non-zero live audio
+            rms = 0
+            try:
+                stream = p.open(format=pyaudio.paInt16, channels=1, rate=sr, input=True, input_device_index=i, frames_per_buffer=1024)
+                data = stream.read(1024, exception_on_overflow=False)
+                rms = audioop.rms(data, 2)
+                stream.stop_stream()
+                stream.close()
+            except Exception:
+                pass
+
+            score = 0
+            # Strongly reward live non-zero RMS signal
+            if rms > 15:
+                score += 100 + min(rms, 500)
+            elif rms == 0:
+                score -= 100  # Penalize completely dead/silent streams (e.g. MME 44.1kHz on SST)
+
+            if "intel" in name_low or "smart sound" in name_low:
+                score += 50
+            if sr == 48000:
+                score += 40
+            if "array" in name_low:
+                score += 25
+            if "realtek" in name_low:
+                score += 20
+
+            candidates.append((score, i, name, sr, rms))
         p.terminate()
         candidates.sort(key=lambda x: x[0], reverse=True)
         if candidates and candidates[0][0] > 0:
-            selected_idx = candidates[0][1]
-            selected_name = candidates[0][2]
-            safe_name = selected_name.encode('ascii', 'ignore').decode('ascii')
-            logger.info(f"🎙️ [VoiceBridge] Selected physical hardware microphone [{selected_idx}]: '{safe_name}' (Score: {candidates[0][0]})")
-            return selected_idx
+            best = candidates[0]
+            safe_name = best[2].encode('ascii', 'ignore').decode('ascii')
+            logger.info(f"🎙️ [VoiceBridge] Selected active hardware mic [{best[1]}]: '{safe_name}' (Rate: {best[3]}Hz, RMS: {best[4]}, Score: {best[0]})")
+            return (best[1], best[3])
     except Exception as e:
         logger.warning(f"[VoiceBridge] Microphone resolution notice: {e}")
-    return None
+    return (None, 44100)
+
+
+def get_best_hardware_microphone_index() -> Optional[int]:
+    idx, _ = get_best_hardware_microphone()
+    return idx
 
 
 class FloatingAgentAPI:
@@ -163,18 +189,16 @@ class FloatingAgentAPI:
         if self._recognizer is None or self._microphone is None:
             try:
                 import speech_recognition as sr
-                best_idx = get_best_hardware_microphone_index()
+                best_idx, best_sr = get_best_hardware_microphone()
                 self._recognizer = sr.Recognizer()
-                self._recognizer.energy_threshold = 300
-                self._recognizer.dynamic_energy_threshold = True
-                self._recognizer.dynamic_energy_adjustment_damping = 0.15
-                self._recognizer.dynamic_energy_ratio = 1.5
-                self._recognizer.pause_threshold = 0.7
-                self._recognizer.non_speaking_duration = 0.4
+                self._recognizer.energy_threshold = 280
+                self._recognizer.dynamic_energy_threshold = False  # Fixed threshold prevents deafening by background fan
+                self._recognizer.pause_threshold = 0.6  # Responsive phrase end detection
+                self._recognizer.non_speaking_duration = 0.3
 
                 if best_idx is not None:
-                    self._microphone = sr.Microphone(device_index=best_idx)
-                    logger.info(f"🎙️ [VoiceBridge] Initialized hardware microphone on device index {best_idx}.")
+                    self._microphone = sr.Microphone(device_index=best_idx, sample_rate=best_sr)
+                    logger.info(f"🎙️ [VoiceBridge] Initialized hardware mic on index {best_idx} ({best_sr}Hz).")
                 else:
                     self._microphone = sr.Microphone()
                     logger.info("🎙️ [VoiceBridge] Initialized default microphone.")
@@ -219,8 +243,9 @@ class FloatingAgentAPI:
                 with self._microphone as source:
                     try:
                         logger.info("🎙️ [VoiceBridge] Calibrating microphone for ambient room noise...")
-                        self._recognizer.adjust_for_ambient_noise(source, duration=0.6)
-                        logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold: {self._recognizer.energy_threshold:.1f}")
+                        self._recognizer.adjust_for_ambient_noise(source, duration=0.3)
+                        self._recognizer.energy_threshold = max(180, min(self._recognizer.energy_threshold, 400))
+                        logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold (clamped): {self._recognizer.energy_threshold:.1f}")
                     except Exception as cal_e:
                         logger.warning(f"[VoiceBridge] Calibration note: {cal_e}")
 
@@ -231,7 +256,24 @@ class FloatingAgentAPI:
                             if not self._is_listening:
                                 break
 
-                            transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+                            # Primary: Groq Whisper (120ms ultra-low latency & high accuracy)
+                            transcription = ""
+                            try:
+                                from services.voice.stt_engine import stt_engine
+                                wav_bytes = audio.get_wav_data()
+                                if wav_bytes and getattr(stt_engine, 'groq_client', None):
+                                    import asyncio
+                                    loop = asyncio.new_event_loop()
+                                    text, _ = loop.run_until_complete(stt_engine.transcribe(wav_bytes))
+                                    loop.close()
+                                    transcription = text.strip()
+                            except Exception as stt_e:
+                                logger.debug(f"[VoiceBridge] Groq STT notice: {stt_e}")
+
+                            # Fallback: Google Speech Recognition
+                            if not transcription:
+                                transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+
                             if transcription:
                                 logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}'")
                                 clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip()
@@ -286,10 +328,27 @@ class FloatingAgentAPI:
         import speech_recognition as sr
         try:
             with self._microphone as source:
-                self._recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                self._recognizer.adjust_for_ambient_noise(source, duration=0.25)
+                self._recognizer.energy_threshold = max(180, min(self._recognizer.energy_threshold, 400))
                 logger.info("🎙️ [VoiceBridge] Listening for single speech utterance...")
-                audio = self._recognizer.listen(source, timeout=5.0, phrase_time_limit=10.0)
-                text = self._recognizer.recognize_google(audio, language="en-US").strip()
+                audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=10.0)
+
+                text = ""
+                try:
+                    from services.voice.stt_engine import stt_engine
+                    wav_bytes = audio.get_wav_data()
+                    if wav_bytes and getattr(stt_engine, 'groq_client', None):
+                        import asyncio
+                        loop = asyncio.new_event_loop()
+                        t, _ = loop.run_until_complete(stt_engine.transcribe(wav_bytes))
+                        loop.close()
+                        text = t.strip()
+                except Exception:
+                    pass
+
+                if not text:
+                    text = self._recognizer.recognize_google(audio, language="en-US").strip()
+
                 clean = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", text, flags=re.IGNORECASE).strip()
                 logger.info(f"🎙️ [VoiceBridge] Captured single utterance: '{clean}'")
                 return {"success": True, "text": clean}
@@ -308,7 +367,7 @@ class FloatingAgentAPI:
         - Smart web applications (Prime Video, IBM careers, etc.)
         - Desktop application controls (open/close apps, tabs, windows)
         - System operations (volume, screenshots, clipboard diagnostics)
-        - British neural speech generation
+        - Sub-second instantaneous UI text return with asynchronous speech synthesis
         """
         import asyncio
         from services.brain.conversation_engine import conversation_engine
@@ -324,7 +383,7 @@ class FloatingAgentAPI:
             response_text = res.get("response", "Instruction processed, sir.")
             actions = res.get("actions_executed", [])
 
-            # Synthesize British Neural TTS if no soundboard clip
+            # If an instantaneous soundboard clip matched, return it (<5ms)
             audio_b64 = ""
             if soundboard_url and matched_clip and matched_clip.get("file_path"):
                 clip_path = matched_clip["file_path"]
@@ -332,12 +391,9 @@ class FloatingAgentAPI:
                     with open(clip_path, "rb") as af:
                         b64 = base64.b64encode(af.read()).decode("utf-8")
                         audio_b64 = f"data:audio/wav;base64,{b64}"
-            elif response_text:
-                synth = self.synthesize_speech(response_text)
-                if synth.get("success"):
-                    audio_b64 = synth.get("audio_b64", "")
 
             loop.close()
+            # Return immediately so the UI displays text in <300ms; UI synthesizes speech in background
             return {
                 "success": True,
                 "message": response_text,
