@@ -791,9 +791,230 @@
     initSuitTheme();
     initWaveformBars();
     initReactor();
+    initWebAudioSensory();
     initSpeechRecognition();
     initDragAndDrop();
+    tryStartHardwareVoice();
   });
+
+  window.addEventListener("click", () => {
+    if (!liveMicStream) {
+      initWebAudioSensory();
+    }
+    if (liveAudioCtx && liveAudioCtx.state === "suspended") {
+      liveAudioCtx.resume();
+    }
+  });
+
+  // =========================================================================
+  // LIVE CONTINUOUS WEB AUDIO SENSORY ENGINE (PORTED FROM INDEX.HTML)
+  // =========================================================================
+  let liveMicStream = null;
+  let liveAudioCtx = null;
+  let liveScriptProcessor = null;
+  let liveMicAnalyser = null;
+  let liveSpeechChunks = [];
+  let isLiveCapturing = false;
+  let silenceFrames = 0;
+  let speechFrames = 0;
+  let liveAudioEnergy = 0;
+
+  async function initWebAudioSensory() {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log("[WebAudio] mediaDevices not available in current context, using Python native mic.");
+        return;
+      }
+      if (liveMicStream) return;
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!liveAudioCtx && AudioCtx) {
+        liveAudioCtx = new AudioCtx();
+      }
+      if (liveAudioCtx && liveAudioCtx.state === "suspended") {
+        try { await liveAudioCtx.resume(); } catch(e) {}
+      }
+
+      liveMicStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: false
+      });
+
+      const micSource = liveAudioCtx.createMediaStreamSource(liveMicStream);
+      liveMicAnalyser = liveAudioCtx.createAnalyser();
+      liveMicAnalyser.fftSize = 64;
+
+      const bufferSize = 4096;
+      liveScriptProcessor = liveAudioCtx.createScriptProcessor(bufferSize, 1, 1);
+
+      const dummyMute = liveAudioCtx.createGain();
+      dummyMute.gain.value = 0.0;
+      dummyMute.connect(liveAudioCtx.destination);
+
+      micSource.connect(liveMicAnalyser);
+      micSource.connect(liveScriptProcessor);
+      liveScriptProcessor.connect(dummyMute);
+
+      const micBtn = document.getElementById("mic-btn");
+      if (micBtn) {
+        micBtn.classList.add("active");
+        micBtn.style.opacity = "1";
+      }
+      console.log("🎙️ [WebAudio] Continuous sensory microphone stream connected.");
+
+      liveScriptProcessor.onaudioprocess = (e) => {
+        if (!alwaysVoiceActive) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        let sum = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          sum += inputData[i] * inputData[i];
+        }
+        const rms = Math.sqrt(sum / inputData.length);
+        liveAudioEnergy = Math.min(1.0, rms * 8.0);
+
+        // Don't capture user voice while Jarvis's own TTS audio is playing
+        let isSpeakingAudio = (currentAudio && !currentAudio.paused && !currentAudio.ended);
+        if (isSpeakingAudio) return;
+
+        const SPEECH_THRESHOLD = 0.020;
+        const sampleRate = liveAudioCtx ? (liveAudioCtx.sampleRate || 44100) : 44100;
+
+        if (rms > SPEECH_THRESHOLD) {
+          speechFrames++;
+          silenceFrames = 0;
+          if (!isLiveCapturing) {
+            isLiveCapturing = true;
+            liveSpeechChunks = [];
+            setAgentState("LISTENING");
+            if (micBtn) micBtn.classList.add("speaking");
+          }
+          liveSpeechChunks.push(new Float32Array(inputData));
+        } else if (isLiveCapturing) {
+          silenceFrames++;
+          liveSpeechChunks.push(new Float32Array(inputData));
+          const framesForEnd = Math.max(6, Math.round((sampleRate / bufferSize) * 0.70));
+          const totalSamples = liveSpeechChunks.reduce((acc, c) => acc + c.length, 0);
+
+          if (silenceFrames >= framesForEnd) {
+            if (totalSamples > sampleRate * 0.40) {
+              const chunksToProcess = [...liveSpeechChunks];
+              liveSpeechChunks = [];
+              isLiveCapturing = false;
+              silenceFrames = 0;
+              speechFrames = 0;
+              if (micBtn) micBtn.classList.remove("speaking");
+              processCapturedVoice(chunksToProcess, sampleRate);
+            } else {
+              liveSpeechChunks = [];
+              isLiveCapturing = false;
+              silenceFrames = 0;
+              speechFrames = 0;
+              if (micBtn) micBtn.classList.remove("speaking");
+              setAgentState("IDLE");
+            }
+          }
+        }
+      };
+    } catch (err) {
+      console.log("[WebAudio] Note on getUserMedia:", err.message);
+    }
+  }
+
+  function encodeWavBlob(chunks, inputSampleRate) {
+    const targetSampleRate = 16000;
+    const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
+    const fullBuffer = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      fullBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    let peak = 0;
+    for (let i = 0; i < totalLength; i++) {
+      const v = Math.abs(fullBuffer[i]);
+      if (v > peak) peak = v;
+    }
+    const gain = peak > 0.005 ? Math.min(10.0, 0.92 / peak) : 1.0;
+
+    const ratio = inputSampleRate / targetSampleRate;
+    const outputLength = Math.round(totalLength / ratio);
+    const downsampled = new Float32Array(outputLength);
+    for (let i = 0; i < outputLength; i++) {
+      const srcPos = i * ratio;
+      const i0 = Math.floor(srcPos);
+      const i1 = Math.min(i0 + 1, totalLength - 1);
+      const frac = srcPos - i0;
+      const interp = fullBuffer[i0] * (1 - frac) + fullBuffer[i1] * frac;
+      downsampled[i] = Math.max(-1.0, Math.min(1.0, interp * gain));
+    }
+
+    const wavBuffer = new ArrayBuffer(44 + outputLength * 2);
+    const view = new DataView(wavBuffer);
+    function writeStr(pos, s) {
+      for (let i = 0; i < s.length; i++) view.setUint8(pos + i, s.charCodeAt(i));
+    }
+    writeStr(0, "RIFF");
+    view.setUint32(4, 36 + outputLength * 2, true);
+    writeStr(8, "WAVE");
+    writeStr(12, "fmt ");
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, targetSampleRate, true);
+    view.setUint32(28, targetSampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, "data");
+    view.setUint32(40, outputLength * 2, true);
+
+    let p = 44;
+    for (let i = 0; i < outputLength; i++, p += 2) {
+      const s = Math.max(-1, Math.min(1, downsampled[i]));
+      view.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Blob([view], { type: "audio/wav" });
+  }
+
+  async function processCapturedVoice(chunks, sampleRate) {
+    setAgentState("UNDERSTANDING");
+    setSpeechText("Transcribing speech via Groq Whisper...");
+    try {
+      const wavBlob = encodeWavBlob(chunks, sampleRate);
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const b64 = reader.result;
+        // 1. Send to native Python bridge if pywebview is available
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.transcribe_audio_blob === "function") {
+          const res = await window.pywebview.api.transcribe_audio_blob(b64);
+          if (res && res.text) {
+            window.onVoiceTranscriptReceived(res.text, true);
+            return;
+          }
+        }
+        // 2. Direct HTTP endpoint fallback
+        try {
+          const resp = await fetch("/api/v1/sensory/transcribe", { method: "POST", body: wavBlob });
+          const data = await resp.json();
+          if (data && data.transcript) {
+            window.onVoiceTranscriptReceived(data.transcript, true);
+          } else {
+            setAgentState("IDLE");
+          }
+        } catch (fetchErr) {
+          setAgentState("IDLE");
+        }
+      };
+      reader.readAsDataURL(wavBlob);
+    } catch (e) {
+      console.error("Voice processing error:", e);
+      setAgentState("IDLE");
+    }
+  }
 
   // WAVEFORM BARS INITIALIZATION (MATCHING INDEX.HTML)
   function initWaveformBars() {
@@ -1023,6 +1244,14 @@
   window.onVoiceStatusChanged = function(isListening) {
     console.log("🎙️ [VoiceBridge] Mic listening state:", isListening);
     alwaysVoiceActive = isListening;
+    if (isListening) {
+      if (liveAudioCtx && liveAudioCtx.state === "suspended") {
+        try { liveAudioCtx.resume(); } catch(e) {}
+      }
+      if (!liveMicStream) {
+        initWebAudioSensory();
+      }
+    }
     const micBtn = document.getElementById("mic-btn");
     if (micBtn) {
       if (isListening) {
@@ -1156,6 +1385,12 @@
         micBtn.style.opacity = "1";
       }
       setSpeechText("Hands-free microphone resumed and listening, sir.");
+      if (liveAudioCtx && liveAudioCtx.state === "suspended") {
+        try { liveAudioCtx.resume(); } catch(e) {}
+      }
+      if (!liveMicStream) {
+        initWebAudioSensory();
+      }
       if (recognition) {
         try { recognition.start(); } catch(e) {}
       }

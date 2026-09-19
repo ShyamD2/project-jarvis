@@ -157,14 +157,19 @@ class ResponseGenerator:
         return f"I encountered an issue executing that command, sir. {error_msg.splitlines()[0]}"
 
     def polish_text(self, text: str) -> str:
-        """Removes any unintentional robotic boilerplate from output strings."""
+        """Removes any unintentional robotic boilerplate from output strings while preserving rich Markdown."""
         if not text:
             return "Task completed, sir."
+        
+        # If response is rich Markdown, code, or multiline, preserve formatting untouched
+        if "```" in text or "\n\n" in text or text.strip().startswith("#"):
+            return text.strip()
+
         polished = text
         for pattern in self.ROBOTIC_PHRASES:
             polished = re.sub(pattern, "task complete", polished, flags=re.IGNORECASE)
-        # Ensure it sounds like JARVIS
-        if not polished.rstrip().endswith(("sir.", "sir!", "sir?")):
+        # Ensure it sounds like JARVIS for short conversational sentences
+        if len(polished) < 120 and not polished.rstrip().endswith(("sir.", "sir!", "sir?")):
             if not any(polished.lower().endswith(end) for end in [".", "!", "?"]):
                 polished += "."
         return polished

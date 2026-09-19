@@ -19,11 +19,28 @@ class GroqProvider(BaseLLMProvider):
         self.api_key = api_key if api_key is not None else os.getenv("GROQ_API_KEY", "").strip()
         self.model = model or os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
         self.base_url = "https://api.groq.com/openai/v1"
+        self._client: Optional[httpx.AsyncClient] = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """Returns or creates a persistent client with keep-alive connection pooling."""
+        if self._client is None or self._client.is_closed:
+            limits = httpx.Limits(max_keepalive_connections=20, max_connections=50, keepalive_expiry=120.0)
+            try:
+                import h2
+                has_h2 = True
+            except ImportError:
+                has_h2 = False
+            self._client = httpx.AsyncClient(timeout=25.0, limits=limits, http2=has_h2)
+        return self._client
 
     @property
     def is_configured(self) -> bool:
         """Returns True if a valid API key is present."""
         return bool(self.api_key and self.api_key.strip() and not self.api_key.startswith("PASTE_"))
+
+    def is_available(self) -> bool:
+        """Alias for is_configured."""
+        return self.is_configured
 
     def _convert_tool_specs_to_openai(self, tool_specs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Converts generic tool schemas to OpenAI/Groq function calling format."""
@@ -97,7 +114,7 @@ class GroqProvider(BaseLLMProvider):
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": 1024
+            "max_tokens": 4096
         }
 
         if tools:
@@ -106,10 +123,10 @@ class GroqProvider(BaseLLMProvider):
                 payload["tools"] = groq_tools
                 payload["tool_choice"] = "auto"
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, headers=headers, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
+        client = self._get_client()
+        resp = await client.post(url, headers=headers, json=payload)
+        resp.raise_for_status()
+        data = resp.json()
 
         latency = (time.time() - start_time) * 1000
         choice = data["choices"][0]
@@ -169,8 +186,8 @@ class GroqProvider(BaseLLMProvider):
             "stream": True
         }
 
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            async with client.stream("POST", url, headers=headers, json=payload) as response:
+        client = self._get_client()
+        async with client.stream("POST", url, headers=headers, json=payload) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
                     if not line:

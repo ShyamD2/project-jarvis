@@ -36,18 +36,68 @@ logger = get_logger("JarvisFloatingApp")
 
 HTML_PATH = os.path.join(PROJECT_ROOT, "services", "floating-agent", "floating_agent.html")
 SERVER_URL = "http://127.0.0.1:8000/floating_agent"
+HUD_PORT = 8088
+
+import http.server
+import socketserver
 
 
-def get_target_url():
-    """Returns local server URL if responsive, else falls back to local file URL."""
+class JarvisHUDHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path in ("/", "/floating_agent", "/index.html"):
+            self.send_response(200)
+            self.send_header("Content-type", "text/html; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            with open(HTML_PATH, "rb") as f:
+                self.wfile.write(f.read())
+            return
+        elif self.path.startswith("/static/"):
+            rel_path = self.path[8:]
+            target = os.path.join(PROJECT_ROOT, "services", "jarvis-core", "static", rel_path)
+            if os.path.exists(target):
+                self.send_response(200)
+                if target.endswith(".js"):
+                    self.send_header("Content-type", "application/javascript")
+                elif target.endswith(".css"):
+                    self.send_header("Content-type", "text/css")
+                self.end_headers()
+                with open(target, "rb") as f:
+                    self.wfile.write(f.read())
+                return
+        self.send_error(404, "Not Found")
+
+    def log_message(self, format, *args):
+        pass
+
+
+def ensure_hud_server() -> str:
+    """Ensures local HTTP server is active so WebView2 operates in a Secure Context with full Web Audio & Mic support."""
     try:
         req = urllib.request.Request("http://127.0.0.1:8000/health", headers={"User-Agent": "JarvisLauncher"})
-        with urllib.request.urlopen(req, timeout=0.05) as resp:
+        with urllib.request.urlopen(req, timeout=0.15) as resp:
             if resp.status == 200:
                 return SERVER_URL
     except Exception:
         pass
-    return f"file:///{HTML_PATH.replace(os.sep, '/')}"
+
+    try:
+        server = socketserver.TCPServer(("127.0.0.1", HUD_PORT), JarvisHUDHandler)
+        t = threading.Thread(target=server.serve_forever, daemon=True)
+        t.start()
+        logger.info(f"⚡ [FloatingApp] Embedded HUD server active at http://127.0.0.1:{HUD_PORT}/floating_agent")
+        return f"http://127.0.0.1:{HUD_PORT}/floating_agent"
+    except OSError:
+        # Port already bound or running
+        return f"http://127.0.0.1:{HUD_PORT}/floating_agent"
+    except Exception as e:
+        logger.warning(f"[FloatingApp] Embedded server note: {e}")
+        return f"file:///{HTML_PATH.replace(os.sep, '/')}"
+
+
+def get_target_url() -> str:
+    """Returns local server URL (providing Secure Context for Web Audio & Mic)."""
+    return ensure_hud_server()
 
 
 def ensure_interactive_desktop():
@@ -63,10 +113,11 @@ def ensure_interactive_desktop():
         except Exception:
             pass
 
+
 def get_best_hardware_microphone() -> tuple[Optional[int], int]:
     """
     Scans system audio input devices, actively probes their real RMS audio signal,
-    and returns (device_index, sample_rate) for the active, non-silent physical hardware microphone.
+    and returns (device_index, sample_rate) for the active physical hardware microphone.
     """
     try:
         import pyaudio
@@ -83,10 +134,10 @@ def get_best_hardware_microphone() -> tuple[Optional[int], int]:
                 continue
             name = info.get("name", "")
             name_low = name.lower()
-            if any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "mapper"]):
+            if any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "mapper", "hands-free"]):
                 continue
             sr = int(info.get("defaultSampleRate", 44100))
-            # Test opening and reading a quick chunk to verify non-zero live audio
+
             rms = 0
             try:
                 stream = p.open(format=pyaudio.paInt16, channels=1, rate=sr, input=True, input_device_index=i, frames_per_buffer=1024)
@@ -95,23 +146,28 @@ def get_best_hardware_microphone() -> tuple[Optional[int], int]:
                 stream.stop_stream()
                 stream.close()
             except Exception:
-                pass
+                continue
 
             score = 0
-            # Strongly reward live non-zero RMS signal
-            if rms > 15:
-                score += 100 + min(rms, 500)
-            elif rms == 0:
-                score -= 100  # Penalize completely dead/silent streams (e.g. MME 44.1kHz on SST)
-
+            # Primary physical microphone array boost
+            if "microphone array" in name_low:
+                score += 350
             if "intel" in name_low or "smart sound" in name_low:
-                score += 50
-            if sr == 48000:
-                score += 40
-            if "array" in name_low:
-                score += 25
+                score += 200
             if "realtek" in name_low:
-                score += 20
+                score += 150
+
+            # Reward healthy acoustic room floor (30 - 2000 RMS)
+            if 30 <= rms <= 2000:
+                score += 200
+            elif rms > 4000:
+                score -= 200  # Penalize distorted/loopback hiss
+            elif rms == 0:
+                score -= 200  # Penalize dead/silent stream
+
+            # Host API 0 (MME) is most stable with PyAudio on Windows
+            if info.get("hostApi") == 0:
+                score += 50
 
             candidates.append((score, i, name, sr, rms))
         p.terminate()
@@ -191,9 +247,11 @@ class FloatingAgentAPI:
                 import speech_recognition as sr
                 best_idx, best_sr = get_best_hardware_microphone()
                 self._recognizer = sr.Recognizer()
-                self._recognizer.energy_threshold = 280
-                self._recognizer.dynamic_energy_threshold = False  # Fixed threshold prevents deafening by background fan
-                self._recognizer.pause_threshold = 0.6  # Responsive phrase end detection
+                self._recognizer.energy_threshold = 300
+                self._recognizer.dynamic_energy_threshold = True  # Automatically adapts to room noise
+                self._recognizer.dynamic_energy_adjustment_damping = 0.15
+                self._recognizer.dynamic_energy_ratio = 1.5
+                self._recognizer.pause_threshold = 0.7  # Responsive phrase end detection
                 self._recognizer.non_speaking_duration = 0.3
 
                 if best_idx is not None:
@@ -231,6 +289,7 @@ class FloatingAgentAPI:
         def _mic_worker():
             import speech_recognition as sr
             import json
+            from services.voice.stt_engine import stt_engine
             logger.info("🎙️ [VoiceBridge] Continuous hardware microphone capture active.")
 
             if self._window:
@@ -239,70 +298,66 @@ class FloatingAgentAPI:
                 except Exception:
                     pass
 
-            try:
-                with self._microphone as source:
-                    try:
-                        logger.info("🎙️ [VoiceBridge] Calibrating microphone for ambient room noise...")
-                        self._recognizer.adjust_for_ambient_noise(source, duration=0.3)
-                        self._recognizer.energy_threshold = max(180, min(self._recognizer.energy_threshold, 400))
-                        logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold (clamped): {self._recognizer.energy_threshold:.1f}")
-                    except Exception as cal_e:
-                        logger.warning(f"[VoiceBridge] Calibration note: {cal_e}")
-
-                    while self._is_listening:
+            while self._is_listening:
+                try:
+                    with self._microphone as source:
                         try:
-                            # 4.0s timeout ensures it gives the user time to speak without immediately timing out
-                            audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=12.0)
-                            if not self._is_listening:
-                                break
+                            logger.info("🎙️ [VoiceBridge] Calibrating microphone for ambient room noise...")
+                            self._recognizer.adjust_for_ambient_noise(source, duration=0.8)
+                            self._recognizer.energy_threshold = max(self._recognizer.energy_threshold, 300.0)
+                            logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold: {self._recognizer.energy_threshold:.1f}")
+                        except Exception as cal_e:
+                            logger.warning(f"[VoiceBridge] Calibration note: {cal_e}")
 
-                            # Primary: Groq Whisper (120ms ultra-low latency & high accuracy)
-                            transcription = ""
+                        while self._is_listening:
                             try:
-                                from services.voice.stt_engine import stt_engine
+                                audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=12.0)
+                                if not self._is_listening:
+                                    break
+
                                 wav_bytes = audio.get_wav_data()
-                                if wav_bytes and getattr(stt_engine, 'groq_client', None):
-                                    import asyncio
-                                    loop = asyncio.new_event_loop()
-                                    text, _ = loop.run_until_complete(stt_engine.transcribe(wav_bytes))
-                                    loop.close()
-                                    transcription = text.strip()
-                            except Exception as stt_e:
-                                logger.debug(f"[VoiceBridge] Groq STT notice: {stt_e}")
+                                transcription = ""
+                                if wav_bytes:
+                                    try:
+                                        transcription, _ = stt_engine.transcribe_sync(wav_bytes)
+                                    except Exception as stt_e:
+                                        logger.debug(f"[VoiceBridge] Groq STT notice: {stt_e}")
 
-                            # Fallback: Google Speech Recognition
-                            if not transcription:
-                                transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+                                if not transcription:
+                                    try:
+                                        transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+                                    except Exception:
+                                        pass
 
-                            if transcription:
-                                logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}'")
-                                clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip()
-                                if not clean_cmd:
-                                    clean_cmd = "hello jarvis"
+                                if transcription:
+                                    logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}'")
+                                    clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip()
+                                    if not clean_cmd:
+                                        clean_cmd = "hello jarvis"
 
-                                if self._window:
-                                    safe_text = json.dumps(clean_cmd)
-                                    self._window.evaluate_js(f"window.onVoiceTranscriptReceived && window.onVoiceTranscriptReceived({safe_text}, true)")
-                        except sr.WaitTimeoutError:
-                            continue
-                        except sr.UnknownValueError:
-                            continue
-                        except sr.RequestError as req_err:
-                            logger.warning(f"[VoiceBridge] STT Network error: {req_err}")
-                            time.sleep(0.5)
-                        except Exception as loop_e:
-                            logger.debug(f"[VoiceBridge] Recognition cycle notice: {loop_e}")
-                            time.sleep(0.1)
-            except Exception as e:
-                logger.error(f"[VoiceBridge] Hardware mic error: {e}")
-            finally:
-                self._is_listening = False
-                if self._window:
-                    try:
-                        self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(false)")
-                    except Exception:
-                        pass
-                logger.info("🎙️ [VoiceBridge] Microphone loop stopped.")
+                                    if self._window:
+                                        safe_text = json.dumps(clean_cmd)
+                                        self._window.evaluate_js(f"window.onVoiceTranscriptReceived && window.onVoiceTranscriptReceived({safe_text}, true)")
+                            except sr.WaitTimeoutError:
+                                continue
+                            except sr.UnknownValueError:
+                                continue
+                            except sr.RequestError as req_err:
+                                logger.warning(f"[VoiceBridge] STT Network error: {req_err}")
+                                time.sleep(0.5)
+                            except Exception as loop_e:
+                                logger.debug(f"[VoiceBridge] Recognition cycle notice: {loop_e}")
+                                time.sleep(0.1)
+                except Exception as e:
+                    logger.error(f"[VoiceBridge] Hardware mic session note: {e}")
+                    time.sleep(1.0)
+
+            if self._window:
+                try:
+                    self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(false)")
+                except Exception:
+                    pass
+            logger.info("🎙️ [VoiceBridge] Microphone loop stopped.")
 
         self._listen_thread = threading.Thread(target=_mic_worker, daemon=True)
         self._listen_thread.start()
@@ -319,6 +374,19 @@ class FloatingAgentAPI:
                 pass
         return {"success": True, "listening": False}
 
+    def transcribe_audio_blob(self, b64_wav: str) -> dict:
+        """Transcribes base64-encoded audio WAV blob sent from frontend Web Audio API."""
+        try:
+            from services.voice.stt_engine import stt_engine
+            raw_b64 = b64_wav.split(",", 1)[1] if "," in b64_wav else b64_wav
+            audio_bytes = base64.b64decode(raw_b64)
+            text, latency = stt_engine.transcribe_sync(audio_bytes)
+            clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", text, flags=re.IGNORECASE).strip(" .,!?")
+            return {"success": bool(clean_cmd), "text": clean_cmd, "latency_ms": latency}
+        except Exception as e:
+            logger.error(f"[FloatingApp] transcribe_audio_blob error: {e}")
+            return {"success": False, "error": str(e), "text": ""}
+
     def listen_once(self) -> dict:
         """Single phrase capture directly from hardware microphone."""
         self._init_audio()
@@ -328,23 +396,20 @@ class FloatingAgentAPI:
         import speech_recognition as sr
         try:
             with self._microphone as source:
-                self._recognizer.adjust_for_ambient_noise(source, duration=0.25)
-                self._recognizer.energy_threshold = max(180, min(self._recognizer.energy_threshold, 400))
-                logger.info("🎙️ [VoiceBridge] Listening for single speech utterance...")
+                self._recognizer.adjust_for_ambient_noise(source, duration=0.4)
+                self._recognizer.energy_threshold = max(self._recognizer.energy_threshold, 300.0)
+                logger.info(f"🎙️ [VoiceBridge] Single listen ambient threshold: {self._recognizer.energy_threshold:.1f}")
                 audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=10.0)
 
                 text = ""
                 try:
                     from services.voice.stt_engine import stt_engine
                     wav_bytes = audio.get_wav_data()
-                    if wav_bytes and getattr(stt_engine, 'groq_client', None):
-                        import asyncio
-                        loop = asyncio.new_event_loop()
-                        t, _ = loop.run_until_complete(stt_engine.transcribe(wav_bytes))
-                        loop.close()
+                    if wav_bytes:
+                        t, _ = stt_engine.transcribe_sync(wav_bytes)
                         text = t.strip()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"[VoiceBridge] STT sync notice: {e}")
 
                 if not text:
                     text = self._recognizer.recognize_google(audio, language="en-US").strip()

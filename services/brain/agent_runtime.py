@@ -12,6 +12,9 @@ from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
 from services.brain.providers.mock_provider import MockLLMProvider
 from services.brain.providers.ai_manager import ai_manager
 from services.memory.feedback_learning import learner
+from services.memory.neural_memory import neural_memory
+from services.brain.speculative_engine import speculative_engine
+from services.brain.darwinian_optimizer import darwinian_optimizer
 from services.brain.ml_operator_learner import ml_learner
 from services.brain.tools.registry import registry as tool_registry
 from agents.intelligence.emergency_stop import emergency_stop
@@ -46,7 +49,12 @@ class AgentRuntime:
         start_time = time.time()
         logger.info(f"Processing input query: '{query}'")
 
-        # 0. CONTINUOUS LEARNING & PREFERENCE INGESTION
+        # 0. CONTINUOUS LEARNING & NEURAL MEMORY INGESTION
+        try:
+            neural_memory.auto_extract_and_remember(query)
+        except Exception:
+            pass
+
         learning_result = learner.inspect_and_learn(query)
         if learning_result:
             if learning_result.get("type") == "correction_learned" and learning_result.get("desired_action"):
@@ -66,6 +74,19 @@ class AgentRuntime:
         if adapted_query != query:
             logger.info(f"🧠 [Runtime] Adapted instruction based on memory: '{adapted_query}'")
             query = adapted_query
+
+        # 0.5. SPECULATIVE PRE-COMPUTATION CACHE CHECK (0ms instant response)
+        speculative_hit = speculative_engine.get_speculative_answer(query)
+        if speculative_hit:
+            logger.info(f"⚡ [Runtime: Speculative Engine] 0ms Cache HIT for: '{query}'")
+            return {
+                "response": speculative_hit["content"],
+                "intent": "speculative_precomputation",
+                "actions_executed": [],
+                "verified": True,
+                "latency_ms": (time.time() - start_time) * 1000,
+                "speculative": True
+            }
 
         # 1. UNDERSTAND & ROUTE INTENT (Adaptive ML Fast-Path first)
         ml_fast = ml_learner.compute_fast_path_match(query)
@@ -182,6 +203,10 @@ class AgentRuntime:
                 }
 
             res_data = exec_res.get("result", {})
+            try:
+                darwinian_optimizer.profile_tool_execution(routed.target_tool, (time.time() - start_time) * 1000, exec_res.get("success", True))
+            except Exception:
+                pass
             return {
                 "response": self._synthesize_tool_response(routed.target_tool, routed.parameters, res_data),
                 "intent": routed.intent_type.value,
@@ -198,13 +223,15 @@ class AgentRuntime:
         # This prevents the LLM from hallucinating launch_app or other tool invocations on conversational questions.
         pass_tools = True
         if routed.intent_type == IntentType.CONVERSATION:
+            pass_tools = False
+        else:
             q_clean = query.lower().strip().rstrip(".,!?")
             action_verbs = [
                 "open", "launch", "close", "shut", "kill", "start", "run", "volume", "mute", "unmute",
-                "turn on", "turn off", "lock", "screenshot", "search", "docker", "deploy", "terraform", "browse"
+                "turn on", "turn off", "lock", "screenshot", "search", "docker", "deploy", "terraform", "browse",
+                "powershell", "cmd", "switch", "press", "click", "sre", "heal", "rewind", "checkpoint", "teleport"
             ]
-            has_action = any(v in q_clean for v in action_verbs)
-            if not has_action:
+            if not any(v in q_clean for v in action_verbs):
                 pass_tools = False
 
         tool_specs = tool_registry.to_llm_tool_specs() if pass_tools else None
@@ -218,6 +245,12 @@ class AgentRuntime:
         except Exception as e:
             logger.debug(f"[AgentRuntime] Memory context lookup: {e}")
 
+        neural_context = ""
+        try:
+            neural_context = neural_memory.format_memory_context(query)
+        except Exception as e:
+            logger.debug(f"[AgentRuntime] Neural memory recall lookup: {e}")
+
         intent_hint = ""
         if routed.target_tool and routed.intent_type in [IntentType.DIRECT_ACTION, IntentType.COMPLEX_PLAN]:
             intent_hint = (
@@ -226,25 +259,28 @@ class AgentRuntime:
             )
 
         system_prompt = (
-            "You are J.A.R.V.I.S., Tony Stark's brilliant, highly efficient cyber-physical AI assistant. "
-            "Address the user as 'sir'.\n"
-            "IMPORTANT OPERATING RULES:\n"
-            "1. For general knowledge questions, conversational queries, identity inquiries, greetings, or explanations "
-            "(e.g., 'who are you', 'what is the capital of France', 'tell me a joke', 'how are you', 'what is quantum computing'), "
-            "respond directly in natural, intelligent, polite British conversation. "
-            "Keep spoken answers concise, elegant, and punchy (1 to 2 sentences maximum, under 30 words) for ultra-low latency voice synthesis. "
-            "DO NOT invoke any tools.\n"
-            "2. ONLY call a tool if the user explicitly instructs you to perform a real workstation or cloud action "
-            "(such as launching an app, closing an app, adjusting volume, checking system metrics, locking the screen, or searching the web).\n"
-            "3. Understand English, Tamil (Tanglish), and Hindi (Hinglish): "
-            "- 'kammi pannu' / 'kam karo' = decrease/lower "
-            "- 'ethu' / 'badhao' = increase/raise "
-            "- 'moodu' / 'bandh karo' = close application "
-            "- 'thoda' / 'konjam' = a little bit.\n"
-            "4. Application Rule (Snapchat only): When instructed to open Snapchat, DEFAULT to opening it on the web (`launch_app` with `app='snapchat'`, `mode='web'`). ONLY open Snapchat on the system (`mode='system'`) if the user explicitly specifies 'on system' or 'systems snapchat'. This rule applies ONLY to Snapchat.\n"
-            "5. Sensitive Operations Rule: Destructive system actions (such as shutdown and restart) always require explicit operator confirmation before execution.\n"
+            "You are J.A.R.V.I.S., Tony Stark's brilliant, exceptionally creative, and hyper-intelligent cyber-physical AI assistant. "
+            "You possess the depth, structured creativity, and comprehensive brilliance of ChatGPT Plus combined with the charismatic, refined British wit of Tony Stark's JARVIS. "
+            "Address the user as 'sir'.\n\n"
+            "CORE OPERATING PRINCIPLES:\n"
+            "1. CONVERSATIONAL, KNOWLEDGE, CODING & CREATIVE QUERIES:\n"
+            "   - Respond with complete, structured, and insightful brilliance.\n"
+            "   - Use clean, modern Markdown: intuitive headings, bullet points, numbered walkthroughs, comparison tables, and production-ready code snippets with syntax highlighting.\n"
+            "   - Be articulate, engaging, and thorough. Provide rich analogies, trade-offs, and practical advice.\n"
+            "   - Never truncate answers with artificial word caps. Express full intellectual depth while keeping the tone sharp and composed.\n"
+            "   - DO NOT invoke tools for informational, philosophical, coding, or reasoning questions.\n"
+            "2. COMPUTER & CLOUD ACTIONS:\n"
+            "   - ONLY invoke tools when the user explicitly directs you to perform a real workstation or cloud action (e.g. launching apps, closing windows, setting volume, checking system vitals, or running terminal commands).\n"
+            "3. MULTILINGUAL MASTERY:\n"
+            "   - Seamlessly understand English, Tamil (Tanglish), and Hindi (Hinglish): "
+            "'kammi pannu'/'kam karo'=lower, 'ethu'/'badhao'=increase, 'moodu'/'bandh karo'=close, 'thoda'/'konjam'=a little bit.\n"
+            "4. APPLICATION RULES:\n"
+            "   - Snapchat: Default to web (`launch_app` with `app='snapchat'`, `mode='web'`) unless user explicitly specifies 'on system'.\n"
+            "5. SENSITIVE OPERATIONS:\n"
+            "   - Destructive actions (system shutdown, workstation reboot, terraform destroy) require explicit operator confirmation.\n"
             f"{intent_hint}"
             f"{recent_context}"
+            f"{neural_context}"
         )
 
         llm_response: LLMResponse = await active_provider.generate(
@@ -285,6 +321,10 @@ class AgentRuntime:
 
                 tool_output = exec_res.get("result", {})
                 logical_ok = bool(exec_res.get("success", False))
+                try:
+                    darwinian_optimizer.profile_tool_execution(tc.tool_name, exec_res.get("duration_ms", 0.0), logical_ok)
+                except Exception:
+                    pass
 
                 executed_actions.append({
                     "tool": tc.tool_name,

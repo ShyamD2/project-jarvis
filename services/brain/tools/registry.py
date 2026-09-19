@@ -863,6 +863,67 @@ class CrossDeviceRouteTool(JarvisTool):
         return await device_router.route_and_execute(q)
 
 
+
+class SkillSynthesisTool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="synthesize_skill",
+                description="Synthesizes a new reusable Python tool from natural language prompt or commands, verifies it with AST analysis, and hot-loads it into the active ToolRegistry at runtime.",
+                target_world=TargetWorld.DIGITAL,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "name": {"type": "string", "required": True},
+                    "description": {"type": "string", "required": True},
+                    "prompt_or_commands": {"type": "string", "required": True}
+                },
+                risk_level="LOW"
+            )
+        )
+
+    async def execute(self, name: str = "", description: str = "", prompt_or_commands: Any = "", **kwargs) -> Dict[str, Any]:
+        from services.brain.skill_synthesizer import skill_synthesizer
+        return await skill_synthesizer.synthesize_skill(name=name, description=description, prompt_or_commands=prompt_or_commands, registry=registry)
+
+
+class WorkstationSRETool(JarvisTool):
+    def __init__(self):
+        super().__init__(
+            ToolDefinition(
+                name="workstation_sre",
+                description="Autonomous dev workstation SRE: scans active dev ports, diagnoses port collisions, detects stale lockfiles (.git/index.lock, terraform), finds runaway processes, and applies 1-tap self-healing.",
+                target_world=TargetWorld.COMPUTER,
+                tier=ActionTier.TIER_1_SOFT,
+                parameters_schema={
+                    "action": {"type": "string", "enum": ["scan", "diagnose_port", "free_port", "scan_locks", "clear_lock", "clear_all_locks", "heal"], "required": True},
+                    "port": {"type": "integer", "default": 0},
+                    "target_type": {"type": "string", "default": ""},
+                    "target_value": {"type": "string", "default": ""}
+                },
+                risk_level="LOW"
+            )
+        )
+
+    async def execute(self, action: str = "scan", port: int = 0, target_type: str = "", target_value: Any = "", **kwargs) -> Dict[str, Any]:
+        from workstation_sre import workstation_sre
+        act = action.lower().strip()
+        if act == "scan":
+            scan = workstation_sre.run_sre_health_scan()
+            return {"success": True, "scan": scan}
+        elif act == "diagnose_port":
+            return {"success": True, "diagnosis": workstation_sre.diagnose_port(port)}
+        elif act == "free_port":
+            return workstation_sre.free_port(port)
+        elif act == "scan_locks":
+            return {"success": True, "locks": workstation_sre.scan_lockfiles()}
+        elif act in ["clear_lock", "clear_all_locks"]:
+            tt = "lock" if act == "clear_lock" else "all_locks"
+            return workstation_sre.apply_sre_healing(tt, target_value)
+        elif act == "heal":
+            return workstation_sre.apply_sre_healing(target_type, target_value)
+        return {"success": False, "error": f"Unknown SRE action: {action}"}
+
+
 # ==============================================================================
 # CENTRAL TOOL REGISTRY CLASS WITH RESILIENCE BUS
 # ==============================================================================
@@ -887,6 +948,10 @@ class ToolRegistry:
         self.register(ProductivityTool())
         self.register(CompoundWorkflowTool())
 
+        # Register Breakthrough Pillars (AgentOS)
+        self.register(SkillSynthesisTool())
+        self.register(WorkstationSRETool())
+
         # Register Compatibility & Reflex Tools
         self.register(PhysicalDeviceTool())
         self.register(PrepareWorkspaceTool())
@@ -905,6 +970,13 @@ class ToolRegistry:
         self.register(AWSListEC2Tool())
         self.register(ClipboardDiagnosticianTool())
         self.register(CrossDeviceRouteTool())
+
+        # Hot-load all custom synthesized tools from disk
+        try:
+            from services.brain.skill_synthesizer import skill_synthesizer
+            skill_synthesizer.load_all_custom_tools(self)
+        except Exception as e:
+            logger.warning(f"[ToolRegistry] Custom tools pre-load warning: {e}")
 
         logger.info(f"Initialized ToolRegistry with {len(self._tools)} registered domain tools.")
 

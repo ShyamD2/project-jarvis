@@ -121,15 +121,17 @@ class STTEngine:
         return normalized
 
     def is_hallucination(self, text: str) -> bool:
-        """Checks if the transcription is a common Whisper silence hallucination."""
+        """Checks if the transcription is a common Whisper silence hallucination or punctuation noise."""
         if not text:
             return True
-        cleaned = text.strip().lower().rstrip(".,!?")
+        cleaned = text.strip().lower().rstrip(".,!? ")
+        if not cleaned:
+            return True
         return cleaned in self.WHISPER_HALLUCINATIONS
 
-    async def transcribe(self, audio_bytes: bytes, filename: str = "speech.wav") -> Tuple[str, float]:
+    def transcribe_sync(self, audio_bytes: bytes, filename: str = "speech.wav") -> Tuple[str, float]:
         """
-        Transcribes audio bytes to text using Groq Whisper.
+        Synchronously transcribes audio bytes to text using Groq Whisper.
         Returns:
             (normalized_text, latency_ms)
         """
@@ -137,38 +139,68 @@ class STTEngine:
         if not audio_bytes or len(audio_bytes) < 400:
             return "", 0.0
 
-        if not self.groq_client:
-            logger.warning("Groq client not available for STT. Falling back to local offline transcription.")
-            return "", 0.0
+        # Method 1: Groq SDK
+        if self.groq_client:
+            try:
+                audio_stream = io.BytesIO(audio_bytes)
+                audio_stream.name = filename
 
-        try:
-            audio_stream = io.BytesIO(audio_bytes)
-            audio_stream.name = filename
+                transcription = self.groq_client.audio.transcriptions.create(
+                    file=audio_stream,
+                    model="whisper-large-v3",
+                    prompt=self.WHISPER_PROMPT,
+                    response_format="json",
+                    language="en",
+                    temperature=0.0
+                )
 
-            transcription = self.groq_client.audio.transcriptions.create(
-                file=audio_stream,
-                model="whisper-large-v3",
-                prompt=self.WHISPER_PROMPT,
-                response_format="json",
-                language="en",
-                temperature=0.0
-            )
+                raw_text = (transcription.text or "").strip()
+                latency = (time.time() - start_time) * 1000
 
-            raw_text = (transcription.text or "").strip()
-            latency = (time.time() - start_time) * 1000
+                if self.is_hallucination(raw_text):
+                    logger.debug(f"[STT] Discarded Whisper hallucination: '{raw_text}'")
+                    return "", latency
 
-            if self.is_hallucination(raw_text):
-                logger.debug(f"[STT] Discarded Whisper hallucination: '{raw_text}'")
-                return "", latency
+                normalized = self.normalize_multilingual(raw_text)
+                logger.info(f"🎙 [STT Result] '{normalized}' (Raw: '{raw_text}', Latency: {latency:.1f}ms)")
+                return normalized, latency
+            except Exception as e:
+                logger.debug(f"[STT] Groq SDK sync failed: {e}, attempting HTTP fallback...")
 
-            # Normalize Tanglish / Hinglish / mixed phrases
-            normalized = self.normalize_multilingual(raw_text)
-            logger.info(f"🎙 [STT Result] '{normalized}' (Raw: '{raw_text}', Latency: {latency:.1f}ms)")
-            return normalized, latency
+        # Method 2: Direct HTTP POST via httpx
+        if self.api_key:
+            try:
+                import httpx
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+                files = {"file": (filename, audio_bytes, "audio/wav")}
+                data = {
+                    "model": "whisper-large-v3",
+                    "temperature": "0.0",
+                    "language": "en",
+                    "prompt": self.WHISPER_PROMPT
+                }
+                with httpx.Client(timeout=8.0) as client:
+                    resp = client.post("https://api.groq.com/openai/v1/audio/transcriptions", files=files, data=data, headers=headers)
+                    if resp.status_code == 200:
+                        raw_text = resp.json().get("text", "").strip()
+                        latency = (time.time() - start_time) * 1000
+                        if self.is_hallucination(raw_text):
+                            return "", latency
+                        normalized = self.normalize_multilingual(raw_text)
+                        logger.info(f"🎙 [STT Result (HTTP)] '{normalized}' (Latency: {latency:.1f}ms)")
+                        return normalized, latency
+            except Exception as e_http:
+                logger.error(f"[STT] Direct HTTP STT failed: {e_http}")
 
-        except Exception as e:
-            logger.error(f"[STT] Transcription failed: {e}")
-            return "", (time.time() - start_time) * 1000
+        return "", (time.time() - start_time) * 1000
+
+    async def transcribe(self, audio_bytes: bytes, filename: str = "speech.wav") -> Tuple[str, float]:
+        """
+        Asynchronously transcribes audio bytes to text using Groq Whisper.
+        """
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, self.transcribe_sync, audio_bytes, filename)
 
 
 stt_engine = STTEngine()

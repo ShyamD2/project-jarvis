@@ -79,3 +79,11 @@ services/gateway/trackpad_url.txt
 services/gateway/operator_token.txt
 services/security/lock_pin.txt
 services/security/lock_pid.txt
+
+# Generated Runtime Data & Checkpoints
+data/checkpoints/
+data/teleport_capsules/
+data/quarantine/
+data/memory/
+.pytest_cache/
+services/observability/storage/audit_log.jsonl
