@@ -1771,9 +1771,30 @@ class JarvisTelegramGateway:
 
         logger.info("[Telegram Gateway] Standby / Shutdown complete.")
 
+_SINGLE_INSTANCE_MUTEX = None
+
+def ensure_single_instance() -> bool:
+    """Ensures only one instance of the Telegram Gateway runs on the system to prevent duplicate message responses."""
+    global _SINGLE_INSTANCE_MUTEX
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            mutex_name = "Global\\JarvisTelegramGatewayMutex"
+            handle = ctypes.windll.kernel32.CreateMutexW(None, True, mutex_name)
+            if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+                logger.warning("⚠️ [TelegramGateway] Another instance of Telegram Gateway is already running! Exiting immediately to prevent duplicate messages.")
+                return False
+            _SINGLE_INSTANCE_MUTEX = handle
+            return True
+        except Exception as e:
+            logger.debug(f"[TelegramGateway] Mutex notice: {e}")
+    return True
+
 telegram_gateway = JarvisTelegramGateway()
 
 if __name__ == "__main__":
+    if not ensure_single_instance():
+        sys.exit(0)
     logger.info("==================================================")
     logger.info("   J.A.R.V.I.S. TELEGRAM MOBILE GATEWAY DAEMON")
     logger.info("   Starting active polling listener...")
