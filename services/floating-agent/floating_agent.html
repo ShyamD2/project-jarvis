@@ -642,6 +642,7 @@
 
   // TWO-WAY SPOKEN NEURAL SPEECH & AUDIO ANALYSER
   let speechAudioEnabled = true;
+  let speechAudioEl = null;
   let currentAudio = null;
   let audioContext = null;
   let audioAnalyser = null;
@@ -675,43 +676,49 @@
 
   function playAudioDataUri(dataUri) {
     try {
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-      }
-      currentAudio = new Audio(dataUri);
-
-      if (!audioContext) {
+      if (!speechAudioEl) {
+        speechAudioEl = new Audio();
+        speechAudioEl.crossOrigin = "anonymous";
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) audioContext = new AudioCtx();
+        if (audioContext) {
+          try {
+            audioAnalyser = audioContext.createAnalyser();
+            audioAnalyser.fftSize = 64;
+            audioFreqBuffer = new Uint8Array(audioAnalyser.frequencyBinCount);
+            audioSourceNode = audioContext.createMediaElementSource(speechAudioEl);
+            audioSourceNode.connect(audioAnalyser);
+            audioAnalyser.connect(audioContext.destination);
+          } catch (e) {
+            console.debug("Audio node setup notice:", e);
+          }
+        }
+      } else {
+        try { speechAudioEl.pause(); } catch(e) {}
       }
 
-      if (audioContext && !audioSourceNode) {
-        try {
-          audioAnalyser = audioContext.createAnalyser();
-          audioAnalyser.fftSize = 64;
-          audioFreqBuffer = new Uint8Array(audioAnalyser.frequencyBinCount);
-          audioSourceNode = audioContext.createMediaElementSource(currentAudio);
-          audioSourceNode.connect(audioAnalyser);
-          audioAnalyser.connect(audioContext.destination);
-        } catch (e) {
-          console.debug("Audio node connect notice:", e);
-        }
-      }
+      speechAudioEl.src = dataUri;
+      currentAudio = speechAudioEl;
 
       if (audioContext && audioContext.state === "suspended") {
         audioContext.resume();
       }
 
-      currentAudio.onplay = () => {
+      speechAudioEl.onplay = () => {
         setAgentState("RESPONDING");
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.set_tts_speaking === "function") {
+          window.pywebview.api.set_tts_speaking(true);
+        }
       };
 
-      currentAudio.onended = () => {
+      speechAudioEl.onended = () => {
+        if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.set_tts_speaking === "function") {
+          window.pywebview.api.set_tts_speaking(false);
+        }
         setTimeout(() => setAgentState("IDLE"), 800);
       };
 
-      currentAudio.play().catch(e => console.debug("Autoplay note:", e));
+      speechAudioEl.play().catch(e => console.debug("Autoplay note:", e));
     } catch (err) {
       console.warn("Audio playback error:", err);
     }
@@ -791,13 +798,16 @@
     initSuitTheme();
     initWaveformBars();
     initReactor();
-    initWebAudioSensory();
-    initSpeechRecognition();
+    if (!window.pywebview) {
+      initWebAudioSensory();
+      initSpeechRecognition();
+    }
     initDragAndDrop();
     tryStartHardwareVoice();
   });
 
   window.addEventListener("click", () => {
+    if (window.pywebview) return;
     if (!liveMicStream) {
       initWebAudioSensory();
     }
@@ -821,6 +831,10 @@
 
   async function initWebAudioSensory() {
     try {
+      if (window.pywebview) {
+        console.log("🎙️ [Sensory] PyWebView native hardware microphone active. Browser getUserMedia bypassed.");
+        return;
+      }
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.log("[WebAudio] mediaDevices not available in current context, using Python native mic.");
         return;
@@ -1029,6 +1043,8 @@
     animateWaveform();
   }
 
+  let pythonAudioEnergy = 0;
+
   function animateWaveform() {
     const now = Date.now();
     let isSpeakingAudio = (currentAudio && !currentAudio.paused && !currentAudio.ended);
@@ -1047,6 +1063,17 @@
         avg = (avg / audioFreqBuffer.length) / 255;
         reactor.updateAudio(avg);
       }
+    } else if (pythonAudioEnergy > 0.04) {
+      for (let b = 0; b < waveBars.length; b++) {
+        const flutter = Math.sin(now * 0.02 + b * 0.5) * 0.18;
+        const val = Math.max(0.12, Math.min(1.0, pythonAudioEnergy * 0.85 + flutter));
+        const barHeight = Math.max(3, Math.min(22, val * 24));
+        waveBars[b].style.height = `${barHeight}px`;
+      }
+      if (reactor && typeof reactor.updateAudio === "function") {
+        reactor.updateAudio(pythonAudioEnergy);
+      }
+      pythonAudioEnergy *= 0.94;
     } else {
       for (let b = 0; b < waveBars.length; b++) {
         let val = 0.15 + Math.sin(now * 0.003 + b * 0.5) * 0.12;
@@ -1219,6 +1246,23 @@
   // =========================================================================
 
   // Global callbacks invoked by Python FloatingAgentAPI
+  window.updateAudioEnergy = function(energy) {
+    pythonAudioEnergy = Math.max(0, Math.min(1.0, energy));
+  };
+
+  window.onVoiceActivity = function(isActive) {
+    const micBtn = document.getElementById("mic-btn");
+    if (isActive) {
+      setAgentState("LISTENING");
+      if (micBtn) micBtn.classList.add("speaking");
+      setSpeechText("Listening to your voice, sir...");
+    } else {
+      if (micBtn) micBtn.classList.remove("speaking");
+      setAgentState("UNDERSTANDING");
+      setSpeechText("Transcribing speech via Groq Whisper...");
+    }
+  };
+
   window.onVoiceTranscriptReceived = function(transcription, isFinal) {
     if (!transcription || !transcription.trim()) return;
     const text = transcription.trim();
@@ -1230,28 +1274,19 @@
     setAgentState("LISTENING");
 
     const micBtn = document.getElementById("mic-btn");
-    if (micBtn) micBtn.classList.add("speaking");
+    if (micBtn) micBtn.classList.remove("speaking");
 
     if (isFinal) {
       if (voiceSilenceTimer) clearTimeout(voiceSilenceTimer);
       voiceSilenceTimer = setTimeout(() => {
-        if (micBtn) micBtn.classList.remove("speaking");
         submitCommand(text);
-      }, 500);
+      }, 50);
     }
   };
 
   window.onVoiceStatusChanged = function(isListening) {
     console.log("🎙️ [VoiceBridge] Mic listening state:", isListening);
     alwaysVoiceActive = isListening;
-    if (isListening) {
-      if (liveAudioCtx && liveAudioCtx.state === "suspended") {
-        try { liveAudioCtx.resume(); } catch(e) {}
-      }
-      if (!liveMicStream) {
-        initWebAudioSensory();
-      }
-    }
     const micBtn = document.getElementById("mic-btn");
     if (micBtn) {
       if (isListening) {

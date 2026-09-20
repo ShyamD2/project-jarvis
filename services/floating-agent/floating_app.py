@@ -194,6 +194,11 @@ class FloatingAgentAPI:
         self._microphone = None
         self._is_listening = False
         self._listen_thread = None
+        self._is_speaking_tts = False
+
+    def set_tts_speaking(self, is_speaking: bool):
+        """Notifies the VAD engine whether TTS audio is currently speaking to prevent acoustic loop."""
+        self._is_speaking_tts = bool(is_speaking)
 
     def bind_window(self, window):
         self._window = window
@@ -242,24 +247,12 @@ class FloatingAgentAPI:
                 pass
 
     def _init_audio(self):
-        if self._recognizer is None or self._microphone is None:
+        """Pre-probes and caches the best hardware microphone."""
+        if self._microphone is None:
             try:
-                import speech_recognition as sr
                 best_idx, best_sr = get_best_hardware_microphone()
-                self._recognizer = sr.Recognizer()
-                self._recognizer.energy_threshold = 300
-                self._recognizer.dynamic_energy_threshold = True  # Automatically adapts to room noise
-                self._recognizer.dynamic_energy_adjustment_damping = 0.15
-                self._recognizer.dynamic_energy_ratio = 1.5
-                self._recognizer.pause_threshold = 0.7  # Responsive phrase end detection
-                self._recognizer.non_speaking_duration = 0.3
-
-                if best_idx is not None:
-                    self._microphone = sr.Microphone(device_index=best_idx, sample_rate=best_sr)
-                    logger.info(f"🎙️ [VoiceBridge] Initialized hardware mic on index {best_idx} ({best_sr}Hz).")
-                else:
-                    self._microphone = sr.Microphone()
-                    logger.info("🎙️ [VoiceBridge] Initialized default microphone.")
+                self._microphone = (best_idx, best_sr)
+                logger.info(f"🎙️ [VoiceBridge] Pre-initialized hardware mic on index {best_idx} ({best_sr}Hz).")
             except Exception as e:
                 logger.error(f"[VoiceBridge] Microphone initialization notice: {e}")
 
@@ -277,80 +270,166 @@ class FloatingAgentAPI:
 
     def start_voice_listening(self) -> dict:
         """Starts continuous hardware microphone capture loop in background thread."""
-        self._init_audio()
-        if not self._microphone:
-            return {"success": False, "listening": False, "error": "Microphone not available"}
-
         if self._is_listening:
-            return {"success": True, "listening": True}
-
-        self._is_listening = True
-
-        def _mic_worker():
-            import speech_recognition as sr
-            import json
-            from services.voice.stt_engine import stt_engine
-            logger.info("🎙️ [VoiceBridge] Continuous hardware microphone capture active.")
-
             if self._window:
                 try:
                     self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(true)")
                 except Exception:
                     pass
+            return {"success": True, "listening": True}
 
-            while self._is_listening:
-                try:
-                    with self._microphone as source:
+        self._is_listening = True
+
+        def _mic_worker():
+            import pyaudio
+            import audioop
+            import io
+            import wave
+            import json
+            from services.voice.stt_engine import stt_engine
+
+            best_idx, best_sr = get_best_hardware_microphone()
+            target_sr = 16000
+
+            logger.info(f"🎙️ [VoiceBridge] Continuous hardware microphone capture active on Device {best_idx} ({target_sr}Hz).")
+
+            # Signal UI that mic is active (retrying up to 12s until WebView2 window is ready)
+            def _signal_ui_ready():
+                for _ in range(24):
+                    if not self._is_listening:
+                        break
+                    if self._window:
                         try:
-                            logger.info("🎙️ [VoiceBridge] Calibrating microphone for ambient room noise...")
-                            self._recognizer.adjust_for_ambient_noise(source, duration=0.8)
-                            self._recognizer.energy_threshold = max(self._recognizer.energy_threshold, 300.0)
-                            logger.info(f"🎙️ [VoiceBridge] Calibrated ambient energy threshold: {self._recognizer.energy_threshold:.1f}")
-                        except Exception as cal_e:
-                            logger.warning(f"[VoiceBridge] Calibration note: {cal_e}")
+                            self._window.evaluate_js("window.onVoiceStatusChanged && window.onVoiceStatusChanged(true)")
+                            break
+                        except Exception:
+                            pass
+                    time.sleep(0.5)
 
-                        while self._is_listening:
-                            try:
-                                audio = self._recognizer.listen(source, timeout=4.0, phrase_time_limit=12.0)
-                                if not self._is_listening:
-                                    break
+            threading.Thread(target=_signal_ui_ready, daemon=True).start()
 
-                                wav_bytes = audio.get_wav_data()
-                                transcription = ""
-                                if wav_bytes:
+            p = pyaudio.PyAudio()
+            try:
+                actual_sr = 16000
+                try:
+                    stream = p.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True, input_device_index=best_idx, frames_per_buffer=1024)
+                except Exception:
+                    actual_sr = best_sr if best_sr else 44100
+                    stream = p.open(format=pyaudio.paInt16, channels=1, rate=actual_sr, input=True, input_device_index=best_idx, frames_per_buffer=1024)
+
+                logger.info(f"🎙️ [VoiceBridge] Audio stream opened at {actual_sr}Hz on device {best_idx}.")
+
+                # Calibrate ambient noise baseline (10 chunks = ~0.64s)
+                baseline_rms = 0.0
+                for _ in range(10):
+                    data = stream.read(1024, exception_on_overflow=False)
+                    baseline_rms += audioop.rms(data, 2)
+                baseline_rms = max(100.0, baseline_rms / 10.0)
+                speech_threshold = max(350, int(baseline_rms * 1.45))
+                logger.info(f"🎙️ [VoiceBridge] Calibrated baseline RMS: {baseline_rms:.1f}, Speech threshold: {speech_threshold}")
+
+                is_capturing = False
+                speech_chunks = []
+                silence_chunks = 0
+                max_silence = 10  # ~0.64s of silence concludes phrase
+
+                while self._is_listening:
+                    try:
+                        data = stream.read(1024, exception_on_overflow=False)
+                        if self._is_speaking_tts:
+                            # Echo cancellation: suppress mic capture during Jarvis's own voice playback
+                            time.sleep(0.01)
+                            continue
+
+                        rms = audioop.rms(data, 2)
+
+                        if not is_capturing:
+                            if rms > speech_threshold:
+                                is_capturing = True
+                                speech_chunks = [data]
+                                silence_chunks = 0
+                                if self._window:
                                     try:
-                                        transcription, _ = stt_engine.transcribe_sync(wav_bytes)
-                                    except Exception as stt_e:
-                                        logger.debug(f"[VoiceBridge] Groq STT notice: {stt_e}")
-
-                                if not transcription:
-                                    try:
-                                        transcription = self._recognizer.recognize_google(audio, language="en-US").strip()
+                                        self._window.evaluate_js("window.onVoiceActivity && window.onVoiceActivity(true)")
                                     except Exception:
                                         pass
+                            else:
+                                # Slowly adapt baseline to shifting room acoustics
+                                baseline_rms = baseline_rms * 0.97 + rms * 0.03
+                                speech_threshold = max(350, int(baseline_rms * 1.45))
+                                # Send energy for subtle idle wave bar movement
+                                if self._window and rms > 120:
+                                    try:
+                                        norm_e = min(1.0, rms / 1500.0)
+                                        self._window.evaluate_js(f"window.updateAudioEnergy && window.updateAudioEnergy({norm_e:.3f})")
+                                    except Exception:
+                                        pass
+                        else:
+                            # Capturing active speech
+                            speech_chunks.append(data)
+                            if self._window:
+                                try:
+                                    norm_e = min(1.0, max(0.25, rms / 2000.0))
+                                    self._window.evaluate_js(f"window.updateAudioEnergy && window.updateAudioEnergy({norm_e:.3f})")
+                                except Exception:
+                                    pass
 
-                                if transcription:
-                                    logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}'")
-                                    clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip()
-                                    if not clean_cmd:
-                                        clean_cmd = "hello jarvis"
+                            if rms > speech_threshold * 0.70:
+                                silence_chunks = 0
+                            else:
+                                silence_chunks += 1
+                                if silence_chunks >= max_silence:
+                                    is_capturing = False
+                                    total_frames = len(speech_chunks)
+                                    captured_audio = b"".join(speech_chunks)
+                                    speech_chunks = []
+                                    silence_chunks = 0
 
                                     if self._window:
-                                        safe_text = json.dumps(clean_cmd)
-                                        self._window.evaluate_js(f"window.onVoiceTranscriptReceived && window.onVoiceTranscriptReceived({safe_text}, true)")
-                            except sr.WaitTimeoutError:
-                                continue
-                            except sr.UnknownValueError:
-                                continue
-                            except sr.RequestError as req_err:
-                                logger.warning(f"[VoiceBridge] STT Network error: {req_err}")
-                                time.sleep(0.5)
-                            except Exception as loop_e:
-                                logger.debug(f"[VoiceBridge] Recognition cycle notice: {loop_e}")
-                                time.sleep(0.1)
-                except Exception as e:
-                    logger.error(f"[VoiceBridge] Hardware mic session note: {e}")
-                    time.sleep(1.0)
+                                        try:
+                                            self._window.evaluate_js("window.onVoiceActivity && window.onVoiceActivity(false)")
+                                        except Exception:
+                                            pass
+
+                                    # Need at least ~0.32s of speech (5 chunks)
+                                    if total_frames >= 5:
+                                        buf = io.BytesIO()
+                                        with wave.open(buf, 'wb') as wf:
+                                            wf.setnchannels(1)
+                                            wf.setsampwidth(2)
+                                            wf.setframerate(actual_sr)
+                                            wf.writeframes(captured_audio)
+                                        wav_bytes = buf.getvalue()
+
+                                        # Transcribe via Groq Whisper (<300ms)
+                                        try:
+                                            transcription, latency = stt_engine.transcribe_sync(wav_bytes)
+                                        except Exception as stt_err:
+                                            logger.debug(f"[VoiceBridge] STT error: {stt_err}")
+                                            transcription = ""
+
+                                        if transcription:
+                                            logger.info(f"🎙️ [VoiceBridge] Captured speech: '{transcription}' ({latency:.1f}ms)")
+                                            clean_cmd = re.sub(r"^(?:hey\s+|hi\s+|ok\s+)?jarvis[,:\s]*", "", transcription, flags=re.IGNORECASE).strip(" .,!?")
+                                            if not clean_cmd:
+                                                clean_cmd = "hello jarvis"
+
+                                            if self._window:
+                                                safe_text = json.dumps(clean_cmd)
+                                                self._window.evaluate_js(f"window.onVoiceTranscriptReceived && window.onVoiceTranscriptReceived({safe_text}, true)")
+                    except Exception as stream_e:
+                        logger.debug(f"[VoiceBridge] Stream cycle note: {stream_e}")
+                        time.sleep(0.05)
+
+                try:
+                    stream.stop_stream()
+                    stream.close()
+                except Exception:
+                    pass
+            except Exception as outer_e:
+                logger.error(f"[VoiceBridge] Hardware mic session error: {outer_e}")
+            finally:
+                p.terminate()
 
             if self._window:
                 try:
@@ -694,6 +773,8 @@ def main():
         start_global_hotkey_listener(window)
 
         threading.Thread(target=focus_on_start, daemon=True).start()
+        # Automatically launch hardware streaming voice capture immediately
+        threading.Thread(target=api.start_voice_listening, daemon=True).start()
 
         logger.info(f"⚡ [FloatingApp] Spawning compact floating J.A.R.V.I.S. agent from {target_url}...")
         webview.start()
