@@ -29,7 +29,9 @@ class ConversationEngine:
 
     EMERGENCY_STOP_KEYWORDS = {
         "stop", "halt", "cancel", "stand down", "abort", "emergency stop",
-        "jarvis stop", "jarvis halt", "jarvis cancel", "jarvis stand down"
+        "jarvis stop", "jarvis halt", "jarvis cancel", "jarvis stand down",
+        "shut up", "be quiet", "quiet", "silence", "hush", "stop talking",
+        "stop speaking", "pause", "wait", "hold on", "mute"
     }
 
     CONFIRMATION_AFFIRMATIVE = {"yes", "yeah", "yep", "proceed", "go ahead", "do it", "confirm", "sure", "affirmative", "yes please"}
@@ -89,9 +91,14 @@ class ConversationEngine:
         if clean_stop_check in self.EMERGENCY_STOP_KEYWORDS:
             logger.warning("🚨 [Conversation Engine] Instant Emergency STOP triggered by voice keyword.")
             tts_engine.interrupt()
+            try:
+                from services.sensory.voice_synthesizer import voice_synthesizer
+                voice_synthesizer.interrupt()
+            except Exception:
+                pass
             self.pending_confirmation = None
             stop_res = emergency_stop.trigger_emergency_stop(source="voice_command", reason=user_text)
-            response = "All systems halted and standing down, sir."
+            response = "Standing down, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", response, {"intent": "emergency_stop"})
             return {

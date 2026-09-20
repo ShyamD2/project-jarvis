@@ -547,7 +547,7 @@
 
   <!-- 3. FLOATING TRANSCRIPT & COMMAND INPUT -->
   <footer class="hud-footer no-drag">
-    <div class="transcript-bubble" id="speech-bubble">
+    <div class="transcript-bubble" id="speech-bubble" onclick="window.stopSpeakingAudio()" title="Click to stop speaking">
       Good day, sir. J.A.R.V.I.S. is listening hands-free. Click 👁️ SCREEN or speak anytime.
     </div>
 
@@ -635,6 +635,11 @@
   }
 
   function handleOrbClick() {
+    let isSpeakingAudio = (currentAudio && !currentAudio.paused && !currentAudio.ended);
+    if (isSpeakingAudio) {
+      window.stopSpeakingAudio();
+      return;
+    }
     if (isMiniMode) {
       toggleMiniMode(false);
     }
@@ -1126,6 +1131,8 @@
   function handleKey(e) {
     if (e.key === "Enter") {
       submitCommand();
+    } else if (e.key === "Escape") {
+      window.stopSpeakingAudio();
     }
   }
 
@@ -1246,6 +1253,37 @@
   // =========================================================================
 
   // Global callbacks invoked by Python FloatingAgentAPI
+  window.stopSpeakingAudio = function() {
+    console.log("⚡ [VoiceBridge] Halting speech playback immediately on interruption.");
+    if (speechAudioEl) {
+      try {
+        speechAudioEl.pause();
+        speechAudioEl.currentTime = 0;
+      } catch(e) {}
+    }
+    if (currentAudio) {
+      try {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } catch(e) {}
+    }
+    if (window.speechSynthesis) {
+      try { window.speechSynthesis.cancel(); } catch(e) {}
+    }
+    setAgentState("IDLE");
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.set_tts_speaking === "function") {
+      window.pywebview.api.set_tts_speaking(false);
+    }
+  };
+
+  window.onInterrupted = function() {
+    window.stopSpeakingAudio();
+    setSpeechText("Interrupted — listening to your command, sir...");
+    setAgentState("LISTENING");
+    const micBtn = document.getElementById("mic-btn");
+    if (micBtn) micBtn.classList.add("speaking");
+  };
+
   window.updateAudioEnergy = function(energy) {
     pythonAudioEnergy = Math.max(0, Math.min(1.0, energy));
   };

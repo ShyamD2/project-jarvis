@@ -200,6 +200,27 @@ class FloatingAgentAPI:
         """Notifies the VAD engine whether TTS audio is currently speaking to prevent acoustic loop."""
         self._is_speaking_tts = bool(is_speaking)
 
+    def stop_speaking(self) -> dict:
+        """Immediately halts any speech synthesis or audio playback in UI and backend."""
+        self._is_speaking_tts = False
+        try:
+            from services.sensory.voice_synthesizer import voice_synthesizer
+            voice_synthesizer.interrupt()
+        except Exception:
+            pass
+        try:
+            import pygame
+            if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()
+        except Exception:
+            pass
+        if self._window:
+            try:
+                self._window.evaluate_js("window.stopSpeakingAudio && window.stopSpeakingAudio()")
+            except Exception:
+                pass
+        return {"success": True, "speaking": False}
+
     def bind_window(self, window):
         self._window = window
 
@@ -332,16 +353,39 @@ class FloatingAgentAPI:
                 speech_chunks = []
                 silence_chunks = 0
                 max_silence = 10  # ~0.64s of silence concludes phrase
+                barge_in_streak = 0
 
                 while self._is_listening:
                     try:
                         data = stream.read(1024, exception_on_overflow=False)
-                        if self._is_speaking_tts:
-                            # Echo cancellation: suppress mic capture during Jarvis's own voice playback
-                            time.sleep(0.01)
-                            continue
-
                         rms = audioop.rms(data, 2)
+
+                        if self._is_speaking_tts:
+                            # BARGE-IN INTERRUPTION DETECTOR
+                            # When J.A.R.V.I.S. is speaking through laptop speakers, laptop mic hears ~300-800 RMS.
+                            # Deliberate human voice interruption produces an energy surge (>900 RMS).
+                            barge_in_threshold = max(900, int(baseline_rms * 1.85))
+                            if rms > barge_in_threshold:
+                                barge_in_streak += 1
+                                if barge_in_streak >= 2:  # ~128ms of deliberate user voice
+                                    logger.info(f"⚡ [VoiceBridge] Barge-In interruption detected! (RMS: {rms}, Threshold: {barge_in_threshold})")
+                                    self._is_speaking_tts = False
+                                    barge_in_streak = 0
+                                    self.stop_speaking()
+
+                                    # Immediately transition to capturing user's voice
+                                    is_capturing = True
+                                    speech_chunks = [data]
+                                    silence_chunks = 0
+                                    if self._window:
+                                        try:
+                                            self._window.evaluate_js("window.onInterrupted && window.onInterrupted()")
+                                            self._window.evaluate_js("window.onVoiceActivity && window.onVoiceActivity(true)")
+                                        except Exception:
+                                            pass
+                            else:
+                                barge_in_streak = max(0, barge_in_streak - 1)
+                            continue
 
                         if not is_capturing:
                             if rms > speech_threshold:
