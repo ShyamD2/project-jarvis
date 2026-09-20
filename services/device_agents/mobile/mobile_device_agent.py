@@ -10,6 +10,8 @@ Runs as the device execution agent on mobile devices (or through mobile bridge):
 from __future__ import annotations
 import os
 import sys
+import shutil
+import subprocess
 import time
 from typing import Dict, Any, Optional
 
@@ -38,73 +40,95 @@ class MobileDeviceAgent:
         logger.info(f"📱 [MobileDeviceAgent] Received mobile task '{packet.task_id}': action='{action}'")
 
         try:
+            # Verify physical connectivity / ADB bridge availability
+            adb_bin = shutil.which("adb")
+            target_ip = os.getenv("ANDROID_DEVICE_IP", "")
+            
             # 1. OPEN MOBILE APPLICATION (e.g. WhatsApp, Instagram, Camera)
             if action in ["open_app", "launch_app"]:
-                app_name = params.get("app_name", "").strip()
-                logger.info(f"📱 [MobileDeviceAgent] Opening mobile app: '{app_name}'")
+                app_name = params.get("app_name", "").strip().lower()
+                logger.info(f"📱 [MobileDeviceAgent] Requesting mobile app launch: '{app_name}'")
 
-                # Send proactive push notification to user's phone via Telegram Mobile Gateway
-                try:
-                    from services.gateway.telegram_bot import telegram_gateway
-                    if telegram_gateway.is_configured:
-                        await telegram_gateway.broadcast_to_authorized(
-                            f"📱 <b>Mobile Action Executed</b>\n\nCommand: <code>Open {app_name.capitalize()}</code>\nTarget: <i>Shyam's Phone</i>\nStatus: <i>Dispatched to Android foreground</i>",
-                            parse_mode="HTML"
+                if adb_bin:
+                    # Attempt real launch via adb if device available
+                    pkg_map = {
+                        "whatsapp": "com.whatsapp",
+                        "instagram": "com.instagram.android",
+                        "camera": "com.android.camera",
+                        "settings": "com.android.settings",
+                        "chrome": "com.android.chrome"
+                    }
+                    pkg = pkg_map.get(app_name, app_name)
+                    cmd = [adb_bin, "shell", "monkey", "-p", pkg, "-c", "android.intent.category.LAUNCHER", "1"]
+                    res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                    if res.returncode == 0:
+                        duration = (time.time() - start_time) * 1000
+                        return AgentTaskResult(
+                            task_id=packet.task_id,
+                            device_id=self.device_id,
+                            success=True,
+                            status="COMPLETED",
+                            result={"action": "open_app", "app_name": app_name, "dispatched_via": "adb"},
+                            duration_ms=round(duration, 2)
                         )
-                except Exception as e:
-                    logger.debug(f"[MobileDeviceAgent] Telegram push notice: {e}")
 
+                # If no ADB bridge or device unreachable, report truthfully
                 duration = (time.time() - start_time) * 1000
                 return AgentTaskResult(
                     task_id=packet.task_id,
                     device_id=self.device_id,
-                    success=True,
-                    status="COMPLETED",
-                    result={
-                        "action": "open_app",
-                        "app_name": app_name,
-                        "device": "Shyam's Phone (Android)",
-                        "dispatched": True
-                    },
+                    success=False,
+                    status="DEVICE_UNPAIRED",
+                    error=f"Cannot open '{app_name}' on phone: Android device '{self.device_id}' is not connected via ADB or local bridge.",
                     duration_ms=round(duration, 2)
                 )
 
             # 2. CHECK NOTIFICATIONS
             elif action in ["check_notifications", "notifications"]:
                 duration = (time.time() - start_time) * 1000
+                if adb_bin:
+                    # Real dumpsys notification query
+                    res = subprocess.run([adb_bin, "shell", "dumpsys", "notification", "--noredact"], capture_output=True, text=True, timeout=5)
+                    if res.returncode == 0:
+                        return AgentTaskResult(
+                            task_id=packet.task_id,
+                            device_id=self.device_id,
+                            success=True,
+                            status="COMPLETED",
+                            result={"raw_telemetry": res.stdout[:500]},
+                            duration_ms=round(duration, 2)
+                        )
+
                 return AgentTaskResult(
                     task_id=packet.task_id,
                     device_id=self.device_id,
-                    success=True,
-                    status="COMPLETED",
-                    result={"notifications": ["All clear. No urgent missed notifications on your phone."]},
+                    success=False,
+                    status="DEVICE_UNPAIRED",
+                    error="Phone is currently unreachable to fetch notifications.",
                     duration_ms=round(duration, 2)
                 )
 
             # 3. SEND MESSAGE
             elif action in ["send_message", "message"]:
-                recipient = params.get("recipient", "Contact")
-                msg_body = params.get("message", "")
                 duration = (time.time() - start_time) * 1000
                 return AgentTaskResult(
                     task_id=packet.task_id,
                     device_id=self.device_id,
-                    success=True,
-                    status="COMPLETED",
-                    result={"recipient": recipient, "message": msg_body, "queued": True},
+                    success=False,
+                    status="DEVICE_UNPAIRED",
+                    error="Mobile message dispatch requires an active paired Android bridge.",
                     duration_ms=round(duration, 2)
                 )
 
             # 4. PHONE CALL / DIAL CONTACT
             elif action in ["call_contact", "call"]:
-                contact = params.get("contact", params.get("name", "Unknown"))
                 duration = (time.time() - start_time) * 1000
                 return AgentTaskResult(
                     task_id=packet.task_id,
                     device_id=self.device_id,
-                    success=True,
-                    status="COMPLETED",
-                    result={"contact": contact, "dialed": True},
+                    success=False,
+                    status="DEVICE_UNPAIRED",
+                    error="Phone call execution requires paired mobile telephony bridge.",
                     duration_ms=round(duration, 2)
                 )
 
@@ -114,9 +138,9 @@ class MobileDeviceAgent:
                 return AgentTaskResult(
                     task_id=packet.task_id,
                     device_id=self.device_id,
-                    success=True,
-                    status="COMPLETED",
-                    result={"action": "camera_launch", "status": "active"},
+                    success=False,
+                    status="DEVICE_UNPAIRED",
+                    error="Mobile camera remote control requires active ADB session.",
                     duration_ms=round(duration, 2)
                 )
 

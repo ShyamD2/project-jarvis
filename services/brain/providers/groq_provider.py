@@ -87,9 +87,10 @@ class GroqProvider(BaseLLMProvider):
         prompt: str,
         system_prompt: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        messages: Optional[List[Dict[str, Any]]] = None
     ) -> LLMResponse:
-        """Executes non-streaming completion via Groq with tool calling."""
+        """Executes non-streaming completion via Groq with tool calling and multi-turn support."""
         if not self.is_configured:
             raise ValueError("GROQ_API_KEY is not configured.")
 
@@ -105,14 +106,17 @@ class GroqProvider(BaseLLMProvider):
             "Speak concisely, addressing the user as 'sir'."
         )
 
-        messages = [
-            {"role": "system", "content": sys_msg},
-            {"role": "user", "content": prompt}
-        ]
+        if messages:
+            chat_messages = messages
+        else:
+            chat_messages = [
+                {"role": "system", "content": sys_msg},
+                {"role": "user", "content": prompt}
+            ]
 
         payload: Dict[str, Any] = {
             "model": self.model,
-            "messages": messages,
+            "messages": chat_messages,
             "temperature": temperature,
             "max_tokens": 4096
         }

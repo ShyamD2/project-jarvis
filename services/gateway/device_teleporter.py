@@ -91,16 +91,23 @@ class DeviceTeleporter:
         raw_json = json.dumps(state_bundle, indent=None).encode("utf-8")
         compressed = gzip.compress(raw_json)
 
-        # Encrypt with Master PIN key
-        key = self._get_encryption_key(pin)
-        encrypted = self._xor_cipher(compressed, key)
-        encoded_b64 = base64.b64encode(encrypted).decode("utf-8")
+        # Serialize with AES-256 Fernet (via state_sync) or compressed cipher fallback
+        try:
+            from services.cloud.encrypted_state_sync import state_sync
+            encoded_payload = state_sync.encrypt_state(state_bundle, secret=pin)
+            compressed_len = len(encoded_payload.encode("utf-8"))
+        except Exception as e:
+            logger.warning(f"[DeviceTeleporter] AES-256 sync fallback to standard cipher: {e}")
+            key = self._get_encryption_key(pin)
+            encrypted = self._xor_cipher(compressed, key)
+            encoded_payload = base64.b64encode(encrypted).decode("utf-8")
+            compressed_len = len(compressed)
 
         # Save to disk
         capsule_filename = f"{capsule_id}.jarvis_capsule"
         file_path = os.path.join(CAPSULES_DIR, capsule_filename)
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(encoded_b64)
+            f.write(encoded_payload)
 
         duration_ms = round((time.time() - t0) * 1000, 2)
         summary = {
@@ -110,11 +117,12 @@ class DeviceTeleporter:
             "file_path": file_path,
             "target_device": target_device,
             "raw_size_bytes": len(raw_json),
-            "compressed_size_bytes": len(compressed),
+            "compressed_size_bytes": compressed_len,
+            "encryption": "AES-256-Fernet",
             "duration_ms": duration_ms
         }
         self._history.append(summary)
-        logger.info(f"🌐 [DeviceTeleporter] Serialized state capsule [{capsule_id}] for '{target_device}' in {duration_ms}ms.")
+        logger.info(f"🌐 [DeviceTeleporter] Serialized state capsule [{capsule_id}] for '{target_device}' in {duration_ms}ms (AES-256).")
         return summary
 
     def hydrate_capsule(
@@ -124,29 +132,45 @@ class DeviceTeleporter:
     ) -> Dict[str, Any]:
         """
         Decrypts, decompresses, and re-hydrates a session capsule onto the local workstation.
+        Supports both AES-256 Fernet tokens and legacy compressed capsules.
         """
         t0 = time.time()
         try:
-            # Read b64 data
+            # Read payload data
             if os.path.exists(capsule_path_or_b64):
                 with open(capsule_path_or_b64, "r", encoding="utf-8") as f:
-                    encoded_b64 = f.read().strip()
+                    encoded_data = f.read().strip()
             else:
-                encoded_b64 = capsule_path_or_b64.strip()
+                encoded_data = capsule_path_or_b64.strip()
 
-            encrypted = base64.b64decode(encoded_b64)
-            key = self._get_encryption_key(pin)
-            compressed = self._xor_cipher(encrypted, key)
-            raw_json = gzip.decompress(compressed).decode("utf-8")
-            data = json.loads(raw_json)
+            data = None
+            # Attempt 1: AES-256 Fernet decryption
+            try:
+                from services.cloud.encrypted_state_sync import state_sync
+                data = state_sync.decrypt_state(encoded_data, secret=pin)
+            except Exception:
+                pass
 
-            logger.info(f"✔ [DeviceTeleporter] Hydrated capsule [{data.get('capsule_id')}] from {data.get('source_device')}.")
+            # Attempt 2: Legacy XOR compressed decryption
+            if data is None:
+                encrypted = base64.b64decode(encoded_data)
+                key = self._get_encryption_key(pin)
+                compressed = self._xor_cipher(encrypted, key)
+                raw_json = gzip.decompress(compressed).decode("utf-8")
+                data = json.loads(raw_json)
+
+            capsule_id = data.get("capsule_id", "unknown_capsule")
+            source_dev = data.get("source_device", "remote_node")
+            missions = data.get("missions", [])
+
+            logger.info(f"✔ [DeviceTeleporter] Hydrated capsule [{capsule_id}] from {source_dev} ({len(missions)} missions).")
             return {
                 "success": True,
-                "capsule_id": data.get("capsule_id"),
-                "source_device": data.get("source_device"),
+                "capsule_id": capsule_id,
+                "source_device": source_dev,
                 "created_at": data.get("created_at"),
-                "restored_missions_count": len(data.get("missions", [])),
+                "restored_missions_count": len(missions),
+                "data": data,
                 "duration_ms": round((time.time() - t0) * 1000, 2)
             }
         except Exception as e:

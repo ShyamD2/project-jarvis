@@ -6,6 +6,7 @@ Integrates Emergency Stand-Down, 4-Tier Safety Guard, and Structured Audit Trail
 
 from typing import Dict, Any, Optional, List
 import time
+import json
 
 from services.brain.intent_router import router as intent_router, IntentType, RoutedIntent
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
@@ -13,6 +14,7 @@ from services.brain.providers.mock_provider import MockLLMProvider
 from services.brain.providers.ai_manager import ai_manager
 from services.memory.feedback_learning import learner
 from services.memory.neural_memory import neural_memory
+from services.memory.episodic_memory import episodic_memory
 from services.brain.speculative_engine import speculative_engine
 from services.brain.darwinian_optimizer import darwinian_optimizer
 from services.brain.ml_operator_learner import ml_learner
@@ -20,6 +22,7 @@ from services.brain.tools.registry import registry as tool_registry
 from agents.intelligence.emergency_stop import emergency_stop
 from agents.intelligence.safety_guard import safety_guard
 from agents.intelligence.audit_logger import audit_logger
+from services.security.prompt_shield import prompt_shield
 from shared.schemas.action_envelope import ActionTier, TargetWorld, ActionEnvelope
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 from shared.sdk_python.jarvis_sdk.config import config
@@ -207,10 +210,22 @@ class AgentRuntime:
                 darwinian_optimizer.profile_tool_execution(routed.target_tool, (time.time() - start_time) * 1000, exec_res.get("success", True))
             except Exception:
                 pass
+            actions_list = [{"tool": routed.target_tool, "arguments": routed.parameters, "result": res_data, "status": "completed"}]
+            try:
+                episodic_memory.record_episode(
+                    user_query=query,
+                    intent=routed.intent_type.value,
+                    actions_executed=actions_list,
+                    status="SUCCESS" if exec_res.get("success", True) else "FAILED",
+                    duration_ms=(time.time() - start_time) * 1000,
+                    verified=bool(exec_res.get("success", True))
+                )
+            except Exception:
+                pass
             return {
                 "response": self._synthesize_tool_response(routed.target_tool, routed.parameters, res_data),
                 "intent": routed.intent_type.value,
-                "actions_executed": [{"tool": routed.target_tool, "arguments": routed.parameters, "result": res_data, "status": "completed"}],
+                "actions_executed": actions_list,
                 "verified": exec_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
@@ -219,17 +234,19 @@ class AgentRuntime:
         active_provider = self.deep_provider if routed.recommended_model_tier == "tier_2_deep" else self.fast_provider
 
         # 2. PLAN & SELECT TOOLS
-        # For general conversation, questions, greetings, or explanations, do NOT pass tool specs.
-        # This prevents the LLM from hallucinating launch_app or other tool invocations on conversational questions.
+        # Pass tools whenever intent is an action/query or router identified a target tool
         pass_tools = True
-        if routed.intent_type == IntentType.CONVERSATION:
+        if routed.target_tool:
+            pass_tools = True
+        elif routed.intent_type == IntentType.CONVERSATION:
             pass_tools = False
         else:
             q_clean = query.lower().strip().rstrip(".,!?")
             action_verbs = [
                 "open", "launch", "close", "shut", "kill", "start", "run", "volume", "mute", "unmute",
                 "turn on", "turn off", "lock", "screenshot", "search", "docker", "deploy", "terraform", "browse",
-                "powershell", "cmd", "switch", "press", "click", "sre", "heal", "rewind", "checkpoint", "teleport"
+                "powershell", "cmd", "switch", "press", "click", "sre", "heal", "rewind", "checkpoint", "teleport",
+                "check", "inspect", "status", "vitals", "battery", "cpu", "ram", "disk", "hardware", "wifi", "ip", "list", "show"
             ]
             if not any(v in q_clean for v in action_verbs):
                 pass_tools = False
@@ -250,6 +267,12 @@ class AgentRuntime:
             neural_context = neural_memory.format_memory_context(query)
         except Exception as e:
             logger.debug(f"[AgentRuntime] Neural memory recall lookup: {e}")
+
+        episodic_context = ""
+        try:
+            episodic_context = episodic_memory.format_episodic_context(query)
+        except Exception as e:
+            logger.debug(f"[AgentRuntime] Episodic memory recall lookup: {e}")
 
         intent_hint = ""
         if routed.target_tool and routed.intent_type in [IntentType.DIRECT_ACTION, IntentType.COMPLEX_PLAN]:
@@ -281,21 +304,59 @@ class AgentRuntime:
             f"{intent_hint}"
             f"{recent_context}"
             f"{neural_context}"
+            f"{episodic_context}"
         )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": query}
+        ]
 
         llm_response: LLMResponse = await active_provider.generate(
             prompt=query,
             system_prompt=system_prompt,
-            tools=tool_specs
+            tools=tool_specs,
+            messages=messages
         )
 
         executed_actions: List[Dict[str, Any]] = []
         iteration = 0
 
-        # 3. AUTHORIZE, EXECUTE & VERIFY LOOP (ReAct)
+        # 3. AUTHORIZE, EXECUTE & VERIFY LOOP (Multi-Turn ReAct Trajectory)
         while llm_response.tool_calls and iteration < self.max_loop_iterations:
             iteration += 1
-            for tc in llm_response.tool_calls:
+
+            # Append assistant turn with tool calls to conversation history
+            assistant_entry: Dict[str, Any] = {
+                "role": "assistant",
+                "content": llm_response.content or ""
+            }
+            assistant_entry["tool_calls"] = [
+                {
+                    "id": tc.call_id or f"call_{tc.tool_name}_{idx}",
+                    "type": "function",
+                    "function": {
+                        "name": tc.tool_name,
+                        "arguments": json.dumps(tc.arguments) if isinstance(tc.arguments, dict) else str(tc.arguments)
+                    }
+                }
+                for idx, tc in enumerate(llm_response.tool_calls)
+            ]
+            messages.append(assistant_entry)
+
+            for idx, tc in enumerate(llm_response.tool_calls):
+                # Mid-loop Emergency Stop check
+                if emergency_stop.is_stopped:
+                    logger.warning("[AgentRuntime] Emergency stop is active mid-trajectory! Halting further actions.")
+                    return {
+                        "response": "Sir, emergency stand-down was triggered. All autonomous operations have been halted immediately.",
+                        "intent": "emergency_active",
+                        "actions_executed": executed_actions,
+                        "verified": True,
+                        "latency_ms": (time.time() - start_time) * 1000
+                    }
+
+                call_id = tc.call_id or f"call_{tc.tool_name}_{idx}"
                 exec_res = await tool_registry.execute_tool(
                     name=tc.tool_name,
                     parameters=tc.arguments,
@@ -320,9 +381,9 @@ class AgentRuntime:
                     }
 
                 tool_output = exec_res.get("result", {})
-                logical_ok = bool(exec_res.get("success", False))
+                is_verified = bool(exec_res.get("verified", exec_res.get("success", False)))
                 try:
-                    darwinian_optimizer.profile_tool_execution(tc.tool_name, exec_res.get("duration_ms", 0.0), logical_ok)
+                    darwinian_optimizer.profile_tool_execution(tc.tool_name, exec_res.get("duration_ms", 0.0), is_verified)
                 except Exception:
                     pass
 
@@ -332,26 +393,53 @@ class AgentRuntime:
                     "result": tool_output,
                     "status": exec_res.get("status", "completed"),
                     "duration_ms": exec_res.get("duration_ms", 0.0),
-                    "verified": logical_ok
+                    "verified": is_verified,
+                    "verification_details": exec_res.get("verification_details", {})
                 })
 
                 # Broadcast action event to Mesh for UI animation
                 action_event = JarvisEvent(
                     source="brain.runtime",
                     type=f"action.{tc.tool_name}",
-                    data={"tool": tc.tool_name, "result": tool_output}
+                    data={"tool": tc.tool_name, "result": tool_output, "verified": is_verified}
                 )
                 try:
                     mesh.publish(action_event)
                 except Exception:
                     pass
 
-            if routed.intent_type in [IntentType.DIRECT_ACTION, IntentType.CONVERSATION]:
+                # Truncate oversized output to prevent context window overflow
+                output_str = json.dumps(tool_output) if isinstance(tool_output, (dict, list)) else str(tool_output)
+                if len(output_str) > 3000:
+                    output_str = output_str[:1500] + "\n... [DATA TRUNCATED FOR CONTEXT LIMIT] ...\n" + output_str[-1500:]
+
+                # Shield tool output with PromptShield before returning to LLM context
+                safe_output_str = prompt_shield.wrap_untrusted_content(output_str, source_type=tc.tool_name)
+
+                # INJECT TOOL RESULT DIRECTLY BACK INTO THE LLM MESSAGES TRAJECTORY!
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": tc.tool_name,
+                    "content": safe_output_str
+                })
+
+            # CALL LLM AGAIN: Evaluates tool outputs, verifies findings, or issues next sequential action
+            try:
+                llm_response = await active_provider.generate(
+                    prompt="",
+                    system_prompt=system_prompt,
+                    tools=tool_specs,
+                    messages=messages
+                )
+                logger.info(f"🧠 [AgentRuntime: Multi-Turn] Iteration {iteration} completed. Model response: '{llm_response.content[:80] if llm_response.content else '[Emitted more tools]'}'")
+            except Exception as e:
+                logger.warning(f"[AgentRuntime] Multi-turn follow-up inference notice: {e}")
                 break
 
         total_latency = (time.time() - start_time) * 1000
 
-        # 4. RESPOND: Formulate verified response
+        # 4. RESPOND: Formulate verified response from LLM synthesis
         final_response = llm_response.content
         if not final_response or not final_response.strip():
             if executed_actions:
@@ -365,6 +453,19 @@ class AgentRuntime:
             first_tool = executed_actions[0]["tool"]
             first_args = executed_actions[0].get("arguments")
             ml_learner.record_successful_turn(query, first_tool, first_args, total_latency)
+
+        # Episodic Task Memory Recording
+        try:
+            episodic_memory.record_episode(
+                user_query=query,
+                intent=routed.intent_type.value,
+                actions_executed=executed_actions,
+                status="SUCCESS" if all(a.get("verified", True) for a in executed_actions) else "PARTIAL",
+                duration_ms=total_latency,
+                verified=all(a.get("verified", True) for a in executed_actions)
+            )
+        except Exception:
+            pass
 
         return {
             "response": final_response,

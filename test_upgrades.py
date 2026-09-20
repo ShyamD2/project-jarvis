@@ -105,7 +105,7 @@ async def test_telegram_gateway():
 
 async def test_sentry_mode():
     print("\n[6/11] Testing Sentry Mode & Health Watchdog...")
-    sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+    sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
     from system_monitor import system_monitor
     from agent_daemon import pc_daemon
 

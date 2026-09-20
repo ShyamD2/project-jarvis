@@ -99,7 +99,8 @@ class AIManager(BaseLLMProvider):
         prompt: str,
         system_prompt: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        messages: Optional[List[Dict[str, Any]]] = None
     ) -> LLMResponse:
         """
         Coordinates primary and fallback AI generation with resilient multi-tier routing:
@@ -115,7 +116,8 @@ class AIManager(BaseLLMProvider):
                     prompt=prompt,
                     system_prompt=system_prompt,
                     tools=tools,
-                    temperature=temperature
+                    temperature=temperature,
+                    messages=messages
                 )
             except Exception as e:
                 logger.warning(f"[AIManager] OpenRouter failed: {e}. Cascading to fallback providers...")
@@ -128,7 +130,8 @@ class AIManager(BaseLLMProvider):
                     prompt=prompt,
                     system_prompt=system_prompt,
                     tools=tools,
-                    temperature=temperature
+                    temperature=temperature,
+                    messages=messages
                 )
             except Exception as e:
                 logger.warning(f"[AIManager] Groq Provider failed: {e}. Cascading to fallback providers...")
@@ -158,7 +161,8 @@ class AIManager(BaseLLMProvider):
                     prompt=prompt,
                     system_prompt=system_prompt,
                     tools=tools,
-                    temperature=temperature
+                    temperature=temperature,
+                    messages=messages
                 )
             except Exception as e:
                 logger.warning(f"[AIManager] OpenRouter fallback failed: {e}")
@@ -172,7 +176,8 @@ class AIManager(BaseLLMProvider):
                     prompt=prompt,
                     system_prompt=system_prompt,
                     tools=tools,
-                    temperature=temperature
+                    temperature=temperature,
+                    messages=messages
                 )
             except Exception as e:
                 logger.warning(f"[AIManager] Groq fallback failed: {e}")

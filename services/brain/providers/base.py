@@ -33,9 +33,10 @@ class BaseLLMProvider(ABC):
         prompt: str,
         system_prompt: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
-        temperature: float = 0.7
+        temperature: float = 0.7,
+        messages: Optional[List[Dict[str, Any]]] = None
     ) -> LLMResponse:
-        """Execute non-streaming inference with optional tools"""
+        """Execute non-streaming inference with optional tools and multi-turn messages"""
         pass
 
     @abstractmethod

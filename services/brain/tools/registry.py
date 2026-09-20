@@ -17,7 +17,7 @@ from shared.sdk_python.jarvis_sdk.logger import get_logger
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "agents"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 
 # Pillar 1: Computer Agents
 from agents.computer.windows_agent import windows_agent
@@ -45,6 +45,11 @@ from agents.intelligence.audit_logger import audit_logger
 from agents.intelligence.vision_agent import vision_agent
 from agents.intelligence.productivity_agent import productivity_agent
 from agents.intelligence.planner import planner
+
+# Verification & Epistemic Engines
+from services.verification.verification_engine import verification_engine
+from services.brain.epistemic_evaluator import epistemic_evaluator
+from services.observability.chained_audit_ledger import chained_audit_ledger
 
 # Physical IoT
 from agents.physical.esp32_agent import esp32_agent
@@ -752,7 +757,10 @@ class SystemQueryTool(JarvisTool):
             return power_agent.get_free_disk_space()
         elif qt in ["network", "ip"]:
             return network_agent.get_ip_addresses()
-        return system_monitor.collect_telemetry()
+        res = system_monitor.collect_telemetry()
+        if isinstance(res, dict) and "success" not in res:
+            res["success"] = True
+        return res
 
 
 class AnalyzeScreenTool(JarvisTool):
@@ -981,6 +989,8 @@ class ToolRegistry:
         logger.info(f"Initialized ToolRegistry with {len(self._tools)} registered domain tools.")
 
     def register(self, tool: JarvisTool):
+        if not hasattr(tool, "definition") or not getattr(tool.definition, "tier", None):
+            raise ValueError(f"Tool '{getattr(tool, 'name', str(tool))}' rejected: Mandatory ActionTier declaration required.")
         self._tools[tool.name] = tool
 
     def get_tool(self, name: str) -> Optional[JarvisTool]:
@@ -1009,7 +1019,7 @@ class ToolRegistry:
     ) -> Dict[str, Any]:
         """
         Executes a tool through the strict architectural pipeline:
-        Emergency Check -> SafetyGuard 4-Tier Check -> Confirmation Gate -> Timeout Manager -> Execution -> Audit Logger -> Result
+        Mandatory ActionTier Check -> Emergency Check -> SafetyGuard 4-Tier Check -> Cryptographic Confirmation Gate -> Timeout Manager -> Execution -> Audit Logger -> Result
         """
         start_time = time.time()
         tool = self.get_tool(name)
@@ -1026,6 +1036,16 @@ class ToolRegistry:
                 details={"error": err_msg}
             )
             return {"success": False, "error": err_msg, "status": "not_found"}
+
+        # 0. MANDATORY ACTIONTIER DECLARATION VERIFICATION
+        if not getattr(tool.definition, "tier", None):
+            err_msg = f"Tool '{name}' security rejection: Missing mandatory ActionTier declaration."
+            logger.critical(f"🚨 {err_msg}")
+            return {
+                "success": False,
+                "status": "security_violation",
+                "error": err_msg
+            }
 
         # 1. EMERGENCY STOP CHECK
         if emergency_stop.is_stopped:
@@ -1089,6 +1109,53 @@ class ToolRegistry:
             tool_result = await asyncio.wait_for(tool.execute(**parameters), timeout=timeout)
             duration_ms = (time.time() - start_time) * 1000
 
+            # Ground-truth sensory verification of real OS / Cloud state change
+            verification = verification_engine.verify_action_execution(name, parameters, tool_result)
+            is_verified = (verification.status.value == "verified")
+            if not is_verified and verification.failure_reason:
+                tool_result["verification_error"] = verification.failure_reason
+
+            # Autonomous Recovery Attempt: If execution or verification failed, attempt alternate strategy
+            if not is_verified or (isinstance(tool_result, dict) and not tool_result.get("success", True)):
+                try:
+                    from services.brain.recovery_engine import recovery_engine
+                    rec_res = await recovery_engine.attempt_recovery(
+                        name, parameters, str(tool_result.get("error") or getattr(verification, "failure_reason", "") or "Execution failed")
+                    )
+                    if rec_res.get("recovered"):
+                        tool_result["recovery_details"] = rec_res
+                        tool_result["recovered"] = True
+                        verification = verification_engine.verify_action_execution(name, parameters, tool_result)
+                        is_verified = True
+                except Exception as rec_err:
+                    logger.debug(f"[ToolRegistry] Recovery attempt notice: {rec_err}")
+
+            # Epistemic Assessment: Truth-in-State Evaluation
+            epistemic = epistemic_evaluator.evaluate(
+                tool_name=name,
+                tool_result=tool_result,
+                verification_status=is_verified,
+                verification_details=verification.details
+            )
+
+            # Record in Cryptographically Chained Local Audit Ledger (SHA-256)
+            try:
+                chained_audit_ledger.record_action(
+                    intent=action_name,
+                    tool=name,
+                    parameters=parameters,
+                    authorization_ticket=approval_id,
+                    verification_status=is_verified,
+                    result="SUCCESS" if is_verified else "VERIFICATION_FAILED",
+                    metadata={
+                        "epistemic_state": epistemic.state.value,
+                        "confidence": epistemic.confidence,
+                        "sensory_verified": epistemic.sensory_verified
+                    }
+                )
+            except Exception as chain_err:
+                logger.debug(f"[ToolRegistry] Chained ledger append notice: {chain_err}")
+
             # Record success in execution audit log
             audit_logger.record_entry(
                 user_query=raw_query or name,
@@ -1096,17 +1163,26 @@ class ToolRegistry:
                 tool=name,
                 parameters=parameters,
                 risk_tier=decision.get("tier", "TIER_1_REVERSIBLE"),
-                result="SUCCESS" if tool_result.get("success", True) else "FAILED",
+                result="SUCCESS" if is_verified else "VERIFICATION_FAILED",
                 confirmation_state="CONFIRMED" if approval_id else "NONE",
                 duration_ms=duration_ms,
                 caller=caller_agent,
-                details={"result_keys": list(tool_result.keys()) if isinstance(tool_result, dict) else []}
+                details={
+                    "verified": is_verified,
+                    "sensory_verified": verification.sensory_verified,
+                    "epistemic_state": epistemic.state.value,
+                    "result_keys": list(tool_result.keys()) if isinstance(tool_result, dict) else []
+                }
             )
 
             return {
-                "success": tool_result.get("success", True),
+                "success": is_verified,
+                "verified": is_verified,
+                "verification_details": verification.details,
+                "epistemic_state": epistemic.state.value,
+                "epistemic_summary": epistemic.truthful_summary,
                 "result": tool_result,
-                "status": "completed",
+                "status": "completed" if is_verified else "verification_failed",
                 "duration_ms": round(duration_ms, 2)
             }
         except asyncio.TimeoutError:

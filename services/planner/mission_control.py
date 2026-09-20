@@ -16,7 +16,7 @@ from dataclasses import dataclass, field, asdict
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "agents/cloud"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "agents/computer"))
 

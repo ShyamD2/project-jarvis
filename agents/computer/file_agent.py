@@ -9,13 +9,37 @@ import zipfile
 import subprocess
 import glob
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisFileAgent")
 
+import tempfile
+
+class SecurityViolationError(PermissionError):
+    """Raised when an operation attempts to access or modify paths outside the allowed sandbox jail."""
+    pass
+
 USER_HOME = os.path.expanduser("~")
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+
+ALLOWED_JAIL_ROOTS = [
+    PROJECT_ROOT,
+    os.path.join(USER_HOME, "Desktop"),
+    os.path.join(USER_HOME, "Downloads"),
+    os.path.join(USER_HOME, "Documents"),
+    os.path.join(USER_HOME, "Pictures"),
+    tempfile.gettempdir()
+]
+
+FORBIDDEN_PATHS = [
+    os.environ.get("SystemRoot", r"C:\Windows"),
+    os.environ.get("ProgramFiles", r"C:\Program Files"),
+    os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+    r"C:\Recovery",
+    r"C:\System Volume Information",
+    os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32"),
+]
 
 PATH_ALIASES = {
     "desktop": os.path.join(USER_HOME, "Desktop"),
@@ -30,6 +54,41 @@ PATH_ALIASES = {
 class FileAgent:
     def __init__(self):
         pass
+
+    def _check_jail(self, target_path: str, operation: str = "write") -> Tuple[bool, str]:
+        """
+        Validates that target_path resolves strictly within allowed jail directories
+        and does not touch forbidden system paths.
+        """
+        real_path = os.path.realpath(os.path.abspath(target_path))
+        
+        # 1. Reject forbidden roots immediately
+        for fb in FORBIDDEN_PATHS:
+            if not fb:
+                continue
+            fb_real = os.path.realpath(os.path.abspath(fb))
+            try:
+                if os.path.splitdrive(real_path)[0].lower() == os.path.splitdrive(fb_real)[0].lower():
+                    if os.path.commonpath([real_path, fb_real]).lower() == fb_real.lower():
+                        msg = f"SecurityViolation: Path '{real_path}' belongs to protected system directory '{fb_real}'"
+                        logger.critical(f"[FileAgent] {msg} for operation '{operation}'")
+                        return False, msg
+            except ValueError:
+                pass
+
+        # 2. Check if inside at least one allowed jail root
+        for jail in ALLOWED_JAIL_ROOTS:
+            jail_real = os.path.realpath(os.path.abspath(jail))
+            try:
+                if os.path.splitdrive(real_path)[0].lower() == os.path.splitdrive(jail_real)[0].lower():
+                    if os.path.commonpath([real_path, jail_real]).lower() == jail_real.lower():
+                        return True, "Allowed"
+            except ValueError:
+                continue
+
+        msg = f"SecurityViolation: Path '{real_path}' is outside permitted sandbox roots for operation '{operation}'"
+        logger.critical(f"[FileAgent] {msg}")
+        return False, msg
 
     def _resolve_path(self, path_str: str) -> str:
         """Resolves shortcuts/aliases to absolute paths"""
@@ -57,6 +116,9 @@ class FileAgent:
     def create_folder(self, folder_path: str) -> Dict[str, Any]:
         """Creates a directory and any intermediate folders"""
         real_path = self._resolve_path(folder_path)
+        safe, err = self._check_jail(real_path, "create_folder")
+        if not safe:
+            return {"success": False, "error": err}
         logger.info(f"[FileAgent] Creating folder: {real_path}")
         try:
             os.makedirs(real_path, exist_ok=True)
@@ -67,6 +129,9 @@ class FileAgent:
     def create_file(self, file_path: str, content: str = "") -> Dict[str, Any]:
         """Creates or writes a file with optional content"""
         real_path = self._resolve_path(file_path)
+        safe, err = self._check_jail(real_path, "create_file")
+        if not safe:
+            return {"success": False, "error": err}
         logger.info(f"[FileAgent] Creating file: {real_path}")
         try:
             os.makedirs(os.path.dirname(real_path), exist_ok=True)
@@ -82,6 +147,12 @@ class FileAgent:
         if not os.path.exists(src):
             return {"success": False, "error": f"Source not found: {src}"}
         dest = os.path.join(os.path.dirname(src), new_name)
+        safe_src, err_src = self._check_jail(src, "rename_item_source")
+        if not safe_src:
+            return {"success": False, "error": err_src}
+        safe_dest, err_dest = self._check_jail(dest, "rename_item_dest")
+        if not safe_dest:
+            return {"success": False, "error": err_dest}
         try:
             os.rename(src, dest)
             return {"success": True, "old_path": src, "new_path": dest}
@@ -92,6 +163,12 @@ class FileAgent:
         """Moves a file or folder to a target destination"""
         src = self._resolve_path(source)
         dest = self._resolve_path(destination)
+        safe_src, err_src = self._check_jail(src, "move_item_source")
+        if not safe_src:
+            return {"success": False, "error": err_src}
+        safe_dest, err_dest = self._check_jail(dest, "move_item_dest")
+        if not safe_dest:
+            return {"success": False, "error": err_dest}
         try:
             shutil.move(src, dest)
             return {"success": True, "source": src, "destination": dest}
@@ -102,6 +179,9 @@ class FileAgent:
         """Copies a file or folder"""
         src = self._resolve_path(source)
         dest = self._resolve_path(destination)
+        safe_dest, err_dest = self._check_jail(dest, "copy_item_dest")
+        if not safe_dest:
+            return {"success": False, "error": err_dest}
         try:
             if os.path.isdir(src):
                 shutil.copytree(src, dest, dirs_exist_ok=True)
@@ -118,6 +198,9 @@ class FileAgent:
         If permanent=True, permanently removes (Tier 3 Destructive).
         """
         real_path = self._resolve_path(target_path)
+        safe, err = self._check_jail(real_path, "delete_item")
+        if not safe:
+            return {"success": False, "error": err}
         if not os.path.exists(real_path):
             return {"success": False, "error": f"Path not found: {real_path}"}
 
@@ -182,6 +265,10 @@ class FileAgent:
             return {"success": False, "error": f"Source not found: {src}"}
 
         out_zip = self._resolve_path(zip_output_path) if zip_output_path else f"{src}.zip"
+        safe, err = self._check_jail(out_zip, "zip_archive_destination")
+        if not safe:
+            return {"success": False, "error": err}
+
         try:
             with zipfile.ZipFile(out_zip, 'w', zipfile.ZIP_DEFLATED) as z:
                 if os.path.isfile(src):
@@ -202,6 +289,9 @@ class FileAgent:
         if not os.path.exists(src):
             return {"success": False, "error": f"Archive not found: {src}"}
         out_dir = self._resolve_path(extract_to) if extract_to else os.path.splitext(src)[0]
+        safe, err = self._check_jail(out_dir, "extract_zip_destination")
+        if not safe:
+            return {"success": False, "error": err}
         try:
             os.makedirs(out_dir, exist_ok=True)
             with zipfile.ZipFile(src, 'r') as z:

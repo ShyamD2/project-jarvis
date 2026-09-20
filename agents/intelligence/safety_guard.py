@@ -33,10 +33,11 @@ class ApprovalTicket:
     rationale: str
     tool_name: Optional[str] = None
     created_at: float = field(default_factory=time.time)
-    expires_at: float = field(default_factory=lambda: time.time() + 120.0) # 2 minutes
+    expires_at: float = field(default_factory=lambda: time.time() + 60.0) # 60 seconds strict expiry
     status: str = "PENDING"                         # PENDING, APPROVED, REJECTED, EXPIRED
     approver: Optional[str] = None
     confirmation_method: Optional[str] = None       # "voice", "hud_button", "cli"
+    crypto_signature: str = ""                      # Cryptographic HMAC-SHA256 parameter digest
 
 
 class SafetyGuard:
@@ -100,6 +101,17 @@ class SafetyGuard:
         # Default to Tier 1 (Reversible)
         return StrictTier.TIER_1_REVERSIBLE, "Standard reversible operation. Soft confirmation applied."
 
+    def _compute_ticket_signature(self, action_name: str, parameters: Dict[str, Any], expires_at: float) -> str:
+        """Computes cryptographic HMAC-SHA256 digest over action name, canonical parameters, and expiry."""
+        import hmac
+        import hashlib
+        import json
+        from shared.sdk_python.jarvis_sdk.config import config
+        key = getattr(config, "auth_secret_key", "jarvis_internal_zero_trust_ticket_master_seed_2026").encode("utf-8")
+        canonical_params = json.dumps(parameters or {}, sort_keys=True, separators=(',', ':'))
+        payload = f"{action_name}|{canonical_params}|{int(expires_at)}"
+        return hmac.new(key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
     def evaluate_request(
         self,
         action_name: str,
@@ -113,7 +125,7 @@ class SafetyGuard:
         - Tier 0: Authorized immediately.
         - Tier 1: Authorized immediately (with soft ack).
         - Tier 2: Authorized if pre-approved or interactive approval ticket provided.
-        - Tier 3: ALWAYS BLOCKED unless a valid, unexpired, confirmed approval ticket is presented.
+        - Tier 3: ALWAYS BLOCKED unless a valid, unexpired, confirmed cryptographic ticket is presented.
                   NO OVERRIDE FLAG ALLOWED.
         """
         params = parameters or {}
@@ -132,17 +144,31 @@ class SafetyGuard:
                         "requires_confirmation": True,
                         "ticket_id": None
                     }
+
+                # Cryptographic integrity check: Verify parameters have not been altered post-approval
+                import hmac
+                expected_sig = self._compute_ticket_signature(ticket.action_name, params, ticket.expires_at)
+                if not hmac.compare_digest(ticket.crypto_signature, expected_sig):
+                    logger.critical(f"🚨 [SafetyGuard] Cryptographic ticket violation! Parameters tampered for action: '{action_name}'")
+                    return {
+                        "authorized": False,
+                        "tier": tier.value,
+                        "rationale": "SECURITY VIOLATION: Cryptographic authorization ticket verification failed. Parameters altered post-approval.",
+                        "requires_confirmation": True,
+                        "ticket_id": None
+                    }
+
                 return {
                     "authorized": True,
                     "tier": tier.value,
-                    "rationale": f"Action authorized via confirmed ticket {approval_id}.",
+                    "rationale": f"Action authorized via cryptographically verified ticket {approval_id}.",
                     "requires_confirmation": False,
                     "ticket_id": approval_id
                 }
 
         # Check Tier 3 Destructive
         if tier == StrictTier.TIER_3_DESTRUCTIVE:
-            # Generate ticket
+            # Generate cryptographic ticket
             ticket = self._create_ticket(action_name, tier, params, rationale, tool_name=tool_name)
             friendly_name = action_name.replace("pc_", "").replace("_", " ")
             logger.warning(f"[SafetyGuard] Tier 3 Destructive action '{action_name}' blocked pending mandatory confirmation. Ticket: {ticket.approval_id}")
@@ -181,13 +207,17 @@ class SafetyGuard:
 
     def _create_ticket(self, action_name: str, tier: StrictTier, parameters: Dict[str, Any], rationale: str, tool_name: Optional[str] = None) -> ApprovalTicket:
         app_id = f"sec_{uuid.uuid4().hex[:8]}"
+        expires_at = time.time() + 60.0
+        sig = self._compute_ticket_signature(action_name, parameters, expires_at)
         ticket = ApprovalTicket(
             approval_id=app_id,
             action_name=action_name,
             tier=tier,
             parameters=parameters,
             rationale=rationale,
-            tool_name=tool_name
+            tool_name=tool_name,
+            expires_at=expires_at,
+            crypto_signature=sig
         )
         self._pending_tickets[app_id] = ticket
         return ticket

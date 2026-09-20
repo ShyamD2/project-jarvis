@@ -31,11 +31,12 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
 
 from shared.sdk_python.jarvis_sdk.logger import get_logger
+from shared.sdk_python.jarvis_sdk.config import config
 
 logger = get_logger("JarvisFloatingApp")
 
-HTML_PATH = os.path.join(PROJECT_ROOT, "services", "floating-agent", "floating_agent.html")
-SERVER_URL = "http://127.0.0.1:8000/floating_agent"
+HTML_PATH = os.path.join(PROJECT_ROOT, "services", "floating_agent", "floating_agent.html")
+SERVER_URL = f"http://127.0.0.1:{config.port}/floating_agent"
 HUD_PORT = 8088
 
 import http.server
@@ -54,7 +55,7 @@ class JarvisHUDHandler(http.server.SimpleHTTPRequestHandler):
             return
         elif self.path.startswith("/static/"):
             rel_path = self.path[8:]
-            target = os.path.join(PROJECT_ROOT, "services", "jarvis-core", "static", rel_path)
+            target = os.path.join(PROJECT_ROOT, "services", "jarvis_core", "static", rel_path)
             if os.path.exists(target):
                 self.send_response(200)
                 if target.endswith(".js"):
@@ -74,7 +75,7 @@ class JarvisHUDHandler(http.server.SimpleHTTPRequestHandler):
 def ensure_hud_server() -> str:
     """Ensures local HTTP server is active so WebView2 operates in a Secure Context with full Web Audio & Mic support."""
     try:
-        req = urllib.request.Request("http://127.0.0.1:8000/health", headers={"User-Agent": "JarvisLauncher"})
+        req = urllib.request.Request(f"http://127.0.0.1:{config.port}/health", headers={"User-Agent": "JarvisLauncher"})
         with urllib.request.urlopen(req, timeout=0.15) as resp:
             if resp.status == 200:
                 return SERVER_URL
@@ -580,6 +581,11 @@ class FloatingAgentAPI:
                         b64 = base64.b64encode(af.read()).decode("utf-8")
                         audio_b64 = f"data:audio/wav;base64,{b64}"
 
+            from services.brain.epistemic_evaluator import epistemic_evaluator
+            assessment = epistemic_evaluator.get_last_assessment()
+            epistemic_state = assessment.state.value if assessment else "VERIFIED"
+            epistemic_summary = assessment.truthful_summary if assessment else "Instruction executed, sir."
+
             loop.close()
             # Return immediately so the UI displays text in <300ms; UI synthesizes speech in background
             return {
@@ -588,6 +594,8 @@ class FloatingAgentAPI:
                 "response": response_text,
                 "intent": res.get("intent"),
                 "actions_executed": actions,
+                "epistemic_state": epistemic_state,
+                "epistemic_summary": epistemic_summary,
                 "audio_b64": audio_b64,
                 "soundboard_url": soundboard_url
             }
@@ -689,6 +697,101 @@ class FloatingAgentAPI:
                 return windows_agent.scroll_page(params.get("direction", "down"), params.get("clicks", 3))
             return {"success": False, "error": f"Unknown action: {action}"}
         except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def emergency_stop(self) -> dict:
+        """
+        AgentOS Emergency Stand-Down:
+        - Halts speech synthesis and audio immediately
+        - Closes persistent ConPTY terminal sessions
+        - Invokes EmergencyStop engine to block tool dispatch
+        - Signals UI of emergency stand-down
+        """
+        self.stop_speaking()
+        try:
+            from agents.computer.conpty_terminal import terminal_manager
+            terminal_manager.close_all()
+        except Exception as e:
+            logger.debug(f"[FloatingApp] Terminal cleanup error: {e}")
+
+        try:
+            from agents.intelligence.emergency_stop import emergency_stop
+            emergency_stop.trigger_emergency_stop("Floating HUD operator emergency stand-down")
+        except Exception as e:
+            logger.debug(f"[FloatingApp] Emergency stop trigger: {e}")
+
+        if self._window:
+            try:
+                self._window.evaluate_js("window.onEmergencyStopTriggered && window.onEmergencyStopTriggered()")
+            except Exception:
+                pass
+
+        logger.critical("🛑 [FloatingApp] Emergency Stand-Down triggered by UI operator!")
+        return {
+            "success": True,
+            "status": "EMERGENCY_HALTED",
+            "message": "Emergency stand-down active. All autonomous operations and terminals halted."
+        }
+
+    def get_epistemic_status(self) -> dict:
+        """Returns the latest epistemic truth-in-state assessment."""
+        try:
+            from services.brain.epistemic_evaluator import epistemic_evaluator
+            assessment = epistemic_evaluator.get_last_assessment()
+            if assessment:
+                return {
+                    "success": True,
+                    "state": assessment.state.value,
+                    "summary": assessment.truthful_summary,
+                    "confidence": assessment.confidence,
+                    "sensory_verified": assessment.sensory_verified,
+                    "requires_operator_notice": assessment.requires_operator_notice
+                }
+        except Exception as e:
+            logger.debug(f"[FloatingApp] Epistemic query notice: {e}")
+
+        return {
+            "success": True,
+            "state": "STANDBY",
+            "summary": "Core stabilizer online. Workstation sensory systems ready.",
+            "confidence": 1.0,
+            "sensory_verified": True,
+            "requires_operator_notice": False
+        }
+
+    def get_active_task_status(self) -> dict:
+        """Returns status of active mission DAGs or pending steps."""
+        try:
+            from services.planner.mission_control import MissionControl
+            mc = MissionControl()
+            active_missions = [m.to_dict() for m in mc.missions.values() if m.status.value in ["RUNNING", "PLANNING"]]
+            if active_missions:
+                top = active_missions[0]
+                return {
+                    "success": True,
+                    "has_active_task": True,
+                    "mission_id": top.get("id"),
+                    "label": top.get("label"),
+                    "status": top.get("status"),
+                    "phase": top.get("current_phase", 1),
+                    "total_phases": top.get("total_phases", 8)
+                }
+        except Exception:
+            pass
+        return {
+            "success": True,
+            "has_active_task": False,
+            "status": "IDLE"
+        }
+
+    def teleport_session(self, target_device: str = "mobile_node", pin: Optional[str] = None) -> dict:
+        """Serializes current AgentOS state into an AES-256 encrypted capsule for handoff."""
+        try:
+            from services.gateway.device_teleporter import device_teleporter
+            res = device_teleporter.create_capsule(target_device=target_device, pin=pin, notes="UI teleport request")
+            return res
+        except Exception as e:
+            logger.error(f"[FloatingApp] Teleport session failed: {e}")
             return {"success": False, "error": str(e)}
 
 

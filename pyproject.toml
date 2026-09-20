@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-agentos"
+version = "2.0.0"
+description = "Project J.A.R.V.I.S. - Cyber-Physical Autonomous AI Computer Agent and AgentOS"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "httpx>=0.27.0",
+    "psutil>=5.9.0",
+    "pydantic>=2.6.0",
+    "openwakeword>=0.6.0",
+    "onnxruntime>=1.17.0",
+    "numpy>=1.26.0",
+    "playwright>=1.40.0",
+    "pywinauto>=0.6.8",
+    "pywin32>=306",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agents*", "services*", "shared*", "devices*"]
+namespaces = true

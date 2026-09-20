@@ -9,7 +9,7 @@ import time
 from shared.schemas.action_envelope import ActionEnvelope, TargetWorld, ActionTier
 from shared.schemas.verification_contract import VerificationResult, VerificationStatus
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/permission-engine")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../services/permission_engine")))
 try:
     from engine import permission_engine
 except ImportError:

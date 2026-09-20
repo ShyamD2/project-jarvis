@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "agents"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 
 from shared.schemas.device_envelope import AgentTaskPacket, AgentTaskResult
 from shared.sdk_python.jarvis_sdk.logger import get_logger

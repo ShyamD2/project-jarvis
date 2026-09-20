@@ -82,13 +82,13 @@ class WakeWordDaemon:
                 max_in = int(info.get("maxInputChannels", 0))
                 if max_in > 0:
                     name_low = name.lower()
-                    is_virt = any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "cable", "mapper"])
+                    if any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "cable", "mapper", "hands-free"]):
+                        continue
                     score = 0
-                    if "array" in name_low: score += 10
-                    if "intel" in name_low: score += 8
-                    if "realtek" in name_low: score += 6
-                    if "smart sound" in name_low: score += 5
-                    if is_virt: score -= 50
+                    if "array" in name_low: score += 100
+                    if "intel" in name_low: score += 50
+                    if "realtek" in name_low: score += 30
+                    if info.get("hostApi") == 0: score += 40  # MME HostAPI is most reliable on Windows
                     candidates.append((score, i, name))
             p.terminate()
             candidates.sort(key=lambda x: x[0], reverse=True)
@@ -112,7 +112,8 @@ class WakeWordDaemon:
         with self.microphone as source:
             logger.info("Calibrating microphone for ambient room noise...")
             try:
-                self.recognizer.adjust_for_ambient_noise(source, duration=1.2)
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.8)
+                self.recognizer.energy_threshold = min(max(self.recognizer.energy_threshold, 150.0), 550.0)
                 logger.info(f"Ambient calibration complete (energy threshold: {self.recognizer.energy_threshold:.1f})")
             except Exception as e:
                 logger.warning(f"Ambient noise calibration warning: {e}")
@@ -123,19 +124,38 @@ class WakeWordDaemon:
                     # Non-blocking listen slice
                     audio = self.recognizer.listen(source, timeout=2.5, phrase_time_limit=6.5)
 
-                try:
-                    text = self.recognizer.recognize_google(audio, language="en-US").strip()
-                except sr.UnknownValueError:
-                    continue
-                except sr.RequestError:
-                    time.sleep(1.0)
+                raw_bytes = audio.get_raw_data(convert_rate=16000, convert_width=2)
+                from services.voice.neural_wake_word import neural_wake_word
+                wake_match = neural_wake_word.evaluate_audio_slice(raw_bytes)
+
+                text = ""
+                # If local neural wake word triggered
+                if wake_match:
+                    logger.info("🎤 [WakeWordDaemon] Neural ONNX acoustic model confirmed wake word!")
+                else:
+                    # Quick speech check fallback for natural speaking cadence
+                    try:
+                        text = self.recognizer.recognize_google(audio, language="en-US").strip()
+                        t_check = text.lower()
+                        if any(w in t_check for w in ["jarvis", "service", "travis", "javis", "harvis"]):
+                            wake_match = True
+                            logger.info(f"🎤 [WakeWordDaemon] Fallback confirmed wake word from: '{text}'")
+                    except Exception:
+                        pass
+
+                if not wake_match:
                     continue
 
+                # If text wasn't already transcribed, transcribe it now
                 if not text:
-                    continue
+                    try:
+                        text = self.recognizer.recognize_google(audio, language="en-US").strip()
+                    except Exception:
+                        text = ""
 
-                t_lower = text.lower()
-                logger.info(f"Acoustic audio captured: '{text}'")
+                t_lower = text.lower() if text else ""
+                if text:
+                    logger.info(f"Acoustic audio captured: '{text}'")
 
                 # 1. Instant Barge-In / Audio Interruption Check
                 if any(w in t_lower for w in ["stop", "cancel", "quiet", "silence", "shut up", "freeze", "abort"]):
@@ -144,32 +164,36 @@ class WakeWordDaemon:
                     voice_synthesizer.interrupt()
                     continue
 
-                # 2. Wake Word Detection
-                wake_match = any(re.search(rf"\b{re.escape(w)}\b", t_lower) for w in self.wake_words)
-                if wake_match:
-                    logger.info(f"🎤 Wake word triggered! Spoken: '{text}'")
+                # 2. Clean command extraction & wake-word prefix stripping
+                command = t_lower.strip()
+                wake_prefixes = [
+                    r"^(?:hey|hi|hello|ok)?\s*jarvis[\s,:]*",
+                    r"^(?:hey|hi|hello|ok)?\s*service[\s,:]*",
+                    r"^(?:hey|hi|hello|ok)?\s*travis[\s,:]*",
+                    r"^(?:hey|hi|hello|ok)?\s*javis[\s,:]*",
+                ]
+                for pat in wake_prefixes:
+                    if re.search(pat, command, re.IGNORECASE):
+                        command = re.sub(pat, "", command, count=1, flags=re.IGNORECASE).strip()
+                        break
 
-                    # Extract instruction if user spoke it in the same sentence
-                    command = t_lower
-                    for w in self.wake_words:
-                        command = re.sub(rf"^\s*{re.escape(w)}[\s,]*", "", command).strip()
+                # If user just said 'Jarvis' or 'Hey Jarvis' with no trailing command:
+                if not command or len(command) < 2:
+                    logger.info("🎤 Wake word confirmed. Playing activation chime and awaiting prompt...")
+                    soundboard.play_clip("wake_chime")
+                    try:
+                        with self.microphone as source:
+                            cmd_audio = self.recognizer.listen(source, timeout=6.0, phrase_time_limit=8.0)
+                            command = self.recognizer.recognize_google(cmd_audio, language="en-US").strip()
+                    except Exception:
+                        # If no follow-up within timeout, play greeting
+                        logger.info("No follow-up voice prompt received within timeout.")
+                        soundboard.play_clip("welcome_back")
+                        continue
 
-                    # If user just said 'Jarvis', play wake chime and listen for command
-                    if not command or len(command) < 3:
-                        soundboard.play_clip("wake_chime")
-                        logger.info("Awaiting follow-up voice command...")
-                        try:
-                            with self.microphone as source:
-                                cmd_audio = self.recognizer.listen(source, timeout=5.0, phrase_time_limit=7.0)
-                                command = self.recognizer.recognize_google(cmd_audio, language="en-US").strip()
-                        except Exception:
-                            # If no follow-up, play welcome back greeting
-                            soundboard.play_clip("welcome_back")
-                            continue
-
-                    if command:
-                        logger.info(f"⚡ Executing hands-free voice command: '{command}'")
-                        self._process_command(command)
+                if command:
+                    logger.info(f"⚡ Executing hands-free voice command: '{command}'")
+                    self._process_command(command)
 
             except sr.WaitTimeoutError:
                 continue
@@ -178,16 +202,28 @@ class WakeWordDaemon:
                 time.sleep(0.5)
 
     def _process_command(self, command: str):
-        """Executes command through soundboard or brain runtime"""
+        """Executes command through soundboard or conversation engine"""
+        # Check if user asked to open or show HUD
+        if any(w in command.lower() for w in ["show hud", "open hud", "start hud", "open floating", "show floating", "launch hud"]):
+            try:
+                import subprocess
+                hud_script = os.path.join(PROJECT_ROOT, "run_floating_agent.bat")
+                subprocess.Popen(["cmd.exe", "/c", hud_script], cwd=PROJECT_ROOT)
+                soundboard.play_clip("welcome_back")
+                return
+            except Exception as e:
+                logger.error(f"Error launching HUD: {e}")
+
         matched = soundboard.match_audio_clip(command)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
+            from services.brain.conversation_engine import conversation_engine
             if matched:
                 soundboard.play_clip(matched["clip_name"])
-                loop.run_until_complete(brain_runtime.execute_turn(command))
+                loop.run_until_complete(conversation_engine.process_turn(command))
             else:
-                result = loop.run_until_complete(brain_runtime.execute_turn(command))
+                result = loop.run_until_complete(conversation_engine.process_turn(command))
                 response_text = result.get("response", "Instruction completed, sir.")
                 loop.run_until_complete(voice_synthesizer.speak(response_text, play_audio=True))
         except Exception as e:

@@ -19,7 +19,7 @@ import unittest
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 
 from services.brain.skill_synthesizer import skill_synthesizer
 from workstation_sre import workstation_sre

@@ -86,4 +86,5 @@ data/teleport_capsules/
 data/quarantine/
 data/memory/
 .pytest_cache/
-services/observability/storage/audit_log.jsonl
+services/observability/storage/*.jsonl
+services/gateway/jarvis_background.log

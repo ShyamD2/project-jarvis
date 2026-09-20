@@ -11,5 +11,5 @@ echo    - Drag-and-Drop File & Code Ingestion onto Core
 echo    - Hologram Themes: Mark VII / Mark 50 / F.R.I.D.A.Y.
 echo    - Always-On Hands-Free Spoken Neural Voice Output
 echo ======================================================
-python services/floating-agent/floating_app.py
+python services/floating_agent/floating_app.py
 pause

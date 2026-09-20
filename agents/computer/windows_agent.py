@@ -215,7 +215,7 @@ def launch_floating_hud() -> Dict[str, Any]:
             pass
 
     py_exe = sys.executable or "python.exe"
-    hud_script = os.path.join(PROJECT_ROOT, "services", "floating-agent", "floating_app.py")
+    hud_script = os.path.join(PROJECT_ROOT, "services", "floating_agent", "floating_app.py")
     cmd = f'"{py_exe}" -X utf8 "{hud_script}"'
     ok = launch_process_on_interactive_desktop(cmd, cwd=PROJECT_ROOT)
     return {"success": ok, "action": "launched", "message": "J.A.R.V.I.S. 3D Floating Agent launched on desktop."}
@@ -815,14 +815,107 @@ class WindowsAgent:
             return {"success": True, "action": "open_bookmarks", "shortcut": "Ctrl+Shift+O", "channel_1_logical": True}
         return {"success": False, "error": "Not running on Windows"}
 
+    def get_uia_window(self, title_pattern: str, timeout: float = 2.0):
+        """Locates and returns pywinauto UIA window handle if available."""
+        try:
+            from pywinauto import Desktop
+            desktop = Desktop(backend="uia")
+            win = desktop.window(title_re=f"(?i).*{title_pattern}.*")
+            if win.exists(timeout=timeout):
+                return win
+        except Exception as e:
+            logger.debug(f"[WindowsAgent] UIA window lookup notice: {e}")
+        return None
+
+    def click_uia_element(self, app_keyword: str, element_title_pattern: str, control_type: Optional[str] = None) -> Dict[str, Any]:
+        """Clicks an accessible control within an application using Windows UI Automation."""
+        try:
+            win = self.get_uia_window(app_keyword)
+            if not win:
+                return {"success": False, "error": f"Application window matching '{app_keyword}' not found in UIA tree."}
+            win.set_focus()
+            kwargs = {"title_re": f"(?i).*{element_title_pattern}.*"}
+            if control_type:
+                kwargs["control_type"] = control_type
+            elem = win.child_window(**kwargs)
+            if elem.exists(timeout=2.0):
+                elem.click_input()
+                return {"success": True, "action": "click_uia", "target": element_title_pattern}
+            return {"success": False, "error": f"Element '{element_title_pattern}' not found in window '{app_keyword}'."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def type_uia_element(self, app_keyword: str, element_title_pattern: str, text: str, press_enter: bool = False) -> Dict[str, Any]:
+        """Types text into an accessible edit/input control using Windows UI Automation."""
+        try:
+            win = self.get_uia_window(app_keyword)
+            if not win:
+                return {"success": False, "error": f"Application window matching '{app_keyword}' not found."}
+            win.set_focus()
+            elem = win.child_window(title_re=f"(?i).*{element_title_pattern}.*", control_type="Edit")
+            if elem.exists(timeout=2.0):
+                elem.click_input()
+                keys = text + ("{ENTER}" if press_enter else "")
+                elem.type_keys(keys, with_spaces=True)
+                return {"success": True, "action": "type_uia", "text": text}
+            return {"success": False, "error": f"Input field '{element_title_pattern}' not found."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def send_whatsapp_message(self, message: str, recipient: Optional[str] = None, platform: str = "auto") -> Dict[str, Any]:
-        """Sends or prepares a WhatsApp message on desktop or web."""
-        import urllib.parse
-        logger.info(f"[WindowsAgent] Sending WhatsApp message to '{recipient}': {message} (platform={platform})")
+        """Sends a WhatsApp message using native Windows UI Automation (UIA) with protocol fallback."""
+        logger.info(f"[WindowsAgent] Sending WhatsApp message to '{recipient}': {message}")
         ensure_interactive_desktop()
 
+        # 1. Bring WhatsApp to front
+        focus_window_by_name("WhatsApp")
+        time.sleep(0.3)
+        if not self.verify_process_running("WhatsApp"):
+            try:
+                os.startfile("whatsapp:")
+                time.sleep(1.2)
+                focus_window_by_name("WhatsApp")
+            except Exception:
+                pass
+
+        # 2. Attempt native Windows UI Automation (UIA)
+        try:
+            from pywinauto import Desktop
+            desktop = Desktop(backend="uia")
+            wa_win = desktop.window(title_re="(?i).*whatsapp.*")
+            if wa_win.exists(timeout=2.0):
+                wa_win.set_focus()
+                time.sleep(0.2)
+
+                # If recipient is specified, search for contact
+                if recipient and recipient.lower() not in ["brother", "contact", "specified contact", "active"]:
+                    search_box = wa_win.child_window(title_re="(?i).*(search|chats|search or start new chat).*", control_type="Edit")
+                    if search_box.exists(timeout=1.0):
+                        search_box.click_input()
+                        search_box.type_keys(recipient + "{ENTER}", with_spaces=True)
+                        time.sleep(0.6)
+
+                # Locate chat message edit box
+                msg_box = wa_win.child_window(title_re="(?i).*(type a message|message).*", control_type="Edit")
+                if msg_box.exists(timeout=1.5):
+                    msg_box.click_input()
+                    msg_box.type_keys(message + "{ENTER}", with_spaces=True)
+                    logger.info(f"[WindowsAgent] Dispatched WhatsApp message via UIA to '{recipient}'")
+                    return {
+                        "success": True,
+                        "action": "send_whatsapp_message",
+                        "method": "uia_automation",
+                        "recipient": recipient or "active chat",
+                        "message": message,
+                        "verified": True
+                    }
+        except Exception as e:
+            logger.warning(f"[WindowsAgent] UIA WhatsApp automation note: {e}")
+
+        # Fallback to desktop/web protocol launcher
+        import urllib.parse
         encoded_text = urllib.parse.quote(message)
-        is_web = "web" in platform.lower()
+        is_web = "web" in str(platform).lower()
 
         if is_web:
             target_url = f"https://web.whatsapp.com/send?text={encoded_text}"
@@ -832,13 +925,14 @@ class WindowsAgent:
             return {
                 "success": True,
                 "action": "send_whatsapp_message",
+                "method": "web_protocol",
                 "platform": "web",
                 "recipient": recipient or "specified contact",
                 "message": message,
-                "channel_1_logical": True
+                "verified": False,
+                "note": "Opened Web WhatsApp with prefilled message"
             }
         else:
-            # Native Desktop WhatsApp via protocol
             proto_url = f"whatsapp://send?text={encoded_text}"
             self._open_url_safely(proto_url)
             time.sleep(0.5)
@@ -846,10 +940,12 @@ class WindowsAgent:
             return {
                 "success": True,
                 "action": "send_whatsapp_message",
+                "method": "desktop_protocol",
                 "platform": "desktop",
                 "recipient": recipient or "specified contact",
                 "message": message,
-                "channel_1_logical": True
+                "verified": False,
+                "note": "Opened Desktop WhatsApp with prefilled message"
             }
 
     def check_latest_messages(self, platform: str = "whatsapp") -> Dict[str, Any]:

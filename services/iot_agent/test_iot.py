@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from shadow_sync import DeviceShadowSync
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../devices/raspberry-pi")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../devices/raspberry_pi")))
 from gateway import PiGateway
 
 

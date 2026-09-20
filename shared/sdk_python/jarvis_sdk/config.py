@@ -11,12 +11,37 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+from enum import Enum
+
+class OperatingMode(str, Enum):
+    DEVELOPMENT = "DEVELOPMENT"       # Local testing, LocalStack, mock cloud fallbacks
+    REAL_CLOUD = "REAL_CLOUD"         # Production AWS Boto3, live cloud resources
+    OFFLINE_LOCAL = "OFFLINE_LOCAL"   # 100% on-device, local ONNX/VAD, zero internet egress
+
+
 @dataclass
 class JarvisConfig:
     env: str = os.getenv("JARVIS_ENV", "local")
+    operating_mode: str = os.getenv("JARVIS_OPERATING_MODE", "DEVELOPMENT").upper()
     log_level: str = os.getenv("JARVIS_LOG_LEVEL", "INFO")
     host: str = os.getenv("JARVIS_HOST", "127.0.0.1")
     port: int = int(os.getenv("JARVIS_PORT", "8000"))
+
+    @property
+    def mode(self) -> OperatingMode:
+        try:
+            return OperatingMode(self.operating_mode)
+        except ValueError:
+            return OperatingMode.DEVELOPMENT
+
+    def is_development(self) -> bool:
+        return self.mode == OperatingMode.DEVELOPMENT
+
+    def is_real_cloud(self) -> bool:
+        return self.mode == OperatingMode.REAL_CLOUD
+
+    def is_offline_local(self) -> bool:
+        return self.mode == OperatingMode.OFFLINE_LOCAL
 
     # Local Fast-Path MQTT
     mqtt_broker: str = os.getenv("LOCAL_MQTT_BROKER", "127.0.0.1")

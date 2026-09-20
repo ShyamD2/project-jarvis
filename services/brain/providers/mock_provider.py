@@ -15,7 +15,7 @@ import urllib.parse
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 
 try:
     from system_monitor import system_monitor

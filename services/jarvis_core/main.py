@@ -57,10 +57,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"Emergency Stand Down: {config.emergency_stand_down}")
 
     # Start PCDaemon background telemetry loop
-    pc_task = None
     try:
-        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../pc-agent")))
-        from agent_daemon import pc_daemon
+        from services.pc_agent.agent_daemon import pc_daemon
         import asyncio
         pc_task = asyncio.create_task(pc_daemon.start())
         logger.info("⚡ [Lifespan] Started PCDaemon background telemetry loop.")
@@ -178,7 +176,7 @@ if os.path.exists(static_path):
 
     @app.get("/floating_agent", include_in_schema=False)
     async def get_floating_agent():
-        floating_html = os.path.abspath(os.path.join(os.path.dirname(__file__), "../floating-agent/floating_agent.html"))
+        floating_html = os.path.abspath(os.path.join(os.path.dirname(__file__), "../floating_agent/floating_agent.html"))
         if os.path.exists(floating_html):
             return FileResponse(
                 floating_html,

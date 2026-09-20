@@ -10,7 +10,7 @@ from shared.sdk_python.jarvis_sdk.logger import get_logger
 from shared.sdk_python.jarvis_sdk.event_mesh import mesh
 from shared.schemas.event_envelope import JarvisEvent
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../services/iot-agent")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../services/iot_agent")))
 try:
     from shadow_sync import shadow_sync
 except ImportError:

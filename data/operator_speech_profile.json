@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 46,
-  "average_latency_ms": 4959.12,
+  "total_commands_learned": 50,
+  "average_latency_ms": 6379.59,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -190,6 +190,13 @@
         "app": "notepad"
       },
       "hits": 1
+    },
+    "open vs code": {
+      "tool": "launch_app",
+      "args": {
+        "app": "code"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -206,12 +213,12 @@
   "word_frequencies": {
     "what": 5,
     "is": 5,
-    "my": 5,
+    "my": 7,
     "cpu": 5,
     "usage": 5,
-    "open": 21,
+    "open": 23,
     "snapchat": 5,
-    "whatsapp": 6,
+    "whatsapp": 7,
     "instagram": 3,
     "up": 7,
     "the": 7,
@@ -224,7 +231,7 @@
     "launch": 3,
     "unjabber": 1,
     "ram": 1,
-    "system": 1,
+    "system": 3,
     "play": 2,
     "that": 1,
     "for": 1,
@@ -234,10 +241,18 @@
     "im": 1,
     "going": 1,
     "to": 1,
-    "a": 1,
+    "a": 2,
     "game": 1,
     "type": 2,
-    "notepad": 1
+    "notepad": 1,
+    "check": 2,
+    "battery": 1,
+    "level": 1,
+    "and": 1,
+    "vitals": 2,
+    "vs": 1,
+    "code": 1,
+    "service": 1
   },
   "history": [
     {
@@ -395,6 +410,30 @@
       "tool": "launch_app",
       "latency_ms": 3777.57,
       "timestamp": 1789654583.5697522
+    },
+    {
+      "query": "check my battery level and system vitals",
+      "tool": "query_system_telemetry",
+      "latency_ms": 7804.98,
+      "timestamp": 1789889892.926081
+    },
+    {
+      "query": "check my system vitals",
+      "tool": "query_system_telemetry",
+      "latency_ms": 8167.45,
+      "timestamp": 1789890535.9904716
+    },
+    {
+      "query": "open vs code",
+      "tool": "launch_app",
+      "latency_ms": 6754.97,
+      "timestamp": 1789917911.8381748
+    },
+    {
+      "query": "a service open whatsapp",
+      "tool": "launch_app",
+      "latency_ms": 12874.14,
+      "timestamp": 1789918371.1911333
     }
   ]
 }

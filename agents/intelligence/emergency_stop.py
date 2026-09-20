@@ -95,6 +95,8 @@ class EmergencyStopController:
             "message": "Operations resumed, sir. Ready for instructions."
         }
 
+    lift_emergency_stop = resume_operations
+
     def start_hotkey_listener(self):
         """Starts background daemon thread monitoring for physical hotkey: CTRL + SHIFT + J"""
         if self._is_listening_hotkey or sys.platform != "win32":

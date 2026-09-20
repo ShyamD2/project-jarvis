@@ -18,13 +18,13 @@ import webbrowser
 # Set Project Root in path
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, PROJECT_ROOT)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/jarvis-core"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/jarvis_core"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/permission-engine"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/permission_engine"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/planner"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/memory"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/sensory"))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc-agent"))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/pc_agent"))
 
 from shared.sdk_python.jarvis_sdk.config import config
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -144,16 +144,16 @@ def run_full_diagnostics():
     print("Initiating full system diagnostic across all 35 phases...")
     test_suites = [
         "shared/schemas/test_schemas.py",
-        "services/jarvis-core/test_api.py",
+        "services/jarvis_core/test_api.py",
         "services/brain/test_brain.py",
         "services/memory/test_memory.py",
         "services/planner/test_planner.py",
-        "services/permission-engine/test_permission_engine.py",
+        "services/permission_engine/test_permission_engine.py",
         "agents/test_action_framework.py",
         "services/sensory/test_sensory.py",
-        "services/pc-agent/test_pc_agent.py",
+        "services/pc_agent/test_pc_agent.py",
         "agents/cloud/test_cloud_suite.py",
-        "services/iot-agent/test_iot.py",
+        "services/iot_agent/test_iot.py",
         "services/observability/test_observability.py"
     ]
 

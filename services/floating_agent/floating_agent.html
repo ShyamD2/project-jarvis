@@ -12,7 +12,7 @@
   <script src="/static/jarvis_reactor_3d.js"></script>
   <script>
     if (typeof JarvisReactor3D === "undefined") {
-      document.write('<script src="../jarvis-core/static/jarvis_reactor_3d.js"><\/script>');
+      document.write('<script src="../jarvis_core/static/jarvis_reactor_3d.js"><\/script>');
     }
   </script>
   <style>
@@ -518,6 +518,7 @@
       <div class="brand-name" id="brand-title">J.A.R.V.I.S.</div>
     </div>
     <div class="header-actions no-drag">
+      <button class="hdr-btn hdr-btn-stop" onclick="triggerEmergencyStop()" title="Emergency Stand-Down (Halt All Operations & Terminals)" style="border-color: #ef4444; color: #ef4444; font-weight: 700;">🚨</button>
       <button class="hdr-btn" onclick="cycleTheme()" id="theme-btn" title="Suit Hologram Theme (Mark VII / Mark 50 / F.R.I.D.A.Y.)">🎨</button>
       <button class="hdr-btn hdr-btn-screen" onclick="triggerScreenRecognition()" title="Analyze Display Screen">👁️ SCREEN</button>
       <button class="hdr-btn" id="audio-btn" onclick="toggleAudioSpeech()" title="Toggle Neural Speech Audio">🔊</button>
@@ -567,16 +568,17 @@
   let voiceSilenceTimer = null;
   const waveBars = [];
 
-  // 8 AGENT STATES
+  // 9 AGENT STATES
   const AGENT_STATES = {
     IDLE: { label: "STANDBY // IDLE", subtext: "CORE STABILIZER: ONLINE • SCREEN & KEYBOARD: READY", color: "#00f0ff" },
     LISTENING: { label: "AUDIO INGEST // LISTENING", subtext: "CAPTURING USER VOICE...", color: "#00f0ff" },
     UNDERSTANDING: { label: "COGNITIVE PARSING", subtext: "ANALYZING INTENT & PARAMETERS", color: "#38bdf8" },
     PLANNING: { label: "TACTICAL PLANNING", subtext: "FORMULATING EXECUTION PLAN", color: "#f59e0b" },
-    ROUTING: { label: "MESH ROUTING", subtext: "TARGETING DESKTOP-SHYAM", color: "#a855f7" },
-    EXECUTING: { label: "WIN32 EXECUTING", subtext: "SIMULATING SYSTEM ACTIONS", color: "#ffaa00" },
-    VERIFYING: { label: "VALIDATING TELEMETRY", subtext: "CONFIRMING WORKSTATION STATE", color: "#10b981" },
-    RESPONDING: { label: "TRANSMITTING RESPONSE", subtext: "DELIVERING RESULTS, SIR", color: "#00f0ff" }
+    ROUTING: { label: "MESH ROUTING", subtext: "TARGETING ACTIVE NODE", color: "#a855f7" },
+    EXECUTING: { label: "AGENTOS EXECUTING", subtext: "CONTROLLING WORKSTATION // REAL EXECUTION", color: "#ffaa00" },
+    VERIFYING: { label: "VALIDATING TELEMETRY", subtext: "SENSORY REALITY VERIFICATION", color: "#10b981" },
+    RESPONDING: { label: "TRANSMITTING RESPONSE", subtext: "DELIVERING RESULTS, SIR", color: "#00f0ff" },
+    EMERGENCY: { label: "EMERGENCY HALT // STAND-DOWN", subtext: "ALL AUTONOMOUS WORKERS & PROCESSES TERMINATED", color: "#ef4444" }
   };
 
   // SUIT THEMES ENGINE
@@ -1232,6 +1234,14 @@
         setAgentState("RESPONDING");
         setSpeechText(reply + actionNotice);
 
+        // Update epistemic status if returned from AgentOS backend
+        if (data.epistemic_state) {
+          const subEl = document.getElementById("state-subtext");
+          if (subEl) {
+            subEl.innerText = `EPISTEMIC: [${data.epistemic_state}] • ${data.epistemic_summary || "Sensory verified"}`;
+          }
+        }
+
         // Play audio synthesized by J.A.R.V.I.S. Brain if available
         if (data.audio_b64) {
           playAudioDataUri(data.audio_b64);
@@ -1247,6 +1257,27 @@
       setSpeechText(`Processed: ${text}`);
     }
   }
+
+  // AGENTOS EMERGENCY STAND-DOWN TRIGGER
+  async function triggerEmergencyStop() {
+    setAgentState("EMERGENCY");
+    setSpeechText("EMERGENCY STAND-DOWN TRIGGERED. Halting all autonomous actions, terminals, and audio.");
+    if (window.stopSpeakingAudio) window.stopSpeakingAudio();
+
+    try {
+      if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.emergency_stop === "function") {
+        const res = await window.pywebview.api.emergency_stop();
+        console.log("Emergency stop result:", res);
+      }
+    } catch(e) {
+      console.error("Emergency stop error:", e);
+    }
+  }
+
+  window.onEmergencyStopTriggered = function() {
+    setAgentState("EMERGENCY");
+    setSpeechText("EMERGENCY STAND-DOWN ACTIVE // ALL SYSTEMS IDLED.");
+  };
 
   // =========================================================================
   // HARDWARE MICROPHONE & VOICE BRIDGE (PYTHON NATIVE + WEB SPEECH FALLBACK)

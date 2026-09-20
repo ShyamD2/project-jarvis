@@ -337,9 +337,16 @@ class ConversationEngine:
         """
         Splits compound sequential instructions such as:
         'open Chrome, go to GitHub, and open my repository'
+        'open Opera and check battery'
+        'open WhatsApp, message X, then tell me the result'
         """
-        # Split on ", and ", " and then ", " then ", or ", next "
-        parts = re.split(r",?\s*(?:and\s+then|then|next|and)\s+", query, flags=re.IGNORECASE)
+        # Split on ", and then ", " then ", " next ", ", and [action_verb]", " and [action_verb]", or ", [action_verb]"
+        verb_pattern = (
+            r",?\s*(?:and\s+then|then|next)\s+|"
+            r",?\s*and\s+(?=(?:open|close|check|tell|message|send|type|click|run|show|set|turn|start|launch|find|read|lock|unlock|mute|unmute|kill|restart|shutdown|give|write|report)\b)|"
+            r",\s*(?=(?:open|close|check|tell|message|send|type|click|run|show|set|turn|start|launch|find|read|lock|unlock|mute|unmute|kill|restart|shutdown|give|write|report)\b)"
+        )
+        parts = re.split(verb_pattern, query, flags=re.IGNORECASE)
         cleaned = [p.strip() for p in parts if p.strip()]
         return cleaned if len(cleaned) > 1 else [query]
 
