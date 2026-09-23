@@ -188,69 +188,77 @@ class TTSEngine:
         if not clauses:
             clauses = [clean]
 
+        from services.voice.interrupt_service import interrupt_service
+
+        if len(clauses) > 1 and play_audio:
+            interrupt_service.start_recitation(enable_keyboard_monitor=True, enable_acoustic_monitor=True)
+
         self._is_speaking = True
         total_audio_bytes = bytearray()
         last_audio_file = None
 
-        # Process first clause immediately for sub-second vocal delivery
-        for idx, clause in enumerate(clauses):
-            if self._interrupt_event.is_set():
-                break
+        try:
+            # Process first clause immediately for sub-second vocal delivery
+            for idx, clause in enumerate(clauses):
+                if self._interrupt_event.is_set() or interrupt_service.is_interrupted():
+                    logger.info(f"⚡ [TTS Engine] Recitation interrupted at clause {idx+1}/{len(clauses)}.")
+                    break
 
-            is_last = (idx == len(clauses) - 1)
-            chunk_bytes = await self.synthesize_bytes(clause)
-            if not chunk_bytes:
-                continue
+                is_last = (idx == len(clauses) - 1)
+                chunk_bytes = await self.synthesize_bytes(clause)
+                if not chunk_bytes:
+                    continue
 
-            total_audio_bytes.extend(chunk_bytes)
+                total_audio_bytes.extend(chunk_bytes)
 
-            # Invoke async or sync callback for progressive WebSocket streaming
-            if on_chunk:
+                # Invoke async or sync callback for progressive WebSocket streaming
+                if on_chunk:
+                    try:
+                        res = on_chunk(idx, clause, chunk_bytes, is_last)
+                        if asyncio.iscoroutine(res):
+                            await res
+                    except Exception as e_cb:
+                        logger.debug(f"[TTS Engine] Stream callback exception: {e_cb}")
+
+                # Save individual clause file for immediate progressive playback
+                clause_filename = f"jarvis_chunk_{idx}_{int(time.time() * 1000) % 1000}.mp3"
+                clause_path = os.path.join(self.output_dir, clause_filename)
                 try:
-                    res = on_chunk(idx, clause, chunk_bytes, is_last)
-                    if asyncio.iscoroutine(res):
-                        await res
-                except Exception as e_cb:
-                    logger.debug(f"[TTS Engine] Stream callback exception: {e_cb}")
+                    with open(clause_path, "wb") as f:
+                        f.write(chunk_bytes)
+                    last_audio_file = clause_path
+                except Exception:
+                    pass
 
-            # Save individual clause file for immediate progressive playback
-            clause_filename = f"jarvis_chunk_{idx}_{int(time.time() * 1000) % 1000}.mp3"
-            clause_path = os.path.join(self.output_dir, clause_filename)
-            try:
-                with open(clause_path, "wb") as f:
-                    f.write(chunk_bytes)
-                last_audio_file = clause_path
-            except Exception:
-                pass
+                # If playing server audio, play first chunk immediately and subsequent in sequence
+                if play_audio and not self._interrupt_event.is_set() and not interrupt_service.is_interrupted():
+                    try:
+                        self._ensure_mixer()
+                        pygame.mixer.music.load(clause_path)
+                        pygame.mixer.music.play()
+                        while pygame.mixer.music.get_busy() and not self._interrupt_event.is_set() and not interrupt_service.is_interrupted():
+                            await asyncio.sleep(0.02)
+                    except Exception as e_play:
+                        logger.debug(f"[TTS Engine] Server playback notice: {e_play}")
 
-            # If playing server audio, play first chunk immediately and subsequent in sequence
-            if play_audio and not self._interrupt_event.is_set():
+            # Assemble and persist consolidated jarvis_latest.mp3
+            if total_audio_bytes and not self._interrupt_event.is_set() and not interrupt_service.is_interrupted():
+                master_file = os.path.join(self.output_dir, "jarvis_latest.mp3")
                 try:
-                    self._ensure_mixer()
-                    pygame.mixer.music.load(clause_path)
-                    pygame.mixer.music.play()
-                    while pygame.mixer.music.get_busy() and not self._interrupt_event.is_set():
-                        await asyncio.sleep(0.03)
-                except Exception as e_play:
-                    logger.debug(f"[TTS Engine] Server playback notice: {e_play}")
-
-        # Assemble and persist consolidated jarvis_latest.mp3
-        if total_audio_bytes:
-            master_file = os.path.join(self.output_dir, "jarvis_latest.mp3")
-            try:
-                with open(master_file, "wb") as f:
-                    f.write(total_audio_bytes)
-                self._current_audio_file = master_file
-                last_audio_file = master_file
-            except Exception as e_save:
-                logger.debug(f"[TTS Engine] Consolidated save error: {e_save}")
-
-        self._is_speaking = False
-        for cb in self._speech_done_callbacks:
-            try:
-                cb()
-            except Exception:
-                pass
+                    with open(master_file, "wb") as f:
+                        f.write(total_audio_bytes)
+                    self._current_audio_file = master_file
+                    last_audio_file = master_file
+                except Exception as e_save:
+                    logger.debug(f"[TTS Engine] Consolidated save error: {e_save}")
+        finally:
+            self._is_speaking = False
+            interrupt_service.end_recitation()
+            for cb in self._speech_done_callbacks:
+                try:
+                    cb()
+                except Exception:
+                    pass
 
         return last_audio_file
 

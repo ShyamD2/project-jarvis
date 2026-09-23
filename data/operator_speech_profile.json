@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "total_commands_learned": 50,
-  "average_latency_ms": 6379.59,
+  "total_commands_learned": 51,
+  "average_latency_ms": 6453.78,
   "fast_path_lexicon": {
     "volume up": {
       "tool": "control_system_audio",
@@ -197,6 +197,13 @@
         "app": "code"
       },
       "hits": 1
+    },
+    "open whatsapp and": {
+      "tool": "launch_app",
+      "args": {
+        "app": "whatsapp"
+      },
+      "hits": 1
     }
   },
   "phonetic_alignments": {
@@ -216,9 +223,9 @@
     "my": 7,
     "cpu": 5,
     "usage": 5,
-    "open": 23,
+    "open": 24,
     "snapchat": 5,
-    "whatsapp": 7,
+    "whatsapp": 8,
     "instagram": 3,
     "up": 7,
     "the": 7,
@@ -248,7 +255,7 @@
     "check": 2,
     "battery": 1,
     "level": 1,
-    "and": 1,
+    "and": 2,
     "vitals": 2,
     "vs": 1,
     "code": 1,
@@ -434,6 +441,12 @@
       "tool": "launch_app",
       "latency_ms": 12874.14,
       "timestamp": 1789918371.1911333
+    },
+    {
+      "query": "open whatsapp and",
+      "tool": "launch_app",
+      "latency_ms": 7121.46,
+      "timestamp": 1790001238.2099566
     }
   ]
 }

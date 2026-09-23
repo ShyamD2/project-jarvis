@@ -207,3 +207,14 @@ async def transcribe_audio(request: Request, file: UploadFile = File(None)):
     except Exception as e:
         logger.error(f"Transcribe error: {e}")
         return {"status": "error", "message": str(e), "transcript": ""}
+
+
+@router.post("/interrupt")
+async def interrupt_sensory_audio():
+    """
+    Halts all active sensory recitation and audio playback immediately.
+    """
+    from services.voice.interrupt_service import interrupt_service
+    res = interrupt_service.interrupt(source="sensory_api", reason="user_barge_in")
+    return {"status": "success", "interrupted": True, "detail": res}
+

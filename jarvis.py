@@ -96,7 +96,9 @@ async def execute_jarvis_command(query: str, play_voice: bool = True):
         if matched_clip:
             soundboard.play_clip(matched_clip["clip_name"])
         else:
-            await voice_synthesizer.speak(response_text, play_audio=True)
+            from services.voice.interrupt_service import interrupt_service
+            print("\033[93m⚡ [J.A.R.V.I.S. is speaking... Press [Space] or [Esc] to interrupt, or say 'Stop']\033[0m")
+            await voice_synthesizer.speak(response_text, play_audio=True, block_until_done=True)
 
     return result
 

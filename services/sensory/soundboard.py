@@ -114,7 +114,7 @@ class AudioSoundboard:
         q_lower = query.strip().lower()
 
         # 1. Wake word / Startup / Greetings (explicit phrases only)
-        if any(q_lower == w or q_lower.startswith(w) for w in ["welcome back", "wake up"]):
+        if any(w in q_lower for w in ["welcome back", "wake up"]):
             clip_path = self.clips.get("welcome_back")
             if clip_path and os.path.exists(clip_path):
                 return {
@@ -124,8 +124,8 @@ class AudioSoundboard:
                     "transcript": "Welcome back, sir."
                 }
 
-        # 2. Status Report, Diagnostics & Simulation (explicit simulation commands only)
-        if any(w in q_lower for w in ["run simulation", "start simulation", "movie simulation"]):
+        # 2. Status Report, Diagnostics & Simulation
+        if any(w in q_lower for w in ["status report", "run simulation", "start simulation", "movie simulation", "simulation"]):
             clip_path = self.clips.get("simulation")
             if clip_path and os.path.exists(clip_path):
                 return {
@@ -135,8 +135,8 @@ class AudioSoundboard:
                     "transcript": "I have run simulations, sir."
                 }
 
-        # 3. Workspace Preparation, Flight Plan (explicit flight plan only)
-        if any(w in q_lower for w in ["flight plan", "create a flight plan", "create flight plan"]):
+        # 3. Workspace Preparation, Flight Plan
+        if any(w in q_lower for w in ["prepare my workspace", "workspace", "flight plan", "create a flight plan", "create flight plan"]):
             clip_path = self.clips.get("flight_plan")
             if clip_path and os.path.exists(clip_path):
                 return {
@@ -146,8 +146,8 @@ class AudioSoundboard:
                     "transcript": "Creating a flight plan, sir."
                 }
 
-        # 4. Emergency, Stand-Down & Alarms (explicit alarm commands)
-        if any(w in q_lower for w in ["sound alarm", "play alarm", "intruder alert", "red alert"]):
+        # 4. Emergency, Stand-Down & Alarms
+        if any(w in q_lower for w in ["emergency abort", "alarm", "sound alarm", "play alarm", "intruder alert", "red alert"]):
             clip_path = self.clips.get("alarm")
             if clip_path and os.path.exists(clip_path):
                 return {

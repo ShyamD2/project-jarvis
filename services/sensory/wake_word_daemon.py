@@ -133,20 +133,7 @@ class WakeWordDaemon:
                 if wake_match:
                     logger.info("🎤 [WakeWordDaemon] Neural ONNX acoustic model confirmed wake word!")
                 else:
-                    # Quick speech check fallback for natural speaking cadence
-                    try:
-                        text = self.recognizer.recognize_google(audio, language="en-US").strip()
-                        t_check = text.lower()
-                        if any(w in t_check for w in ["jarvis", "service", "travis", "javis", "harvis"]):
-                            wake_match = True
-                            logger.info(f"🎤 [WakeWordDaemon] Fallback confirmed wake word from: '{text}'")
-                    except Exception:
-                        pass
-
-                if not wake_match:
-                    continue
-
-                # If text wasn't already transcribed, transcribe it now
+                # Check speech transcription for wake word or interrupt keywords
                 if not text:
                     try:
                         text = self.recognizer.recognize_google(audio, language="en-US").strip()
@@ -157,12 +144,19 @@ class WakeWordDaemon:
                 if text:
                     logger.info(f"Acoustic audio captured: '{text}'")
 
-                # 1. Instant Barge-In / Audio Interruption Check
-                if any(w in t_lower for w in ["stop", "cancel", "quiet", "silence", "shut up", "freeze", "abort"]):
-                    logger.info("⚡ Barge-in interrupt received via speech. Stopping audio immediately.")
-                    soundboard.stop_all()
-                    voice_synthesizer.interrupt()
+                # 1. Instant Barge-In / Audio Interruption Check (ACTIVE WITHOUT REQUIRING WAKE WORD)
+                from services.voice.interrupt_service import interrupt_service
+                if interrupt_service.check_phrase_is_interrupt(t_lower):
+                    logger.info(f"⚡ [WakeWordDaemon] Vocal barge-in interrupt captured: '{text}'. Stopping audio immediately.")
+                    interrupt_service.interrupt(source="wake_word_daemon", reason=text)
                     continue
+
+                # Check wake word match
+                if not wake_match:
+                    if any(w in t_lower for w in ["jarvis", "service", "travis", "javis", "harvis"]):
+                        wake_match = True
+                    else:
+                        continue
 
                 # 2. Clean command extraction & wake-word prefix stripping
                 command = t_lower.strip()

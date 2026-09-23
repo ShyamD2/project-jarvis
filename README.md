@@ -25,6 +25,7 @@
                  ┌────────────────────────────────┐
                  │       JARVIS SENSORY LAYER      │
                  │ 🎤 Voice / Wake Word           │
+                 │ ⚡ Sub-10ms Interrupt Service  │
                  │ 👏 Sound / Clap Detection      │
                  │ 📷 Camera / Vision             │
                  │ 🖥 Screen / UI Understanding  │
@@ -219,6 +220,56 @@
 * **Comprehensive Test Suite**:
   - Built automated test suites (`tests/test_8_pillars.py` + `tests/test_chatgpt_latency_memory.py`) with 100% clean passes (13/13 passing in 7.82s).
 
+### 🔹 Day 12 — September 20, 2026: Hands-Free Neural Wake-Word Daemon, Mutex Lock & Windows Silent Autostart
+* **Hands-Free Neural Wake-Word Daemon (`neural_wake_word.py` & `wake_word_daemon.py`)**:
+  - Integrated local CPU ONNX acoustic inference evaluating 80ms PCM audio slices against neural wake-word models.
+  - Dedicated hardware microphone binding prioritizing physical arrays (`Intel® Smart Sound Technology`) and bypassing virtual drivers.
+  - Dynamic ambient noise room calibration clamped between 150–550 RMS for noise floor immunity.
+* **System-Wide Telegram Single-Instance Mutex**:
+  - Enforced OS-level file lock / named mutex (`Global\JarvisTelegramMutex`) preventing duplicated response echoes across multiple terminal instances.
+* **Full-Duplex Barge-In Interruption & Instant Cutoff**:
+  - Sub-5ms audio cutoff via pygame mixer unload and interrupt event flags.
+* **Floating HUD 16kHz PyAudio VAD Engine**:
+  - Web Audio AEC/AGC with direct Groq Whisper bridge for continuous speech recognition.
+* **Windows Silent Autostart**:
+  - Implemented background VBScript wrappers and startup runbooks for silent background boot.
+
+### 🔹 Day 13 — September 21, 2026 (Yesterday): Long-Form Recitation Analysis, Acoustic Speech Profile & Test Stabilization
+* **Operator Speech Profile Calibration (`data/operator_speech_profile.json`)**:
+  - Tuned acoustic speech parameters, custom vocabulary dictionary, cadence tracking, and pronunciation weights.
+  - Resolved tangential phrase detection and Tanglish command mapping across multi-turn sessions.
+* **Long-Form Recitation Audit & Diagnostic Analysis**:
+  - Identified speech deadlock vulnerability during long-form monologue recitations: monolithic audio generation blocked cancellation until complete paragraph synthesis finished.
+  - Discovered artificial 7.5s timeout in `routes/query.py` that caused multi-sentence explanations to fail and restart speech from the beginning.
+  - Identified `wake_word_daemon.py` discarding vocal barge-in ("Stop!", "Shut up!") if the user did not say "Jarvis" first.
+* **Diagnostic Test Stabilization Across 35 Phases**:
+  - Hardened schema envelopes, memory snapshot tracking, and permission engine security matrix tests.
+* **Detailed Report:** See [reports/DAY_13_REPORT_2026-09-21.md](reports/DAY_13_REPORT_2026-09-21.md).
+
+### 🔹 Day 14 — September 22, 2026 (Today): Real-Time Recitation Interrupt Service, Multi-Modal Barge-In & Clause Streaming
+* **Centralized Interrupt Service (`services/voice/interrupt_service.py`)**:
+  - Engineered singleton `InterruptService` providing sub-10ms coordinated cancellation across `voice_synthesizer`, `tts_engine`, `soundboard`, and `pygame.mixer`.
+  - Active recitation supervision with lifecycle tracking (`start_recitation` / `end_recitation`).
+  - Dispatches `sensory.voice_interrupted` events across the real-time Event Mesh (`event_mesh.py`) to keep state machines and UI synchronized.
+* **Immediate Acoustic Keyword Interruption (No Wake-Word Required)**:
+  - Upgraded `wake_word_daemon.py` and `interrupt_service.py` to continuously check for vocal interrupt keywords (`"stop"`, `"quiet"`, `"silence"`, `"shut up"`, `"cancel"`, `"pause"`, `"enough"`, `"wait"`, `"hold on"`, `"stand down"`, `"freeze"`, `"abort"`).
+  - Interruption triggers immediately without needing the `"Jarvis"` wake-word prefix during active recitation.
+* **Clause-Level Progressive Streaming for Long Paragraphs**:
+  - Upgraded `voice_synthesizer.py` and `tts_engine.py` with intelligent clause/sentence splitting (`split_into_clauses`).
+  - Synthesizes and recites long paragraphs progressively, checking `interrupt_service.is_interrupted()` before each clause and polling every 20ms during playback.
+  - Completely eliminated long synthesis lag and allowed instantaneous mid-sentence and sentence-boundary cutoff.
+* **Console Keyboard Hotkey Interruption**:
+  - Built non-blocking keyboard barge-in monitor via Windows `msvcrt` into `interrupt_service.py` and `jarvis.py`.
+  - Operators running CLI queries (`python jarvis.py run -q "..."`) can press <kbd>Space</kbd>, <kbd>Esc</kbd>, <kbd>q</kbd>, or <kbd>Ctrl+C</kbd> to halt speech instantly.
+* **REST & Web UI Interruption Endpoints**:
+  - Wired `POST /api/v1/query/interrupt` and added `POST /api/v1/sensory/interrupt` directly to `interrupt_service.interrupt()`.
+  - Eliminated the 7.5s premature speech restart bug in `services/jarvis_core/routes/query.py`.
+* **Verification & Test Coverage**:
+  - Created `services/voice/test_interrupt_service.py` with 100% pass rate (5/5 tests passing: lifecycle states, keyword detection, clause splitting, sub-50ms barge-in, and REST endpoints).
+  - Fixed and verified `services/sensory/test_sensory.py` (4/4 tests passing: clap detection, wake listener, voice synthesizer barge-in, and soundboard match matrix).
+  - Verified full system diagnostics with 0 regressions.
+* **Detailed Report:** See [reports/DAY_14_REPORT_2026-09-22.md](reports/DAY_14_REPORT_2026-09-22.md).
+
 ---
 
 ## ⚡ 35-Phase Build Matrix
@@ -235,7 +286,7 @@
 | **8** | Tool/Action Framework | `READY` | Multi-world action dispatching |
 | **9** | Voice + Wake Word | `READY` | Real-time voice pipeline & 8s wake-word hold |
 | **10** | Clap / Sound Engine | `READY` | Waveform energy double-clap reflex (<30ms) |
-| **11** | JARVIS Voice Response | `READY` | Streaming British Neural TTS + <5ms Barge-In |
+| **11** | JARVIS Voice Response | `READY` | Streaming British Neural TTS + Sub-10ms Recitation Interrupt Service |
 | **12** | Windows Local Agent | `READY` | CPU, RAM, active window, meeting presence |
 | **13** | Windows App Control | `READY` | Window focus, minimize, maximize, launch |
 | **14** | File/System Automation | `READY` | Search, preview, audio volume, lock screen |
@@ -446,7 +497,7 @@ Project J.A.R.V.I.S. provides a fully synchronized experience across both your *
 
 | Feature Category | 🖥️ Desktop Capabilities | 📱 Mobile Capabilities (Telegram & Remote Web) |
 | :--- | :--- | :--- |
-| **Interaction Modalities** | • Hands-Free Acoustic Wake-Word ("Hey Jarvis")<br>• Floating Draggable HUD with Voice Waveform<br>• 3D WebGL Holographic Arc-Reactor (`:8000`)<br>• Persistent ConPTY Terminal & CLI | • Native Telegram Bot (`@Jarvis_AI_Bot`)<br>• Voice Note Ingestion & Groq Whisper STT<br>• Real-Time Cloudflare HTTPS Remote Trackpad<br>• Interactive Inline Keyboard Approval Buttons |
+| **Interaction Modalities** | • Hands-Free Acoustic Wake-Word ("Hey Jarvis")<br>• Real-Time Interrupt Service (Sub-10ms Voice & Hotkey Barge-In)<br>• Floating Draggable HUD with Voice Waveform<br>• 3D WebGL Holographic Arc-Reactor (`:8000`)<br>• Persistent ConPTY Terminal & CLI | • Native Telegram Bot (`@Jarvis_AI_Bot`)<br>• Voice Note Ingestion & Groq Whisper STT<br>• Real-Time Cloudflare HTTPS Remote Trackpad<br>• Interactive Inline Keyboard Approval Buttons |
 | **Computer Control** | • Native Windows Accessibility Tree (UIAutomation)<br>• Multi-Modal Vision Grounding (`[0, 1000]` grid)<br>• App Launching, Window Snapping, Minimize/Maximize<br>• Keyboard Typing, Hotkeys, Pixel-Perfect Clicks | • Live Screen Streaming (`/live`) with Master PIN<br>• High-Resolution Screenshot Inspection (`/screen`)<br>• Touch-to-Click, Multi-Touch Scrolling & Right-Click<br>• Virtual Mobile Keyboard Injection to PC |
 | **Autonomy & Workflow** | • Task DAG Multi-Step Execution<br>• Epistemic Self-Reflection & Auto-Recovery Ladder<br>• Chrome/Edge Browser Automation (CDP Auto-Attach)<br>• Workstation SRE Auto-Healing (Memory/Port Watchdog) | • Full Compound Instructions (e.g., *"Open Opera and check battery"* routed through ReAct Engine)<br>• Asynchronous Task Alerts & Status Reports<br>• Remote Mission Monitoring |
 | **Memory & Intelligence** | • Episodic Memory with SQLite FTS5 Full-Text Search<br>• Deep Learning Neural Memory Graph (<1ms recall)<br>• Multi-Model Cascade: Gemini 2.5/1.5 Flash ➔ Groq LPU ➔ OpenRouter ➔ Cognitive Reflex | • Cross-Device Synchronized Conversation Context<br>• Long-term fact recall injected into mobile turns<br>• Syntax-highlighted Markdown, Tables & Code Blocks |
@@ -463,10 +514,10 @@ J.A.R.V.I.S. is engineered to be a true ambient companion — always listening l
 - **Acoustic Engine**: Uses local `openWakeWord` with local ONNX models (`hey_jarvis_v0.1.onnx`) running 100% on-device on CPU (<1% CPU load).
 - **Physical Microphone Resolution**: Automatically scans and binds to physical hardware (`Microphone Array (Intel® Smart Sound Technology)`) and ignores virtual audio devices (such as DroidCam).
 - **Ambient Noise Normalization**: Calibrates against room fan and background noise with dynamic threshold clamping (150.0 to 550.0 RMS).
-- **Authentic Soundboard Feedback**:
+- **Authentic Soundboard & Real-Time Interrupt Service Feedback**:
   - Say **"Hey Jarvis"** ➔ Immediately plays `jarvis_on.mp3` chime and opens an 8-second conversational listening window.
   - Say a compound prompt (e.g. **"Hey Jarvis, open Chrome and show my battery"**) ➔ Acknowledges with the chime and executes the instruction immediately.
-  - Say **"Stop"** or **"Silence"** ➔ Triggers the Barge-In circuit, halting all speech audio within <5ms.
+  - Say **"Stop"**, **"Quiet"**, **"Silence"**, **"Shut up"**, **"Cancel"**, or **"Wait"** (no wake word needed) or hit <kbd>Space</kbd>/<kbd>Esc</kbd> in console ➔ Triggers the `InterruptService`, halting speech and recitation within <10ms.
 
 ### 2. Silent Auto-Start on Windows Boot / Login
 J.A.R.V.I.S. starts automatically when you power on your laptop or log in:

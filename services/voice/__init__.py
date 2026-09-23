@@ -8,6 +8,7 @@ from services.voice.vad import vad_detector, VoiceActivityDetector
 from services.voice.stt_engine import stt_engine, STTEngine
 from services.voice.tts_engine import tts_engine, TTSEngine
 from services.voice.voice_session import voice_session, VoiceSession, VoiceState
+from services.voice.interrupt_service import interrupt_service, InterruptService
 
 __all__ = [
     "wake_word_detector",
@@ -21,4 +22,7 @@ __all__ = [
     "voice_session",
     "VoiceSession",
     "VoiceState",
+    "interrupt_service",
+    "InterruptService",
 ]
+

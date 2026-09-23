@@ -21,6 +21,7 @@ from services.voice.voice_session import voice_session, VoiceState
 from services.voice.tts_engine import tts_engine
 from services.sensory.voice_synthesizer import voice_synthesizer
 from services.sensory.soundboard import soundboard
+from services.voice.interrupt_service import interrupt_service
 from services.memory.short_term import short_term_memory
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 try:
@@ -105,27 +106,19 @@ async def process_user_query(req: QueryRequest, background_tasks: BackgroundTask
                 except Exception as e_stream:
                     logger.debug(f"[QueryAPI] Stream chunk broadcast notice: {e_stream}")
 
-            audio_file = await asyncio.wait_for(
-                tts_engine.speak_stream(
-                    response_text,
-                    on_chunk=_stream_callback,
-                    play_audio=req.play_server_audio
-                ),
-                timeout=7.5
+            audio_file = await tts_engine.speak_stream(
+                response_text,
+                on_chunk=_stream_callback,
+                play_audio=req.play_server_audio
             )
             # Fallback to voice_synthesizer if tts_engine produced no audio
             if not audio_file:
-                audio_file = await asyncio.wait_for(
-                    voice_synthesizer.speak(response_text, play_audio=req.play_server_audio),
-                    timeout=6.0
-                )
+                audio_file = await voice_synthesizer.speak(response_text, play_audio=req.play_server_audio)
+
             if audio_file and os.path.exists(audio_file):
                 voice_synthesizer.latest_audio_path = audio_file
                 audio_filename = os.path.basename(audio_file)
                 audio_url = f"/api/v1/query/audio/file/{audio_filename}"
-        except asyncio.TimeoutError:
-            logger.info("Voice synthesis exceeded 7.5s; completing in background task.")
-            background_tasks.add_task(tts_engine.speak, response_text, req.play_server_audio)
         except Exception as e:
             logger.warning(f"Voice synthesis error: {e}")
 
@@ -247,14 +240,12 @@ async def get_ai_engine():
 async def interrupt_speech():
     """
     Immediate Barge-In Interrupt endpoint.
-    Halts all active audio playback, TTS synthesis, and soundboard clips.
+    Halts all active audio playback, TTS synthesis, recitation loops, and soundboard clips.
     """
     try:
-        voice_session.handle_barge_in()
-        tts_engine.interrupt()
-        voice_synthesizer.interrupt()
-        logger.info("⚡ [QueryAPI] Barge-in interrupt triggered: vocal playback halted.")
-        return {"status": "success", "interrupted": True, "message": "Speech playback halted immediately."}
+        res = interrupt_service.interrupt(source="rest_api", reason="user_barge_in_endpoint")
+        logger.info("⚡ [QueryAPI] Barge-in interrupt triggered: all vocal playback halted.")
+        return {"status": "success", "interrupted": True, "message": "Speech recitation halted immediately."}
     except Exception as e:
         logger.warning(f"Error executing vocal interrupt: {e}")
         return {"status": "error", "message": str(e)}
