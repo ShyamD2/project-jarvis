@@ -25,6 +25,7 @@ from services.memory.world_model import world_model
 from agents.intelligence.emergency_stop import emergency_stop
 from services.observability.traces import obs_tracer
 from services.observability.metrics import obs_metrics
+from services.security.circuit_breaker import circuit_breaker
 
 logger = get_logger("JarvisCanonicalPipeline")
 
@@ -95,6 +96,18 @@ class CanonicalPipeline:
                 "final_status": "FAILED",
                 "execution_class": "unknown",
                 "error": f"Tool '{canonical_name}' is currently {tool_health['status']}: {tool_health.get('reason', 'N/A')}",
+                "duration_ms": (time.time() - t0) * 1000
+            }
+
+        # Circuit Breaker Check (Stage 36.8)
+        if not circuit_breaker.can_execute(canonical_name):
+            logger.warning(f"⚡ [CanonicalPipeline] Fast-failing '{canonical_name}': Circuit breaker is OPEN.")
+            return {
+                "success": False,
+                "status": "circuit_tripped",
+                "final_status": "FAILED",
+                "execution_class": "unknown",
+                "error": f"Tool '{canonical_name}' circuit breaker is OPEN due to repeated failures. Fast-failing request.",
                 "duration_ms": (time.time() - t0) * 1000
             }
 
@@ -260,6 +273,12 @@ class CanonicalPipeline:
             final_status = "UNKNOWN"
 
         tx.final_status = final_status
+
+        # Circuit Breaker Tracking (Stage 36.8)
+        if final_status == "SUCCESS":
+            circuit_breaker.record_success(canonical_name)
+        elif final_status == "FAILED":
+            circuit_breaker.record_failure(canonical_name, error=verif.failure_reason)
 
         # 8. SETTLEMENT: World Model Update on Success (Item 116 Reality Check)
         t_set0 = time.time()
