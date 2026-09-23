@@ -181,12 +181,21 @@ class VerificationEngine:
         # 1. Application Launch Verification
         if clean_tool in ["launch_app", "open_app"]:
             app_name = parameters.get("app") or parameters.get("app_name") or ""
-            proc_ok = self.verify_process_state(app_name, expected_running=True, timeout_seconds=2.5)
-            win_ok = self.verify_window_state(app_name, expected_visible=True, timeout_seconds=2.5)
-            sensory_ok = proc_ok or win_ok
+            claimed_pid = tool_result.get("pid")
+            pid_valid = True
+            if claimed_pid is not None:
+                pid_valid = psutil.pid_exists(int(claimed_pid))
+                details["pid_verified"] = pid_valid
+
+            proc_ok = self.verify_process_state(app_name, expected_running=True, timeout_seconds=2.5) if app_name else True
+            win_ok = self.verify_window_state(app_name, expected_visible=True, timeout_seconds=2.5) if app_name else True
+            
+            sensory_ok = pid_valid and (proc_ok or win_ok)
             details["process_verified"] = proc_ok
             details["window_verified"] = win_ok
-            if not sensory_ok:
+            if not pid_valid:
+                failure_reason = f"Application '{app_name}' returned PID {claimed_pid}, but PID does not exist in host process table."
+            elif not sensory_ok:
                 failure_reason = f"Application '{app_name}' did not report an active process or window within timeout."
 
         # 2. Application Termination Verification
@@ -201,17 +210,17 @@ class VerificationEngine:
             else:
                 sensory_ok = True
 
-        # 3. File Creation / Deletion Verification
+        # 3. File Creation / Write / Deletion Verification
         elif clean_tool in ["file_manager", "create_file", "delete_file"]:
             action = parameters.get("action", "")
-            target_path = parameters.get("path") or parameters.get("destination")
+            target_path = parameters.get("path") or parameters.get("destination") or tool_result.get("path")
             if target_path:
-                if action in ["create_file", "create_folder"]:
+                if action in ["create_file", "create_folder", "write", "write_file", "append"]:
                     f_ok = self.verify_file_state(target_path, must_exist=True)
                     sensory_ok = f_ok
                     details["file_created"] = f_ok
                     if not f_ok:
-                        failure_reason = f"File '{target_path}' was not found on disk after creation command."
+                        failure_reason = f"File '{target_path}' was not found on disk after write/create command."
                 elif action in ["delete", "remove"]:
                     f_dead = self.verify_file_state(target_path, must_exist=False)
                     sensory_ok = f_dead
@@ -223,12 +232,34 @@ class VerificationEngine:
             else:
                 sensory_ok = True
 
-        # 4. System Telemetry & Read-Only Queries
+        # 4. Container / DevOps Verification
+        elif clean_tool in ["devops_tool", "docker"]:
+            action = parameters.get("action", "")
+            if action in ["start", "run", "restart", "deploy"]:
+                cid = tool_result.get("container_id") or parameters.get("container_id") or parameters.get("container")
+                if cid:
+                    try:
+                        import subprocess
+                        res = subprocess.run(["docker", "inspect", "-f", "{{.State.Running}}", str(cid)], capture_output=True, text=True, timeout=2.0)
+                        running = res.stdout.strip().lower() == "true"
+                        sensory_ok = running
+                        details["container_running"] = running
+                        if not running:
+                            failure_reason = f"Docker container '{cid}' is not running (State.Running != true)."
+                    except Exception as dock_err:
+                        sensory_ok = False
+                        failure_reason = f"Docker inspection failed for container '{cid}': {dock_err}"
+                else:
+                    sensory_ok = logical_ok
+            else:
+                sensory_ok = logical_ok
+
+        # 5. System Telemetry & Read-Only Queries
         elif clean_tool in ["query_system_telemetry", "system_status_report", "aws_cloud_health", "aws_list_s3_buckets", "aws_list_ec2", "network_control"]:
             sensory_ok = logical_ok
             details["read_verified"] = True
 
-        # 5. Audio Media Volume Verification
+        # 6. Audio Media Volume Verification
         elif clean_tool in ["control_system_audio", "audio_media"]:
             sensory_ok = True
             details["audio_command_executed"] = True
@@ -240,12 +271,21 @@ class VerificationEngine:
         is_verified = logical_ok and (sensory_ok is not False)
         status = VerificationStatus.VERIFIED if is_verified else VerificationStatus.FAILED
 
+        observed_state = {"sensory_ok": sensory_ok, "details": details}
+        expected_state = {"action": parameters.get("action", clean_tool), "target": parameters}
+        evidence = {"tool_result": tool_result, "checks": details}
+
         res = VerificationResult(
             action_id=action_id,
             status=status,
             logical_verified=logical_ok,
             sensory_verified=sensory_ok,
             details=details,
+            observed_state=observed_state,
+            expected_state=expected_state,
+            evidence=evidence,
+            match=is_verified,
+            confidence=1.0 if is_verified else 0.0,
             failure_reason=failure_reason,
             retry_recommended=not is_verified
         )
