@@ -118,13 +118,11 @@ class CanonicalPipeline:
         is_query_param = params.get("action") in ["status", "list", "describe", "get", "check", "temperatures", "disk_space", "mic_status"]
         is_reflex_name = any(k in canonical_name for k in ["volume", "audio", "display", "lock", "switch", "tab", "media"])
 
-        if effective_tier == ActionTier.TIER_0_REFLEX:
-            if is_query_name:
-                exec_class = ExecutionClass.READ_ONLY
-            else:
-                exec_class = ExecutionClass.REFLEX
-        elif is_query_name or is_query_param:
+        if is_query_name or is_query_param:
+            effective_tier = ActionTier.TIER_0_REFLEX
             exec_class = ExecutionClass.READ_ONLY
+        elif effective_tier == ActionTier.TIER_0_REFLEX:
+            exec_class = ExecutionClass.REFLEX
         elif effective_tier == ActionTier.TIER_1_SOFT and is_reflex_name:
             exec_class = ExecutionClass.REFLEX
         else:

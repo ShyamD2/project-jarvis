@@ -31,7 +31,7 @@ class PersistentShellSession:
         self._start_process()
 
     def _start_process(self):
-        cmd = [self.shell, "-NoLogo", "-NoExit"] if "powershell" in self.shell.lower() else [self.shell]
+        cmd = [self.shell, "-NoLogo", "-NoProfile", "-NoExit"] if "powershell" in self.shell.lower() else [self.shell]
         try:
             self.process = subprocess.Popen(
                 cmd,
@@ -46,6 +46,7 @@ class PersistentShellSession:
             self._running = True
             self._reader_thread = threading.Thread(target=self._read_loop, daemon=True, name=f"PTYReader-{self.session_id}")
             self._reader_thread.start()
+            time.sleep(0.15)
             logger.info(f"[ConPTYTerminal] Spawned persistent session '{self.session_id}' using {self.shell} (PID: {self.process.pid})")
         except Exception as e:
             logger.error(f"[ConPTYTerminal] Failed to spawn {self.shell}: {e}")
@@ -68,32 +69,30 @@ class PersistentShellSession:
             self._start_process()
 
         try:
-            self.process.stdin.write(command.strip() + "\n")
+            self.process.stdin.write(command.strip() + "\r\n")
             self.process.stdin.flush()
             return True
         except Exception as e:
             logger.error(f"[ConPTYTerminal] Write error in session '{self.session_id}': {e}")
             return False
 
-    def read_available_output(self, timeout: float = 2.0) -> str:
+    def read_available_output(self, timeout: float = 5.0) -> str:
         """Reads output lines until stream pauses or timeout expires."""
         lines = []
         deadline = time.time() + timeout
+        quiescent_count = 0
         while time.time() < deadline:
             try:
                 line = self.output_queue.get(timeout=0.1)
                 lines.append(line)
-                # Keep draining while lines arrive quickly
                 while not self.output_queue.empty():
                     lines.append(self.output_queue.get_nowait())
-                if lines:
-                    # Give short grace period for sub-command completion
-                    time.sleep(0.15)
-                    while not self.output_queue.empty():
-                        lines.append(self.output_queue.get_nowait())
-                    break
+                quiescent_count = 0
             except queue.Empty:
-                pass
+                if lines:
+                    quiescent_count += 1
+                    if quiescent_count >= 3:
+                        break
 
         return "".join(lines).strip()
 
@@ -116,7 +115,7 @@ class ConPTYManager:
             self._sessions[session_id] = PersistentShellSession(session_id, shell=shell)
         return self._sessions[session_id]
 
-    def execute_in_session(self, command: str, session_id: str = "default", timeout: float = 3.0) -> Dict[str, Any]:
+    def execute_in_session(self, command: str, session_id: str = "default", timeout: float = 5.0) -> Dict[str, Any]:
         """Executes an interactive command within a persistent terminal context."""
         sess = self.get_session(session_id)
         ok = sess.send_command(command)

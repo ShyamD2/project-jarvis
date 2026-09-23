@@ -26,3 +26,6 @@ dependencies = [
 where = ["."]
 include = ["agents*", "services*", "shared*", "devices*"]
 namespaces = true
+
+[tool.pytest.ini_options]
+addopts = "--capture=sys"

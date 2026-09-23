@@ -1,0 +1,46 @@
+{
+  "scenario": "Jarvis, prepare my development environment",
+  "status": "COMPLETED",
+  "traceparent": "00-7d49635ea09d47bca8428b6dadbb6638-d96f84beb5b94451-01",
+  "total_elapsed_ms": 10423.71,
+  "worlds_orchestrated": [
+    "COMPUTER",
+    "DIGITAL_CLOUD",
+    "PHYSICAL_IOT"
+  ],
+  "steps": [
+    {
+      "step": "audio_calibration",
+      "world": "COMPUTER",
+      "final_status": "SUCCESS",
+      "verified": true,
+      "duration_ms": 2534.42
+    },
+    {
+      "step": "host_telemetry_check",
+      "world": "COMPUTER",
+      "final_status": "SUCCESS",
+      "cpu_percent": 63.3,
+      "duration_ms": 717.04
+    },
+    {
+      "step": "cloud_health_probe",
+      "world": "DIGITAL_CLOUD",
+      "final_status": "SUCCESS",
+      "duration_ms": 7116.77
+    },
+    {
+      "step": "iot_workstation_query",
+      "world": "PHYSICAL_IOT",
+      "final_status": "SUCCESS",
+      "duration_ms": 24.97
+    }
+  ],
+  "world_model_reconciled": true,
+  "audit_ledger_integrity": {
+    "valid": true,
+    "total_blocks": 77,
+    "tail_hash": "ba8b010912ad8f15cfda2f6c0899dbc533848b076f37bf835aba01a3c0ed1301"
+  },
+  "summary": "Development environment successfully initialized, calibrated, and corroborated with ground-truth."
+}
