@@ -372,24 +372,23 @@ class JarvisTelegramGateway:
             return
 
         if self._writing_mode.get(str(user_id)):
+            from services.brain.canonical_pipeline import canonical_pipeline
             if lower.startswith("/erase") or lower.startswith("erase ") or lower in ["🔙 erase 1 char", "🔙 erase 5 chars"]:
-                from agents.computer.keyboard_agent import keyboard_agent
                 count = 5 if lower in ["🔙 erase 5 chars", "/erase 5", "erase 5"] else 1
                 if lower.startswith("/erase ") or lower.startswith("erase "):
                     arg = (text[7:] if lower.startswith("/erase ") else text[6:]).strip()
                     if arg.isdigit():
                         count = min(int(arg), 100)
                 for _ in range(count):
-                    keyboard_agent.press_key("backspace")
+                    await canonical_pipeline.execute_request("mouse_keyboard", {"action": "key_press", "key": "backspace"}, source="telegram", user_id=str(user_id))
                     time.sleep(0.02)
                 await self.send_message(chat_id, f"🔙 Erased {count} character{'s' if count > 1 else ''}.", reply_markup=WRITING_KEYBOARD)
                 return
 
             if lower in ["/clear", "clear", "🗑️ clear field", "clear field"]:
-                from agents.computer.keyboard_agent import keyboard_agent
-                keyboard_agent.press_shortcut(["ctrl", "a"])
+                await canonical_pipeline.execute_request("mouse_keyboard", {"action": "shortcut", "keys": ["ctrl", "a"]}, source="telegram", user_id=str(user_id))
                 time.sleep(0.05)
-                keyboard_agent.press_key("backspace")
+                await canonical_pipeline.execute_request("mouse_keyboard", {"action": "key_press", "key": "backspace"}, source="telegram", user_id=str(user_id))
 
         # ======================================================================
         # MOUSE TRACKPAD & LIVE SCREEN STREAM

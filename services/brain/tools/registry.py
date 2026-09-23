@@ -988,13 +988,98 @@ class ToolRegistry:
 
         logger.info(f"Initialized ToolRegistry with {len(self._tools)} registered domain tools.")
 
+    CANONICAL_ALIASES = {
+        "computer.open_app": "launch_app",
+        "computer.close_app": "close_app",
+        "computer.volume": "audio_media",
+        "computer.power": "pc_power",
+        "computer.type": "mouse_keyboard",
+        "computer.click": "mouse_keyboard",
+        "computer.lock": "pc_power",
+        "browser.open": "browse_web",
+        "browser.search": "browse_web",
+        "browser.click": "manage_browser",
+        "docker.restart": "devops_tool",
+        "docker.list": "devops_tool",
+        "kubernetes.pods": "devops_tool",
+        "kubernetes.restart": "devops_tool",
+        "terraform.plan": "devops_tool",
+        "terraform.apply": "devops_tool",
+        "aws.ec2.list": "aws_management",
+        "aws.ec2.start": "aws_management",
+        "aws.ec2.stop": "aws_management",
+        "get_system_telemetry": "system_status_report",
+        "system.telemetry": "system_status_report",
+        "system.status": "system_status_report",
+        "system.query": "query_system_telemetry",
+        "network.control": "network_control",
+    }
+
     def register(self, tool: JarvisTool):
         if not hasattr(tool, "definition") or not getattr(tool.definition, "tier", None):
             raise ValueError(f"Tool '{getattr(tool, 'name', str(tool))}' rejected: Mandatory ActionTier declaration required.")
         self._tools[tool.name] = tool
 
+    def resolve_canonical_name(self, name: str) -> str:
+        """Resolves canonical hierarchical name to implementation tool name, or vice versa."""
+        if name in self._tools:
+            return name
+        if name in self.CANONICAL_ALIASES:
+            alias_target = self.CANONICAL_ALIASES[name]
+            if alias_target in self._tools:
+                return alias_target
+        # Check reverse aliases
+        for canonical, alias in self.CANONICAL_ALIASES.items():
+            if alias == name and canonical in self._tools:
+                return canonical
+        return name
+
     def get_tool(self, name: str) -> Optional[JarvisTool]:
-        return self._tools.get(name)
+        resolved = self.resolve_canonical_name(name)
+        return self._tools.get(resolved) or self._tools.get(name)
+
+    def get_tool_health(self, name: str) -> Dict[str, Any]:
+        """Returns tool health status: AVAILABLE, DEGRADED, UNAVAILABLE, BLOCKED (Item 104)."""
+        resolved = self.resolve_canonical_name(name)
+        tool = self.get_tool(resolved)
+        if not tool:
+            return {"name": name, "status": "UNAVAILABLE", "reason": "Not registered in tool catalog"}
+
+        # Dynamic health evaluation based on target domain
+        if "kubernetes" in name or (resolved == "devops_tool" and "k8s" in name):
+            # Kubernetes requires live cluster connection probe
+            k8s_configured = os.path.exists(os.path.expanduser("~/.kube/config")) or bool(os.getenv("KUBECONFIG"))
+            if not k8s_configured:
+                return {"name": name, "status": "UNAVAILABLE", "reason": "No active Kubernetes cluster or kubeconfig detected (LAB-TESTED status)"}
+        elif "aws" in name or resolved == "aws_management":
+            aws_key = os.getenv("AWS_ACCESS_KEY_ID")
+            if not aws_key and not os.path.exists(os.path.expanduser("~/.aws/credentials")):
+                return {"name": name, "status": "DEGRADED", "reason": "AWS credentials unconfigured; running against mock/local provider"}
+        elif "docker" in name:
+            # Check docker daemon responsiveness
+            try:
+                import subprocess
+                res = subprocess.run(["docker", "info"], capture_output=True, timeout=1.0)
+                if res.returncode != 0:
+                    return {"name": name, "status": "DEGRADED", "reason": "Docker daemon is not responsive"}
+            except Exception:
+                return {"name": name, "status": "DEGRADED", "reason": "Docker CLI not found or daemon down"}
+
+        return {"name": name, "status": "AVAILABLE", "reason": "Nominal"}
+
+    def get_available_capabilities(self) -> Dict[str, Any]:
+        """Returns runtime capability discovery map (Item 103)."""
+        capabilities = {
+            "AVAILABLE": [],
+            "DEGRADED": [],
+            "UNAVAILABLE": [],
+            "BLOCKED": []
+        }
+        for name in list(self._tools.keys()) + list(self.CANONICAL_ALIASES.keys()):
+            h = self.get_tool_health(name)
+            st = h.get("status", "AVAILABLE")
+            capabilities[st].append({"tool": name, "reason": h.get("reason", "N/A")})
+        return capabilities
 
     def list_tools(self) -> List[ToolDefinition]:
         return [tool.definition for tool in self._tools.values()]

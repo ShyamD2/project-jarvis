@@ -1,11 +1,16 @@
 """
-J.A.R.V.I.S. Prompt Shield and Untrusted Data Isolation Guard (Pillar 7).
+J.A.R.V.I.S. Prompt Shield, Untrusted Data Isolation Guard & SSRF Protection (Phase 36).
 Protects LLM reasoning against prompt injections, adversarial tag breakouts,
 and hidden command execution embedded in web pages, terminal output, and tool results.
+Phase 36: Adds DNS-Rebinding Defense & SSRF Protection (Item 62 & Critical Correction #8).
 """
 
+from __future__ import annotations
 import re
-from typing import Dict, Any, List, Optional
+import socket
+import ipaddress
+from urllib.parse import urlparse
+from typing import Dict, Any, List, Optional, Tuple
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisPromptShield")
@@ -57,9 +62,7 @@ class PromptShield:
         }
 
     def sanitize_content(self, text: str) -> str:
-        """
-        Neutralizes XML tag breakouts and deceptive role impersonations.
-        """
+        """Neutralizes XML tag breakouts and deceptive role impersonations."""
         if not text:
             return ""
 
@@ -79,9 +82,7 @@ class PromptShield:
         return clean
 
     def wrap_untrusted_content(self, content: str, source_type: str = "tool_output") -> str:
-        """
-        Wraps content in strict security containment tags with explicit warning for the LLM.
-        """
+        """Wraps content in strict security containment tags with explicit warning for the LLM."""
         sanitized = self.sanitize_content(content)
         detection = self.detect_prompt_injection(sanitized)
 
@@ -98,6 +99,60 @@ class PromptShield:
             f'</untrusted_external_content>'
         )
         return envelope
+
+    def validate_url_ssrf(self, target_url: str) -> Tuple[bool, Optional[str]]:
+        """
+        SSRF Protection with DNS Rebinding Defense (Critical Correction #8 & Item 62).
+        Resolves hostname and verifies that NONE of the resolved IP addresses point to:
+          - IPv4 loopback (127.0.0.0/8), 0.0.0.0, cloud metadata (169.254.169.254), RFC1918
+          - IPv6 loopback (::1), link-local (fe80::/10), multicast (ff00::/8)
+          - Non-HTTP(S) schemes (file://, dict://, gopher://)
+        """
+        try:
+            parsed = urlparse(target_url)
+            scheme = (parsed.scheme or "").lower()
+            if scheme not in ["http", "https"]:
+                return False, f"BLOCKED_SSRF: Disallowed URI scheme '{scheme}'. Only HTTP and HTTPS are permitted."
+
+            hostname = parsed.hostname
+            if not hostname:
+                return False, "BLOCKED_SSRF: Target URL has no valid hostname."
+
+            # Literal localhost strings
+            if hostname.lower() in ["localhost", "127.0.0.1", "0.0.0.0", "::1"]:
+                return False, f"BLOCKED_SSRF: Direct access to local host target '{hostname}' is prohibited."
+
+            # Resolve all DNS IPs for the hostname to defeat DNS rebinding attacks
+            resolved_ips = []
+            try:
+                addr_info = socket.getaddrinfo(hostname, None)
+                for item in addr_info:
+                    ip_str = item[4][0]
+                    resolved_ips.append(ipaddress.ip_address(ip_str))
+            except socket.gaierror as e:
+                return False, f"BLOCKED_SSRF: DNS resolution failure for '{hostname}': {e}"
+
+            if not resolved_ips:
+                return False, f"BLOCKED_SSRF: No IP addresses resolved for '{hostname}'."
+
+            # Validate EVERY resolved IP
+            for ip in resolved_ips:
+                if (
+                    ip.is_private or
+                    ip.is_loopback or
+                    ip.is_link_local or
+                    ip.is_multicast or
+                    ip.is_reserved or
+                    ip.is_unspecified or
+                    str(ip) == "169.254.169.254"
+                ):
+                    logger.warning(f"🚨 [PromptShield: SSRF Blocked] Host '{hostname}' resolved to private/forbidden IP: {ip}")
+                    return False, f"BLOCKED_SSRF: Host '{hostname}' resolved to forbidden/private IP: {ip}"
+
+            return True, None
+
+        except Exception as e:
+            return False, f"BLOCKED_SSRF: Validation error: {e}"
 
 
 prompt_shield = PromptShield()

@@ -1,0 +1,141 @@
+# J.A.R.V.I.S. Declarative Security Policy Specification (Phase 36 Policy-as-Code)
+# Governs action tiers, RBAC roles, approval gates, rate limits, and autonomy ceilings.
+
+version: "2.0"
+
+rbac:
+  roles:
+    OWNER:
+      description: "Full system authority; can authorize Tier 3 destructive operations"
+      allowed_tiers: [tier_0_reflex, tier_1_soft, tier_2_mutating, tier_3_destructive]
+      can_approve_tickets: true
+      can_modify_policies: true
+
+    ADMIN:
+      description: "Infrastructure and workstation administrator; mutations allowed, destructive requires owner"
+      allowed_tiers: [tier_0_reflex, tier_1_soft, tier_2_mutating]
+      can_approve_tickets: true
+      can_modify_policies: false
+
+    OPERATOR:
+      description: "Standard daily workflow automation; soft mutations allowed"
+      allowed_tiers: [tier_0_reflex, tier_1_soft]
+      can_approve_tickets: false
+      can_modify_policies: false
+
+    VIEWER:
+      description: "Read-only access to system telemetry, status reports, and logs"
+      allowed_tiers: [tier_0_reflex]
+      can_approve_tickets: false
+      can_modify_policies: false
+
+    GUEST:
+      description: "Untrusted external / unknown voice; strict sandbox read-only"
+      allowed_tiers: []
+      can_approve_tickets: false
+      can_modify_policies: false
+
+rate_limits:
+  authentication:
+    max_requests: 5
+    window_seconds: 60
+    lockout_seconds: 300
+
+  standard_api:
+    max_requests: 60
+    window_seconds: 60
+
+  destructive_mutations:
+    max_requests: 3
+    window_seconds: 60
+
+  websocket_connections:
+    max_connections_per_ip: 5
+
+autonomy_ceilings:
+  max_autonomous_tier: tier_1_soft
+  max_actions_per_mission: 25
+  max_llm_cost_per_mission_usd: 0.50
+  max_mission_duration_seconds: 300
+  max_retries_per_action: 3
+
+tools:
+  computer.open_app:
+    tier: tier_1_soft
+    required_role: OPERATOR
+    approval_required: false
+
+  computer.close_app:
+    tier: tier_1_soft
+    required_role: OPERATOR
+    approval_required: false
+
+  computer.volume:
+    tier: tier_0_reflex
+    required_role: OPERATOR
+    approval_required: false
+
+  computer.power:
+    tier: tier_3_destructive
+    required_role: OWNER
+    approval_required: true
+
+  browser.open:
+    tier: tier_1_soft
+    required_role: OPERATOR
+    approval_required: false
+
+  browser.click:
+    tier: tier_1_soft
+    required_role: OPERATOR
+    approval_required: false
+
+  docker.list:
+    tier: tier_0_reflex
+    required_role: VIEWER
+    approval_required: false
+
+  docker.restart:
+    tier: tier_2_mutating
+    required_role: ADMIN
+    approval_required: true
+
+  kubernetes.pods:
+    tier: tier_0_reflex
+    required_role: VIEWER
+    approval_required: false
+
+  kubernetes.restart:
+    tier: tier_2_mutating
+    required_role: ADMIN
+    approval_required: true
+
+  aws.ec2.list:
+    tier: tier_0_reflex
+    required_role: VIEWER
+    approval_required: false
+
+  aws.ec2.start:
+    tier: tier_2_mutating
+    required_role: ADMIN
+    approval_required: true
+
+  aws.ec2.stop:
+    tier: tier_2_mutating
+    required_role: ADMIN
+    approval_required: true
+
+  terraform.plan:
+    tier: tier_1_soft
+    required_role: ADMIN
+    approval_required: false
+
+  terraform.apply:
+    tier: tier_3_destructive
+    required_role: OWNER
+    approval_required: true
+
+  terraform.destroy:
+    tier: tier_3_destructive
+    required_role: OWNER
+    approval_required: true

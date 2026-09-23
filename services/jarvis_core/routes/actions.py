@@ -56,8 +56,14 @@ async def dispatch_action(req: ActionRequest, background_tasks: BackgroundTasks)
 
     logger.info(f"Dispatching action [{action.tier.value}] '{action.name}' to {action.target_agent} ({action.target_world.value})")
 
-    # Execute action through Permission Engine and Target Agent
-    result = await action_dispatcher.dispatch(action, req.approval_token)
+    # Execute action through Canonical Pipeline (Phase 36 Stage 36.3)
+    from services.brain.canonical_pipeline import canonical_pipeline
+    result = await canonical_pipeline.execute_request(
+        tool_name=action.name,
+        parameters=action.parameters,
+        source="core_api",
+        approval_token=req.approval_token
+    )
 
     # Publish action execution event to Mesh
     event = JarvisEvent(
@@ -71,13 +77,14 @@ async def dispatch_action(req: ActionRequest, background_tasks: BackgroundTasks)
     background_tasks.add_task(mesh.publish, event)
 
     # If action was blocked due to pending approval, return structured approval payload
-    if not result.get("success") and result.get("requires_approval"):
+    if not result.get("success") and result.get("requires_confirmation"):
         logger.warning(f"Action requires approval: {action.name}")
         return {
             "status": "requires_approval",
-            "action_id": action.action_id,
-            "tier": action.tier.value,
+            "action_id": result.get("action_id", action.action_id),
+            "tier": result.get("tier", action.tier.value),
             "rationale": result.get("rationale", "Explicit approval token required."),
+            "ticket_id": result.get("ticket_id"),
             "message": "Action is Tier 3 (Destructive) or Mutating. Explicit cryptographic/voice approval token required."
         }
 

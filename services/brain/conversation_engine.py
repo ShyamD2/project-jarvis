@@ -190,75 +190,72 @@ class ConversationEngine:
         except Exception as e_web:
             logger.debug(f"[ConversationEngine] Web/music fast-path notice: {e_web}")
 
-        # 3.6. BROWSER TAB & WINDOW SWITCHING FAST-PATH
+        # 3.6. BROWSER TAB & WINDOW SWITCHING FAST-PATH (Routed via Canonical Pipeline)
         # Fulfills user requirement: "switch tab", "next tab", "prev tab", "new tab", "close tab", "switch window"
+        from services.brain.canonical_pipeline import canonical_pipeline
+
         if re.search(r"\b(switch\s+(?:the\s+)?tab|change\s+(?:the\s+)?tab|next\s+tab|switch\s+to\s+next\s+tab)\b", lower_text):
-            from agents.computer.windows_agent import windows_agent
-            windows_agent.switch_tab("next")
+            pipe_res = await canonical_pipeline.execute_request("manage_browser", {"action": "switch_tab", "direction": "next"}, source="conversation", raw_query=user_text)
             reply = "Switched to the next browser tab, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
             return {
                 "response": reply,
                 "intent": "manage_browser",
-                "actions_executed": [{"tool": "manage_browser", "action": "switch_tab", "direction": "next"}],
-                "verified": True,
+                "actions_executed": [pipe_res],
+                "verified": pipe_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
 
         if re.search(r"\b(previous\s+tab|prev\s+tab|switch\s+(?:to\s+)?previous\s+tab|back\s+tab)\b", lower_text):
-            from agents.computer.windows_agent import windows_agent
-            windows_agent.switch_tab("prev")
+            pipe_res = await canonical_pipeline.execute_request("manage_browser", {"action": "switch_tab", "direction": "prev"}, source="conversation", raw_query=user_text)
             reply = "Switched to the previous browser tab, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
             return {
                 "response": reply,
                 "intent": "manage_browser",
-                "actions_executed": [{"tool": "manage_browser", "action": "switch_tab", "direction": "prev"}],
-                "verified": True,
+                "actions_executed": [pipe_res],
+                "verified": pipe_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
 
         if re.search(r"\b(open\s+(?:a\s+)?new\s+tab|create\s+(?:a\s+)?new\s+tab|new\s+tab)\b", lower_text):
-            from agents.computer.windows_agent import windows_agent
-            windows_agent.open_new_tab()
+            pipe_res = await canonical_pipeline.execute_request("manage_browser", {"action": "new_tab"}, source="conversation", raw_query=user_text)
             reply = "Opened a new browser tab, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
             return {
                 "response": reply,
                 "intent": "manage_browser",
-                "actions_executed": [{"tool": "manage_browser", "action": "new_tab"}],
-                "verified": True,
+                "actions_executed": [pipe_res],
+                "verified": pipe_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
 
         if re.search(r"\b(close\s+(?:the\s+|this\s+|active\s+)?tab)\b", lower_text):
-            from agents.computer.windows_agent import windows_agent
-            windows_agent.close_active_tab()
+            pipe_res = await canonical_pipeline.execute_request("manage_browser", {"action": "close_tab"}, source="conversation", raw_query=user_text)
             reply = "Closed the active browser tab, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", reply, {"intent": "manage_browser"})
             return {
                 "response": reply,
                 "intent": "manage_browser",
-                "actions_executed": [{"tool": "manage_browser", "action": "close_tab"}],
-                "verified": True,
+                "actions_executed": [pipe_res],
+                "verified": pipe_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
 
         if re.search(r"\b(switch\s+(?:the\s+)?window|change\s+(?:the\s+)?window|switch\s+app|next\s+window|alt\s+tab)\b", lower_text):
-            from agents.computer.windows_agent import windows_agent
-            windows_agent.switch_window()
+            pipe_res = await canonical_pipeline.execute_request("manage_window", {"action": "switch_window"}, source="conversation", raw_query=user_text)
             reply = "Switched active application window, sir."
             context_manager.add_turn("user", user_text)
             context_manager.add_turn("jarvis", reply, {"intent": "manage_window"})
             return {
                 "response": reply,
                 "intent": "manage_window",
-                "actions_executed": [{"tool": "manage_window", "action": "switch_window"}],
-                "verified": True,
+                "actions_executed": [pipe_res],
+                "verified": pipe_res.get("success", True),
                 "latency_ms": (time.time() - start_time) * 1000
             }
 

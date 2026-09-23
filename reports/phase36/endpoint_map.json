@@ -1,0 +1,59 @@
+{
+  "project": "Project J.A.R.V.I.S.",
+  "migration_phase": "36.0",
+  "generated_at": "2026-09-23T21:22:00Z",
+  "ingress_gateways": [
+    {
+      "gateway": "Voice / Audio Sensory",
+      "entrypoint": "services/sensory/voice_listener.py",
+      "current_target": "services/brain/agent_runtime.py",
+      "pipeline_classification": "Reflex for audio controls / Mission for complex tasks",
+      "bypass_risk": "Low (passes through runtime)"
+    },
+    {
+      "gateway": "Telegram Gateway Daemon",
+      "entrypoint": "services/gateway/telegram_bot.py",
+      "current_target": "Mixed (conversation_engine + direct agents)",
+      "pipeline_classification": "Mixed",
+      "bypass_risk": "HIGH",
+      "detected_bypasses": [
+        "lines 376-385: keyboard_agent.press_key('backspace') directly invoked without PermissionEngine",
+        "lines 389-393: keyboard_agent.press_shortcut(['ctrl', 'a']) directly invoked without PermissionEngine"
+      ],
+      "phase36_remediation": "Route all Telegram writing and shortcut commands through CanonicalPipeline.execute_turn()"
+    },
+    {
+      "gateway": "Remote Trackpad & Live Screen Server",
+      "entrypoint": "services/gateway/remote_trackpad_server.py",
+      "current_target": "Mixed (direct mouse_agent, keyboard_agent, windows_agent)",
+      "pipeline_classification": "Reflex Class",
+      "bypass_risk": "HIGH",
+      "detected_bypasses": [
+        "Direct imports of mouse_agent and keyboard_agent in route handlers without permission engine or audit tracking"
+      ],
+      "phase36_remediation": "Route mouse move/click/scroll and key presses through Canonical Reflex pipeline"
+    },
+    {
+      "gateway": "Core REST Actions API",
+      "entrypoint": "services/jarvis_core/routes/actions.py",
+      "current_target": "agents/action_dispatcher.py",
+      "pipeline_classification": "Mission Class / Reflex Class",
+      "bypass_risk": "MEDIUM",
+      "detected_bypasses": [
+        "ActionDispatcher has hardcoded branching separate from ToolRegistry"
+      ],
+      "phase36_remediation": "Replace ActionDispatcher branching with Canonical ToolRegistry dispatch"
+    },
+    {
+      "gateway": "Core REST Query API",
+      "entrypoint": "services/jarvis_core/routes/query.py",
+      "current_target": "services/brain/conversation_engine.py",
+      "pipeline_classification": "Read-Only / Reflex / Mission",
+      "bypass_risk": "MEDIUM",
+      "detected_bypasses": [
+        "conversation_engine.py fast-paths directly call windows_agent.switch_tab, switch_window, open_new_tab"
+      ],
+      "phase36_remediation": "Route fast-paths through ToolRegistry with proper authorization and verification"
+    }
+  ]
+}

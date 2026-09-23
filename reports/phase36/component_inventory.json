@@ -1,0 +1,100 @@
+{
+  "project": "Project J.A.R.V.I.S.",
+  "migration_phase": "36.0",
+  "baseline_commit": "phase35-stable",
+  "generated_at": "2026-09-23T21:20:00Z",
+  "reuse_policy": "DO NOT create a new subsystem if an equivalent subsystem already exists. Extend or refactor the existing implementation instead.",
+  "subsystems": [
+    {
+      "name": "Action Envelope Schema",
+      "path": "shared/schemas/action_envelope.py",
+      "action": "EXTEND",
+      "current_role": "Defines ActionEnvelope, ActionTier, TargetWorld",
+      "phase36_enhancement": "Add execution_id, execution_class (REFLEX, READ_ONLY, MISSION), version, schema_version, and UniversalTransactionRecord linkage."
+    },
+    {
+      "name": "Event Envelope Schema",
+      "path": "shared/schemas/event_envelope.py",
+      "action": "EXTEND",
+      "current_role": "Defines CloudEvents v1.0 JarvisEvent",
+      "phase36_enhancement": "Add correlation_id, causation_id, idempotency_key, mission_id, and schema_version."
+    },
+    {
+      "name": "Base Tool Interface",
+      "path": "services/brain/tools/base.py",
+      "action": "EXTEND",
+      "current_role": "Defines JarvisTool abstract base class with execute() and rollback()",
+      "phase36_enhancement": "Add typed ExecutionResult, VerificationResult, abstract verify() method, tool versioning, and Pydantic input_schema."
+    },
+    {
+      "name": "Tool Registry",
+      "path": "services/brain/tools/registry.py",
+      "action": "REFACTOR_EXTEND",
+      "current_role": "Manages tool registration and basic 4-tier dispatch",
+      "phase36_enhancement": "Implement canonical hierarchical naming (computer.*, browser.*, aws.*, docker.*, kubernetes.*, terraform.*), backward-compatible legacy aliases, and runtime capability discovery (AVAILABLE, DEGRADED, UNAVAILABLE, BLOCKED)."
+    },
+    {
+      "name": "Permission Engine",
+      "path": "services/permission_engine/engine.py",
+      "action": "MERGE_EXTEND",
+      "current_role": "Evaluates risk tier and approval tokens",
+      "phase36_enhancement": "Integrate policies/security_policies.yaml, multi-factor decision engine f(confidence, risk, blast_radius, freshness, auth, env, reversibility), single-use capability leases, and /api/v1/security/simulate."
+    },
+    {
+      "name": "Verification Engine",
+      "path": "services/verification/verification_engine.py",
+      "action": "EXTEND",
+      "current_role": "Performs process, window, file, and sensory verification",
+      "phase36_enhancement": "Implement strict post-condition contracts, tool honesty validation, false-success rejection, and multi-step verification."
+    },
+    {
+      "name": "SystemUndo Engine",
+      "path": "services/verification/system_undo.py",
+      "action": "EXTEND",
+      "current_role": "Differential OS snapshotting (env, ports, git, configs)",
+      "phase36_enhancement": "Per-tool compensating rollback strategies for files, git, docker, terraform, k8s, and cloud APIs."
+    },
+    {
+      "name": "World Model & Memory",
+      "path": "services/memory/world_model.py",
+      "action": "EXTEND",
+      "current_role": "Basic snapshot dictionary of system state",
+      "phase36_enhancement": "Typed digital twin (computer, browser, cloud, docker, network) with observed_at, TTL, confidence, and Reality Reconciliation Engine."
+    },
+    {
+      "name": "Distributed Tracing & Metrics",
+      "path": "services/observability/",
+      "action": "EXTEND",
+      "current_role": "In-memory spans and basic telemetry counters",
+      "phase36_enhancement": "OpenTelemetry W3C traceparent context propagation, latency breakdown table, Prometheus /metrics endpoint, and Grafana dashboard."
+    },
+    {
+      "name": "Security & Sandboxing",
+      "path": "services/security/",
+      "action": "EXTEND_HARDEN",
+      "current_role": "CyberLock, PromptShield, SkillSandbox",
+      "phase36_enhancement": "Add fail-closed secrets manager (DPAPI/AWS), pre-logging secret redactor, sliding-window rate limiter, DNS rebinding SSRF defense, and scoped skill execution tokens."
+    },
+    {
+      "name": "Mission Planner & DAG",
+      "path": "services/planner/mission_control.py",
+      "action": "EXTEND",
+      "current_role": "In-memory mission DAG scheduler",
+      "phase36_enhancement": "Persistent SQLite storage, crash recovery with state reconciliation, priority queues (P0-P4), resource budgets, and clean cancellation."
+    },
+    {
+      "name": "Cloud Operations",
+      "path": "agents/cloud/",
+      "action": "EXTEND",
+      "current_role": "AWS, Docker, Git, Terraform, K8s agents",
+      "phase36_enhancement": "Structured Terraform plan parser, FinOps cost estimator, K8s diagnostic agent (LAB-TESTED status), and supply-chain DevSecOps scanner."
+    },
+    {
+      "name": "Gateways (Telegram, Trackpad, API)",
+      "path": "services/gateway/",
+      "action": "REFACTOR_SECURE",
+      "current_role": "Exposes remote control and messaging",
+      "phase36_enhancement": "Remove all direct agent/shell bypasses, route strictly through Canonical Pipeline with Reflex and Mission pathways."
+    }
+  ]
+}
