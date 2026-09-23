@@ -42,6 +42,10 @@ class SecretRedactor:
             sanitized = pattern.sub(replacement, sanitized)
         return sanitized
 
+    def redact_text(self, text: Any) -> str:
+        """Alias for redact()."""
+        return self.redact(text)
+
 
 class SecretRedactingFilter(logging.Filter):
     """Logging filter that sanitizes every record message before formatting."""

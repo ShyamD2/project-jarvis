@@ -6,7 +6,7 @@ Main entrance for the Master Orchestrator, Fast-Path Router, and Sensory Hub.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -214,6 +214,13 @@ async def health_check():
         "emergency_stand_down": config.emergency_stand_down,
         "fast_path_mesh": "connected"
     }
+
+
+@app.get("/metrics", tags=["Observability"])
+async def prometheus_metrics():
+    """Exports system and pipeline metrics in standard Prometheus exposition format."""
+    from services.observability.metrics import obs_metrics
+    return PlainTextResponse(obs_metrics.get_prometheus_metrics(), media_type="text/plain; version=0.0.4")
 
 
 @app.get("/api/v1/voice/state", tags=["Voice"])

@@ -54,6 +54,7 @@ class UniversalTransactionRecord:
     execution_result: Optional[Dict[str, Any]] = None
     verification_result: Optional[Dict[str, Any]] = None
     rollback_result: Optional[Dict[str, Any]] = None
+    stage_latencies: Optional[Dict[str, float]] = None
     final_status: str = "PENDING"              # "SUCCESS", "FAILED", "UNKNOWN", "PENDING"
     duration_ms: float = 0.0
 

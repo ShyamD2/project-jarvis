@@ -23,6 +23,8 @@ from services.security.prompt_shield import prompt_shield
 from services.security.secret_redactor import secret_redactor
 from services.memory.world_model import world_model
 from agents.intelligence.emergency_stop import emergency_stop
+from services.observability.traces import obs_tracer
+from services.observability.metrics import obs_metrics
 
 logger = get_logger("JarvisCanonicalPipeline")
 
@@ -135,7 +137,11 @@ class CanonicalPipeline:
             mission_id=m_id
         )
 
-        # 3. Create Universal Transaction Record (Stage 36.1 Item 4)
+        # 3. Ingress Span & Universal Transaction Record (Stage 36.1 & 36.4)
+        t_span = obs_tracer.start_span(f"canonical_pipeline.{canonical_name}", trace_id=t_id)
+        pipeline_ingress_ms = (time.time() - t0) * 1000
+        t_span.record_stage_latency("pipeline_ingress_ms", pipeline_ingress_ms)
+
         tx = UniversalTransactionRecord(
             mission_id=m_id,
             task_id=f"t_{uuid.uuid4().hex[:6]}",
@@ -151,17 +157,33 @@ class CanonicalPipeline:
         self.transactions[act_id] = tx
 
         # 4. Multi-Factor Permission Evaluation (Stage 36.2)
+        t_pol0 = time.time()
         decision: PermissionDecision = permission_engine.evaluate(
             action=action,
             approval_token=approval_token,
             confidence=confidence,
             user_role=user_role
         )
+        policy_check_ms = (time.time() - t_pol0) * 1000
+        t_span.record_stage_latency("policy_check_ms", policy_check_ms)
+        t_span.record_stage_latency("permission_eval_ms", policy_check_ms)
+
+        stage_latencies = {
+            "pipeline_ingress_ms": round(pipeline_ingress_ms, 2),
+            "policy_check_ms": round(policy_check_ms, 2),
+            "permission_eval_ms": round(policy_check_ms, 2),
+            "tool_execution_ms": 0.0,
+            "verification_ms": 0.0,
+            "world_model_settlement_ms": 0.0
+        }
 
         if not decision.authorized:
             tx.final_status = "BLOCKED"
             tx.duration_ms = (time.time() - t0) * 1000
+            tx.stage_latencies = stage_latencies
+            obs_metrics.increment("jarvis_pipeline_requests_total", labels={"status": "BLOCKED", "tier": effective_tier.name})
             if decision.requires_explicit_approval:
+                t_span.finish("PENDING_APPROVAL")
                 return {
                     "success": False,
                     "status": "confirmation_required",
@@ -172,8 +194,11 @@ class CanonicalPipeline:
                     "rationale": decision.rationale,
                     "action_id": act_id,
                     "execution_class": exec_class.value,
+                    "traceparent": t_span.to_traceparent(),
+                    "stage_latencies": stage_latencies,
                     "duration_ms": tx.duration_ms
                 }
+            t_span.finish("BLOCKED")
             return {
                 "success": False,
                 "status": "permission_denied",
@@ -181,11 +206,13 @@ class CanonicalPipeline:
                 "error": decision.rationale,
                 "action_id": act_id,
                 "execution_class": exec_class.value,
+                "traceparent": t_span.to_traceparent(),
+                "stage_latencies": stage_latencies,
                 "duration_ms": tx.duration_ms
             }
 
         # 5. EXECUTION LAYER: Execute via Tool
-        # In Reflex and Read-Only classes, execution is fast and bypasses mission persistence
+        t_exec0 = time.time()
         try:
             raw_exec = await tool_registry.execute_tool(
                 name=canonical_name,
@@ -200,9 +227,13 @@ class CanonicalPipeline:
             raw_result = {"error": str(exec_err)}
             transport_ok = False
 
+        tool_execution_ms = (time.time() - t_exec0) * 1000
+        stage_latencies["tool_execution_ms"] = round(tool_execution_ms, 2)
+        t_span.record_stage_latency("tool_execution_ms", tool_execution_ms)
         tx.execution_result = raw_result
 
         # 6. GROUND-TRUTH VERIFICATION: Contract Check
+        t_ver0 = time.time()
         try:
             verif: VerificationResult = verification_engine.verify_action_execution(
                 canonical_name, params, raw_result
@@ -213,11 +244,12 @@ class CanonicalPipeline:
                 status=VerificationStatus.UNKNOWN,
                 failure_reason=f"Verification engine exception: {verif_err}"
             )
-
+        verification_ms = (time.time() - t_ver0) * 1000
+        stage_latencies["verification_ms"] = round(verification_ms, 2)
+        t_span.record_stage_latency("verification_ms", verification_ms)
         tx.verification_result = verif.to_dict()
 
         # 7. PIPELINE FINAL-STATE AUTHORITY (Item 122 & Cardinal Rule 1)
-        # Tools cannot declare SUCCESS. Only pipeline evaluates post-condition.
         if not transport_ok:
             final_status = "FAILED"
         elif verif.status == VerificationStatus.VERIFIED and verif.match:
@@ -228,14 +260,28 @@ class CanonicalPipeline:
             final_status = "UNKNOWN"
 
         tx.final_status = final_status
-        tx.duration_ms = (time.time() - t0) * 1000
 
         # 8. SETTLEMENT: World Model Update on Success (Item 116 Reality Check)
+        t_set0 = time.time()
         if final_status == "SUCCESS":
             try:
                 world_model.record_observed_mutation(canonical_name, params, raw_result)
             except Exception:
                 pass
+        settle_ms = (time.time() - t_set0) * 1000
+        stage_latencies["world_model_settlement_ms"] = round(settle_ms, 2)
+        t_span.record_stage_latency("world_model_settlement_ms", settle_ms)
+
+        tx.duration_ms = (time.time() - t0) * 1000
+        tx.stage_latencies = stage_latencies
+
+        t_span.finish(status=final_status)
+
+        # Operational metrics recording
+        obs_metrics.increment("jarvis_pipeline_requests_total", labels={"status": final_status, "tier": effective_tier.name})
+        obs_metrics.record_latency("pipeline.total", tx.duration_ms)
+        obs_metrics.record_latency("pipeline.tool_execution", tool_execution_ms)
+        obs_metrics.record_latency("pipeline.verification", verification_ms)
 
         logger.info(f"✔ [CanonicalPipeline: {exec_class.value.upper()}] Tool '{canonical_name}' -> Final Status: [{final_status}] ({tx.duration_ms:.1f}ms)")
 
@@ -247,6 +293,8 @@ class CanonicalPipeline:
             "execution_class": exec_class.value,
             "result": raw_result,
             "verification": verif.to_dict(),
+            "stage_latencies": stage_latencies,
+            "traceparent": t_span.to_traceparent(),
             "duration_ms": round(tx.duration_ms, 2)
         }
 
