@@ -100,7 +100,7 @@ class CanonicalPipeline:
             }
 
         # Circuit Breaker Check (Stage 36.8)
-        if not circuit_breaker.can_execute(canonical_name):
+        if not circuit_breaker.can_execute(canonical_name) or not circuit_breaker.can_execute(tool_name):
             logger.warning(f"⚡ [CanonicalPipeline] Fast-failing '{canonical_name}': Circuit breaker is OPEN.")
             return {
                 "success": False,
@@ -267,6 +267,8 @@ class CanonicalPipeline:
             final_status = "FAILED"
         elif verif.status == VerificationStatus.VERIFIED and verif.match:
             final_status = "SUCCESS"
+        elif verif.status in [VerificationStatus.UNKNOWN, VerificationStatus.AMBIGUOUS]:
+            final_status = "UNKNOWN"
         elif verif.status == VerificationStatus.FAILED or (verif.match is False and verif.failure_reason):
             final_status = "FAILED"
         else:
