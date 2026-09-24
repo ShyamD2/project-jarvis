@@ -67,6 +67,10 @@ class ToolFitnessRecord:
 
 
 class DarwinianOptimizer:
+    TIER = "TIER_3_DESTRUCTIVE"
+    SUPERVISED_ONLY = True
+    BLAST_RADIUS = "RUNTIME_MUTATION"
+
     def __init__(self, latency_threshold_ms: float = 300.0, error_threshold: float = 0.10):
         self.latency_threshold_ms = latency_threshold_ms
         self.error_threshold = error_threshold
@@ -83,7 +87,7 @@ class DarwinianOptimizer:
         """Identifies tools that exceed latency thresholds or fail unacceptably."""
         candidates = []
         for name, record in self._fitness_records.items():
-            if record.invocations >= 2:
+            if record.invocations >= 3:
                 needs_opt = False
                 reasons = []
                 if record.avg_latency_ms > self.latency_threshold_ms:
@@ -116,13 +120,22 @@ class DarwinianOptimizer:
         except SyntaxError as e:
             return {"valid": False, "error": f"Syntax error: {e}"}
 
-    def evolve_tool_wrapper(self, tool_name: str, original_func: Callable) -> Callable:
+    def evolve_tool_wrapper(self, tool_name: str, original_func: Callable, approval_token: Optional[str] = None) -> Callable:
         """
         Synthesizes an evolved runtime wrapper incorporating:
         1. Non-blocking timeout guard.
         2. LRU memoization / quick-return caching.
         3. Telemetry instrumentation.
+        MANDATORY INVARIANT: Strictly TIER_3_DESTRUCTIVE / SUPERVISED_ONLY. Requires immutable ActionLease token.
         """
+        # Autonomous Self-Modification Isolation & Guardrail
+        from services.permission_engine.engine import permission_engine
+        if not approval_token:
+            raise PermissionError("SECURITY_VIOLATION: Autonomous code evolution is strictly TIER_3_DESTRUCTIVE / SUPERVISED_ONLY. Valid ActionLease approval token required.")
+        lease = permission_engine.get_action_lease(approval_token)
+        if not lease or lease.consumed or time.time() > lease.expires_at:
+            raise PermissionError("SECURITY_VIOLATION: Invalid, expired, or consumed ActionLease token for code evolution.")
+        lease.consumed = True
         record = self._fitness_records.get(tool_name)
         if not record:
             record = ToolFitnessRecord(tool_name)

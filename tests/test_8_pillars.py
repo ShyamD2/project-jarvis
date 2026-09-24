@@ -41,13 +41,18 @@ class Test8PillarsAgentOS(unittest.TestCase):
         description = "Verifies ping to local loopback"
         commands = ["ping -n 1 127.0.0.1"]
 
+        # Issue required Tier-3 ActionLease
+        from services.permission_engine.engine import permission_engine
+        lease = permission_engine.issue_action_lease("synthesize_skill", {"name": tool_name})
+
         # Run synthesis (deterministic fast template for testing)
         res = asyncio.run(
             skill_synthesizer.synthesize_skill(
                 name=tool_name,
                 description=description,
                 prompt_or_commands=commands,
-                registry=tool_registry
+                registry=tool_registry,
+                approval_token=lease.lease_id
             )
         )
         self.assertTrue(res["success"], f"Skill synthesis failed: {res.get('error')}")

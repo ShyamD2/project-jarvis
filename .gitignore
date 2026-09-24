@@ -85,6 +85,11 @@ data/checkpoints/
 data/teleport_capsules/
 data/quarantine/
 data/memory/
+data/*.db
+data/*.sqlite*
+backups/
+services/brain/tools/custom/
 .pytest_cache/
 services/observability/storage/*.jsonl
 services/gateway/jarvis_background.log
+

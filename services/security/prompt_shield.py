@@ -155,21 +155,51 @@ class PromptShield:
             return False, f"BLOCKED_SSRF: Validation error: {e}"
 
     def validate_command_safety(self, cmd: str) -> Tuple[bool, Optional[str]]:
-        """Validates command line string against common command injection and subshell escalation patterns."""
+        """Validates command line string against common command injection, PowerShell escapes, and subshell escalation patterns."""
         if not cmd:
             return True, None
 
+        # Check PowerShell backtick obfuscation (e.g. I`n`v`o`k`e or `d`o`w`n)
+        if re.search(r"[a-zA-Z]`+[a-zA-Z]", cmd):
+            return False, "BLOCKED_COMMAND_INJECTION: Obfuscated PowerShell backticks detected in identifier."
+
+        # Also de-obfuscate backticks for subsequent pattern matching
+        deobfuscated = cmd.replace("`", "")
+
         # Check subshell command substitution $(...) or `...`
-        if re.search(r"\$\([^\)]+\)", cmd) or re.search(r"`[^`]+`", cmd):
+        if re.search(r"\$\([^\)]+\)", deobfuscated) or re.search(r"`[^`]+`", cmd):
             return False, "BLOCKED_COMMAND_INJECTION: Subshell command substitution detected."
 
-        # Check dangerous pipelining to Invoke-Expression (iex)
-        if re.search(r"\|\s*(iex|invoke-expression)\b", cmd, re.IGNORECASE):
-            return False, "BLOCKED_COMMAND_INJECTION: Pipeline to Invoke-Expression detected."
+        # Check dangerous pipelining to Invoke-Expression (iex) or powershell
+        if re.search(r"\|\s*(iex|invoke-expression|powershell|pwsh)\b", deobfuscated, re.IGNORECASE):
+            return False, "BLOCKED_COMMAND_INJECTION: Pipeline to Invoke-Expression or PowerShell interpreter detected."
+
+        # Check download cradles
+        download_cradle_patterns = [
+            r"net\.webclient",
+            r"downloadstring\s*\(",
+            r"downloaddata\s*\(",
+            r"downloadfile\s*\(",
+            r"\biwr\b.*-usebasicparsing",
+            r"invoke-webrequest.*-usebasicparsing",
+            r"curl\s+https?://.*\|\s*(powershell|pwsh|sh|bash)",
+            r"wget\s+https?://.*\|\s*(powershell|pwsh|sh|bash)",
+        ]
+        for pat in download_cradle_patterns:
+            if re.search(pat, deobfuscated, re.IGNORECASE):
+                return False, f"BLOCKED_COMMAND_INJECTION: Malicious download cradle pattern detected ({pat})."
+
+        # Check PowerShell EncodedCommand flags
+        if re.search(r"(?:^|\s)(?:-encodedcommand|-enc|-e)\s+[A-Za-z0-9+/=]{10,}", deobfuscated, re.IGNORECASE):
+            return False, "BLOCKED_COMMAND_INJECTION: EncodedCommand execution flag detected."
+
+        # Check ExecutionPolicy bypass flags
+        if re.search(r"(?:^|\s)(?:-executionpolicy|-ep)\s+bypass\b", deobfuscated, re.IGNORECASE):
+            return False, "BLOCKED_COMMAND_INJECTION: ExecutionPolicy Bypass flag detected."
 
         # Check chained execution with semicolons
-        if ";" in cmd:
-            parts = [p.strip() for p in cmd.split(";") if p.strip()]
+        if ";" in deobfuscated:
+            parts = [p.strip() for p in deobfuscated.split(";") if p.strip()]
             if len(parts) > 1:
                 return False, "BLOCKED_COMMAND_INJECTION: Chained command sequence via semicolon detected."
 

@@ -80,7 +80,17 @@ class ActionLease:
         if time.time() > self.expires_at:
             return False, "BLOCKED_EXPIRED: Action lease has expired (5-minute TTL exceeded)."
         if self.action_name != action_name:
-            return False, f"BLOCKED_LEASE_MISMATCH: Action '{action_name}' does not match lease target '{self.action_name}'."
+            matched = False
+            try:
+                from services.brain.tools.registry import tool_registry
+                lease_canon = tool_registry.resolve_canonical_name(self.action_name)
+                req_canon = tool_registry.resolve_canonical_name(action_name)
+                if lease_canon == req_canon:
+                    matched = True
+            except Exception:
+                pass
+            if not matched:
+                return False, f"BLOCKED_LEASE_MISMATCH: Action '{action_name}' does not match lease target '{self.action_name}'."
         if self.parameters_hash and self.parameters_hash != parameters_hash:
             return False, "BLOCKED_LEASE_MISMATCH: Parameters hash does not match leased parameters."
         if device_id and self.device_id and self.device_id != "all" and self.device_id != device_id:
@@ -183,19 +193,7 @@ class PermissionEngine:
         effective_tier = max(action.tier, classified_tier, key=lambda t: list(ActionTier).index(t))
         risk_level = classifier.tier_to_risk(effective_tier)
 
-        # 4. RBAC Role Verification
-        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
-        if not role_allowed:
-            decision = PermissionDecision(
-                authorized=False,
-                tier=effective_tier,
-                risk_level=risk_level,
-                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
-            )
-            self._record_audit(action, decision)
-            return decision
-
-        # 5. Single-Use Capability Lease Check (Item 10 & 112)
+        # 4. Single-Use Capability Lease Check (Item 10 & 112)
         # Check explicit universal action lease if token provided
         if approval_token and approval_token in self._action_leases:
             act_lease = self._action_leases[approval_token]
@@ -220,6 +218,18 @@ class PermissionEngine:
                 risk_level=risk_level,
                 rationale=f"AUTHORIZED_BY_ACTION_LEASE: Issued by '{act_lease.issued_by}'",
                 single_use_lease_id=act_lease.lease_id
+            )
+            self._record_audit(action, decision)
+            return decision
+
+        # 5. RBAC Role Verification
+        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
+        if not role_allowed:
+            decision = PermissionDecision(
+                authorized=False,
+                tier=effective_tier,
+                risk_level=risk_level,
+                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
             )
             self._record_audit(action, decision)
             return decision
@@ -489,6 +499,32 @@ class PermissionEngine:
 
     def get_action_lease(self, lease_id: str) -> Optional[ActionLease]:
         return self._action_leases.get(lease_id)
+
+    def evaluate_action(
+        self,
+        action_name: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        approval_token: Optional[str] = None,
+        target_world: TargetWorld = TargetWorld.COMPUTER,
+        target_agent: str = "primary_agent",
+        tier: ActionTier = ActionTier.TIER_2_MUTATING,
+        user_role: str = "OPERATOR",
+        environment: Optional[str] = None
+    ) -> PermissionDecision:
+        """High-level action evaluation with automatic ActionEnvelope wrapping."""
+        action = ActionEnvelope(
+            name=action_name,
+            target_world=target_world,
+            target_agent=target_agent,
+            tier=tier,
+            parameters=parameters or {}
+        )
+        return self.evaluate(
+            action=action,
+            approval_token=approval_token,
+            user_role=user_role,
+            environment=environment
+        )
 
 
 permission_engine = PermissionEngine()

@@ -179,11 +179,38 @@ async def get_metrics():
 @router.post("/interrupt")
 async def trigger_interrupt(req: InterruptRequest):
     """Triggers an instantaneous Emergency Stand-Down to freeze all physical and digital operations."""
-    emergency_stop.trigger(req.reason)
+    emergency_stop.trigger_emergency_stop(reason=req.reason)
     logger.warning(f"🛑 [API_v1] Emergency Interrupt triggered: {req.reason}")
     return {
         "success": True,
         "status": "EMERGENCY_STAND_DOWN_TRIGGERED",
         "reason": req.reason,
         "timestamp": time.time()
+    }
+
+
+@router.get("/audit/events")
+async def get_audit_events(limit: int = 50, tier: Optional[str] = None):
+    """Returns immutable chained audit ledger events and verifies integrity."""
+    from services.observability.chained_audit_ledger import chained_audit_ledger
+    integrity = chained_audit_ledger.verify_ledger_integrity()
+    events = chained_audit_ledger.get_entries(limit=limit, tier=tier)
+    return {
+        "status": "success",
+        "total_events": len(events),
+        "integrity": integrity,
+        "events": events
+    }
+
+
+@router.get("/audit/recent")
+async def get_recent_audit_actions(hours: float = 1.0):
+    """Answers: What did JARVIS do in the last N hours?"""
+    from services.observability.chained_audit_ledger import chained_audit_ledger
+    actions = chained_audit_ledger.get_recent_actions(hours=hours)
+    return {
+        "status": "success",
+        "window_hours": hours,
+        "total_actions": len(actions),
+        "actions": actions
     }

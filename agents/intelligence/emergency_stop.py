@@ -96,6 +96,8 @@ class EmergencyStopController:
         }
 
     lift_emergency_stop = resume_operations
+    stop = trigger_emergency_stop
+    resume = resume_operations
 
     def start_hotkey_listener(self):
         """Starts background daemon thread monitoring for physical hotkey: CTRL + SHIFT + J"""

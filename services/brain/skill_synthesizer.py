@@ -29,6 +29,10 @@ os.makedirs(CUSTOM_TOOLS_DIR, exist_ok=True)
 
 
 class SkillSynthesizer:
+    TIER = "TIER_3_DESTRUCTIVE"
+    SUPERVISED_ONLY = True
+    BLAST_RADIUS = "CODE_SYNTHESIS_AND_HOT_LOADING"
+
     def __init__(self):
         self._demonstrations: Dict[str, List[Dict[str, Any]]] = {}
         self._synthesized_history: List[Dict[str, Any]] = []
@@ -270,12 +274,29 @@ tool_instance = {class_name}()
         name: str,
         description: str,
         prompt_or_commands: Any,
-        registry=None
+        registry=None,
+        approval_token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Master Skill Synthesis Pipeline:
         Prompt/Demo -> AI/Template Code -> AST Lint/Verify -> Write Disk -> Hot Load -> Return Status
+        MANDATORY INVARIANT: Strictly TIER_3_DESTRUCTIVE / SUPERVISED_ONLY. Requires immutable ActionLease token.
         """
+        # Autonomous Self-Modification Isolation & Guardrail
+        from services.permission_engine.engine import permission_engine
+        if not approval_token:
+            return {
+                "success": False,
+                "error": "SECURITY_VIOLATION: Skill synthesis is strictly TIER_3_DESTRUCTIVE / SUPERVISED_ONLY. Valid ActionLease approval token required."
+            }
+        lease = permission_engine.get_action_lease(approval_token)
+        if not lease or lease.consumed or time.time() > lease.expires_at:
+            return {
+                "success": False,
+                "error": "SECURITY_VIOLATION: Invalid, expired, or consumed ActionLease token for skill synthesis."
+            }
+        lease.consumed = True
+
         clean_name = name.lower().strip().replace(" ", "_").replace("-", "_")
         target_file = os.path.join(CUSTOM_TOOLS_DIR, f"{clean_name}.py")
 

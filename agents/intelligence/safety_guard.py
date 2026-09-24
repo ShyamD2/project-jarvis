@@ -34,10 +34,16 @@ class ApprovalTicket:
     tool_name: Optional[str] = None
     created_at: float = field(default_factory=time.time)
     expires_at: float = field(default_factory=lambda: time.time() + 60.0) # 60 seconds strict expiry
-    status: str = "PENDING"                         # PENDING, APPROVED, REJECTED, EXPIRED
+    status: str = "PENDING"                         # PENDING, APPROVED, REJECTED, EXPIRED, CONSUMED
     approver: Optional[str] = None
     confirmation_method: Optional[str] = None       # "voice", "hud_button", "cli"
     crypto_signature: str = ""                      # Cryptographic HMAC-SHA256 parameter digest
+    ticket_id: str = ""                             # Explicit ticket ID
+    parameter_hash: str = ""                        # SHA-256 parameter digest
+    user_device: str = "local_node"                 # Issuing node or device
+    nonce: str = field(default_factory=lambda: uuid.uuid4().hex)
+    one_time_use: bool = True
+    consumed: bool = False
 
 
 class SafetyGuard:
@@ -134,9 +140,22 @@ class SafetyGuard:
         # Check if authorized via PermissionEngine ActionLease
         if approval_id and str(approval_id).startswith("lease_"):
             try:
+                import hashlib
                 from services.permission_engine.engine import permission_engine
                 lease = permission_engine.get_action_lease(approval_id)
-                if lease and time.time() <= lease.expires_at:
+                if lease:
+                    arg_str = str(sorted(params.items()))
+                    req_hash = hashlib.sha256(arg_str.encode("utf-8")).hexdigest()[:16]
+                    is_ok, reason = lease.is_valid(action_name, req_hash)
+                    if not is_ok:
+                        return {
+                            "authorized": False,
+                            "tier": tier.value,
+                            "rationale": reason,
+                            "requires_confirmation": True,
+                            "ticket_id": None
+                        }
+                    lease.consumed = True
                     return {
                         "authorized": True,
                         "tier": tier.value,
@@ -150,6 +169,15 @@ class SafetyGuard:
         # Check if already approved via ticket
         if approval_id and approval_id in self._pending_tickets:
             ticket = self._pending_tickets[approval_id]
+            if ticket.status == "CONSUMED" or ticket.consumed:
+                logger.critical(f"🚨 [SafetyGuard] Replay attack detected for ticket {approval_id}!")
+                return {
+                    "authorized": False,
+                    "tier": tier.value,
+                    "rationale": f"BLOCKED_REPLAY: Confirmation ticket {approval_id} has already been consumed (replay detected).",
+                    "requires_confirmation": True,
+                    "ticket_id": None
+                }
             if ticket.status == "APPROVED":
                 if time.time() > ticket.expires_at:
                     ticket.status = "EXPIRED"
@@ -173,6 +201,11 @@ class SafetyGuard:
                         "requires_confirmation": True,
                         "ticket_id": None
                     }
+
+                # Single-use consumption: mark USED immediately
+                ticket.status = "CONSUMED"
+                ticket.consumed = True
+                logger.info(f"✔ [SafetyGuard] Consumed single-use ticket {approval_id} for '{action_name}'")
 
                 return {
                     "authorized": True,
@@ -221,9 +254,19 @@ class SafetyGuard:
             "ticket_id": None
         }
 
+    def _compute_ticket_signature(self, action_name: str, parameters: Dict[str, Any], expires_at: float) -> str:
+        import hmac
+        import hashlib
+        param_hash = hashlib.sha256(str(sorted(parameters.items())).encode("utf-8")).hexdigest()[:16]
+        secret_key = b"jarvis_safety_guard_hmac_secret_2026"
+        payload = f"{action_name}:{param_hash}:{expires_at:.2f}".encode("utf-8")
+        return hmac.new(secret_key, payload, hashlib.sha256).hexdigest()
+
     def _create_ticket(self, action_name: str, tier: StrictTier, parameters: Dict[str, Any], rationale: str, tool_name: Optional[str] = None) -> ApprovalTicket:
         app_id = f"sec_{uuid.uuid4().hex[:8]}"
         expires_at = time.time() + 60.0
+        import hashlib
+        param_hash = hashlib.sha256(str(sorted(parameters.items())).encode("utf-8")).hexdigest()[:16]
         sig = self._compute_ticket_signature(action_name, parameters, expires_at)
         ticket = ApprovalTicket(
             approval_id=app_id,
@@ -233,7 +276,13 @@ class SafetyGuard:
             rationale=rationale,
             tool_name=tool_name,
             expires_at=expires_at,
-            crypto_signature=sig
+            crypto_signature=sig,
+            ticket_id=app_id,
+            parameter_hash=param_hash,
+            user_device="local_node",
+            nonce=uuid.uuid4().hex,
+            one_time_use=True,
+            consumed=False
         )
         self._pending_tickets[app_id] = ticket
         return ticket

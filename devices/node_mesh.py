@@ -35,6 +35,13 @@ class DeviceType(str, Enum):
     IOT = "IOT"
 
 
+class LocationPrecision(str, Enum):
+    NEVER = "NEVER"
+    WHILE_ACTIVE = "WHILE_ACTIVE"
+    APPROXIMATE = "APPROXIMATE"
+    PRECISE = "PRECISE"
+
+
 class NodeState(str, Enum):
     ONLINE = "ONLINE"
     DEGRADED = "DEGRADED"
@@ -54,6 +61,8 @@ class JarvisNode:
     active_sessions: List[str] = field(default_factory=list)
     permissions: List[str] = field(default_factory=lambda: ["read", "notify"])
     telemetry: Dict[str, Any] = field(default_factory=dict)
+    location_enabled: bool = False
+    location_precision: LocationPrecision = LocationPrecision.NEVER
 
     def is_alive(self, timeout_seconds: float = 60.0) -> bool:
         return (time.time() - self.heartbeat_ts) <= timeout_seconds
@@ -61,10 +70,32 @@ class JarvisNode:
     def has_capability(self, cap: str) -> bool:
         return cap.lower() in [c.lower() for c in self.capabilities]
 
+    def sanitize_location(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
+        """Applies privacy policies to GPS coordinates according to LocationPrecision."""
+        if not self.location_enabled or self.location_precision == LocationPrecision.NEVER:
+            return None
+        if self.location_precision == LocationPrecision.APPROXIMATE:
+            # Round to 2 decimal places (~1.1 km precision)
+            return {
+                "latitude": round(lat, 2),
+                "longitude": round(lon, 2),
+                "precision": "approximate",
+                "accuracy_meters": 1100
+            }
+        # PRECISE or WHILE_ACTIVE
+        return {
+            "latitude": lat,
+            "longitude": lon,
+            "precision": self.location_precision.value.lower(),
+            "accuracy_meters": 5
+        }
+
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["device_type"] = self.device_type.value
         d["state"] = self.state.value
+        d["location_precision"] = self.location_precision.value
+        d["location_enabled"] = self.location_enabled
         return d
 
 
@@ -213,6 +244,19 @@ class NodeMeshCoordinator:
                 "error": f"Node '{target_node.name}' does not support required capability '{required_capability}'."
             }
 
+        # Geolocation Privacy Enforcement
+        if action in ["gps_location", "get_location", "location"]:
+            if not target_node.location_enabled or target_node.location_precision == LocationPrecision.NEVER:
+                return {
+                    "success": False,
+                    "status": "LOCATION_PRIVACY_BLOCKED",
+                    "error": f"LOCATION_PRIVACY_BLOCKED: Geolocation tracking is disabled on device node '{target_node.name}' (Policy: {target_node.location_precision.value})."
+                }
+            raw_lat = params.get("latitude", 37.7749)
+            raw_lon = params.get("longitude", -122.4194)
+            sanitized = target_node.sanitize_location(raw_lat, raw_lon)
+            params["sanitized_location"] = sanitized
+
         logger.info(f"🌐 [NodeMesh] Dispatching action '{action}' to Node '{target_node.name}' ({target_node.device_type.value})")
 
         # Simulated device dispatch receipt
@@ -227,6 +271,16 @@ class NodeMeshCoordinator:
             "verified": True,
             "timestamp": time.time()
         }
+
+    def set_node_location_privacy(self, node_id: str, enabled: bool, precision: LocationPrecision) -> bool:
+        """Configures privacy settings for a node's geolocation reporting."""
+        node = self.nodes.get(node_id)
+        if not node:
+            return False
+        node.location_enabled = enabled
+        node.location_precision = precision
+        logger.info(f"📍 [NodeMesh] Updated location privacy for '{node.name}': enabled={enabled}, precision={precision.value}")
+        return True
 
     def get_mesh_topology(self) -> Dict[str, Any]:
         """Returns full mesh topology, liveness, and capability inventory."""

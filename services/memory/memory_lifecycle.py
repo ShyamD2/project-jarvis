@@ -42,6 +42,33 @@ class MemoryItem:
     last_accessed_at: float = field(default_factory=time.time)
     last_reviewed_at: Optional[float] = None
     status: str = "ACTIVE"  # "ACTIVE", "DECAYED", "ARCHIVED", "DELETED"
+    # Explicit Provenance & Metadata (Item 7)
+    memory_id: str = ""
+    fact: str = ""
+    source: str = "direct"
+    updated_at: float = field(default_factory=time.time)
+    sensitivity: str = "INTERNAL"  # "PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"
+    expiration: Optional[float] = None
+    user_confirmed: bool = False
+
+    def __post_init__(self):
+        if not self.memory_id and self.id:
+            self.memory_id = self.id
+        elif not self.id and self.memory_id:
+            self.id = self.memory_id
+
+        if not self.fact and self.content:
+            self.fact = self.content
+        elif not self.content and self.fact:
+            self.content = self.fact
+
+        if self.source == "direct" and hasattr(self.provenance, "source") and self.provenance.source:
+            self.source = self.provenance.source
+
+        if self.expiration is None and self.expires_at is not None:
+            self.expiration = self.expires_at
+        elif self.expires_at is None and self.expiration is not None:
+            self.expires_at = self.expiration
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -50,7 +77,7 @@ class MemoryItem:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> MemoryItem:
         prov_data = data.get("provenance", {})
-        prov = MemoryProvenance(**prov_data)
+        prov = MemoryProvenance(**prov_data) if isinstance(prov_data, dict) else prov_data
         data_copy = dict(data)
         data_copy["provenance"] = prov
         return cls(**data_copy)

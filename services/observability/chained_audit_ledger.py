@@ -129,5 +129,49 @@ class ChainedAuditLedger:
         logger.info(f"✔ [AuditLedger] Verified {count} blocks. Ledger integrity is mathematically sound.")
         return {"valid": True, "total_blocks": count, "tail_hash": expected_prev}
 
+    def get_entries(self, limit: int = 50, tier: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Returns the most recent ledger blocks."""
+        if not os.path.exists(self.ledger_file):
+            return []
+        entries = []
+        try:
+            with open(self.ledger_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        b = json.loads(line)
+                        if tier and b.get("metadata", {}).get("risk_tier") != tier:
+                            continue
+                        entries.append(b)
+        except Exception as e:
+            logger.error(f"Error reading ledger entries: {e}")
+        return entries[-limit:]
+
+    def get_recent_actions(self, hours: float = 1.0) -> List[Dict[str, Any]]:
+        """Answers: What did JARVIS do in the last N hours?"""
+        if not os.path.exists(self.ledger_file):
+            return []
+        cutoff = time.time() - (hours * 3600.0)
+        recent = []
+        try:
+            with open(self.ledger_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        b = json.loads(line)
+                        if b.get("timestamp", 0) >= cutoff:
+                            recent.append({
+                                "index": b.get("index"),
+                                "timestamp": b.get("timestamp"),
+                                "tool": b.get("tool"),
+                                "intent": b.get("intent"),
+                                "parameters": b.get("parameters"),
+                                "result": b.get("result"),
+                                "verified": b.get("verified"),
+                                "authorization": b.get("authorization"),
+                                "hash": b.get("hash")
+                            })
+        except Exception as e:
+            logger.error(f"Error reading recent ledger actions: {e}")
+        return recent
+
 
 chained_audit_ledger = ChainedAuditLedger()

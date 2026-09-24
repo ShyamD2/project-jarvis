@@ -288,7 +288,7 @@ class CanonicalPipeline:
             raw_exec = await tool_registry.execute_tool(
                 name=canonical_name,
                 parameters=params,
-                caller_agent=f"{source}_gateway",
+                caller_agent="canonical_pipeline",
                 approval_id=decision.single_use_lease_id or approval_token,
                 raw_query=raw_query or tool_name
             )

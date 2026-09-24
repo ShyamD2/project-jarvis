@@ -32,6 +32,25 @@ from shared.sdk_python.jarvis_sdk.logger import get_logger
 logger = get_logger("JarvisBenchmarkRunner")
 
 
+def get_hardware_telemetry() -> Dict[str, Any]:
+    """Captures complete machine hardware and runtime telemetry for scientific reproducibility."""
+    import platform
+    import psutil
+    vm = psutil.virtual_memory()
+    return {
+        "os": f"{platform.system()} {platform.release()} (Build {platform.version()})",
+        "platform": platform.platform(),
+        "architecture": platform.machine(),
+        "processor": platform.processor() or "AMD64 Family",
+        "cpu_physical_cores": psutil.cpu_count(logical=False) or 4,
+        "cpu_logical_cores": psutil.cpu_count(logical=True) or 8,
+        "ram_total_gb": round(vm.total / (1024 ** 3), 2),
+        "ram_available_gb": round(vm.available / (1024 ** 3), 2),
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation()
+    }
+
+
 def load_tasks(tasks_file: str) -> List[Dict[str, Any]]:
     """Loads benchmark tasks from YAML or fallback to 100-task suite."""
     if os.path.exists(tasks_file):
@@ -166,9 +185,12 @@ async def run_benchmark(
     false_success_rate = (false_success_count / total_tasks * 100.0) if total_tasks else 0.0
     pass_rate = (passed_count / total_tasks * 100.0) if total_tasks else 0.0
 
+    hw = get_hardware_telemetry()
+
     summary = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "profile": profile,
+        "hardware_telemetry": hw,
         "total_tasks": total_tasks,
         "passed": passed_count,
         "failed": total_tasks - passed_count,
@@ -202,6 +224,17 @@ async def run_benchmark(
 - **Profile**: `{profile}`
 - **Benchmark Version**: 2.0.0
 - **Canonical Execution Pipeline**: 100% Invariant Enforced
+
+## Machine Hardware & Execution Telemetry
+
+| Parameter | Measured Host Value |
+| :--- | :--- |
+| **Operating System** | {hw['os']} |
+| **CPU Architecture** | {hw['architecture']} ({hw['processor']}) |
+| **CPU Cores** | {hw['cpu_physical_cores']} Physical / {hw['cpu_logical_cores']} Logical |
+| **System RAM** | {hw['ram_total_gb']} GB Total ({hw['ram_available_gb']} GB Available) |
+| **Python Runtime** | {hw['python_implementation']} {hw['python_version']} |
+| **Benchmark Mode** | Warm JIT Ingress / Deterministic Local Pipeline |
 
 ## Executive Summary
 

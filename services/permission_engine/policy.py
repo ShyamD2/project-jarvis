@@ -20,7 +20,8 @@ class PolicyEngine:
             "core_agent": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL},
             "jarvis_core_agent": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL},
             "agent_runtime": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL},
-            "master_orchestrator": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL}
+            "master_orchestrator": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL},
+            "primary_agent": {TargetWorld.DIGITAL, TargetWorld.COMPUTER, TargetWorld.PHYSICAL}
         }
 
     def is_agent_authorized(self, agent_name: str, world: TargetWorld) -> bool:
