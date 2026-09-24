@@ -247,7 +247,7 @@ class FileManagerTool(JarvisTool):
             return file_agent.open_path(kwargs.get("path", "workspace"))
         elif act == "create_folder":
             return file_agent.create_folder(kwargs.get("path", "new_folder"))
-        elif act == "create_file":
+        elif act in ["create_file", "write"]:
             return file_agent.create_file(kwargs.get("path", "test.txt"), kwargs.get("content", ""))
         elif act == "rename":
             return file_agent.rename_item(kwargs.get("source", ""), kwargs.get("new_name", ""))
@@ -327,6 +327,10 @@ class DevOpsTool(JarvisTool):
         params = args or {}
         logger.info(f"[Tool: DevOps] subsystem={sub}, action={act}")
 
+        if sub == "git" and act in ["ps", "containers", "docker_status"]:
+            sub = "docker"
+            act = "list"
+
         if sub == "git":
             if act == "status":
                 return git_agent.get_status()
@@ -343,7 +347,7 @@ class DevOpsTool(JarvisTool):
             elif act == "clone":
                 return git_agent.clone(params.get("repo_url", ""), params.get("destination"))
         elif sub == "docker":
-            if act in ["list", "ps"]:
+            if act in ["list", "ps", "status"]:
                 return {"success": True, "containers": docker_agent.list_containers(params.get("all", False))}
             elif act == "start":
                 return docker_agent.start_container(params.get("container", ""))
@@ -654,6 +658,13 @@ class BrowseWebTool(JarvisTool):
     async def execute(self, url: str = "https://google.com", search_query: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         if search_query:
             return windows_agent.search_google(search_query)
+        if url:
+            from services.security.prompt_shield import prompt_shield
+            is_safe, reason = prompt_shield.validate_url_ssrf(url)
+            if not is_safe:
+                return {"success": False, "error": f"Security violation: {reason}", "status": "blocked"}
+            if any(char in url for char in [";", "&", "|", "`", "$"]):
+                return {"success": False, "error": "Security violation: Command injection detected in URL.", "status": "blocked"}
         return windows_agent.open_url(url)
 
 
@@ -671,8 +682,20 @@ class CloseAppTool(JarvisTool):
             )
         )
 
-    async def execute(self, app_name: str, **kwargs) -> Dict[str, Any]:
-        app_lower = app_name.lower().strip()
+    async def execute(self, app_name: str = "", pid: Optional[int] = None, **kwargs) -> Dict[str, Any]:
+        target_pid = pid or kwargs.get("pid")
+        if target_pid:
+            try:
+                import psutil
+                if psutil.pid_exists(target_pid):
+                    p = psutil.Process(target_pid)
+                    p_name = p.name()
+                    p.kill()
+                    return {"success": True, "killed": True, "pid": target_pid, "name": p_name}
+                return {"success": True, "killed": True, "pid": target_pid, "message": "Process already absent"}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+        app_lower = (app_name or "").lower().strip()
         if app_lower in ["all", "all apps", "everything"]:
             return windows_agent.close_all_user_apps()
         elif "tab" in app_lower:
@@ -1013,6 +1036,11 @@ class ToolRegistry:
         "system.status": "system_status_report",
         "system.query": "query_system_telemetry",
         "network.control": "network_control",
+        "process_manager": "close_app",
+        "computer.kill_process": "close_app",
+        "docker": "devops_tool",
+        "aws.status": "aws_cloud_health",
+        "aws": "aws_cloud_health",
     }
 
     def register(self, tool: JarvisTool):

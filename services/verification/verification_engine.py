@@ -187,28 +187,41 @@ class VerificationEngine:
                 pid_valid = psutil.pid_exists(int(claimed_pid))
                 details["pid_verified"] = pid_valid
 
-            proc_ok = self.verify_process_state(app_name, expected_running=True, timeout_seconds=2.5) if app_name else True
-            win_ok = self.verify_window_state(app_name, expected_visible=True, timeout_seconds=2.5) if app_name else True
-            
-            sensory_ok = pid_valid and (proc_ok or win_ok)
-            details["process_verified"] = proc_ok
-            details["window_verified"] = win_ok
-            if not pid_valid:
-                failure_reason = f"Application '{app_name}' returned PID {claimed_pid}, but PID does not exist in host process table."
-            elif not sensory_ok:
-                failure_reason = f"Application '{app_name}' did not report an active process or window within timeout."
+            if app_name.startswith("http://") or app_name.startswith("https://") or tool_result.get("mode") == "web":
+                sensory_ok = logical_ok
+                details["url_dispatched"] = True
+            else:
+                proc_ok = self.verify_process_state(app_name, expected_running=True, timeout_seconds=2.5) if app_name else True
+                win_ok = self.verify_window_state(app_name, expected_visible=True, timeout_seconds=2.5) if app_name else True
+                
+                sensory_ok = pid_valid and (proc_ok or win_ok)
+                details["process_verified"] = proc_ok
+                details["window_verified"] = win_ok
+                if not pid_valid:
+                    failure_reason = f"Application '{app_name}' returned PID {claimed_pid}, but PID does not exist in host process table."
+                elif not sensory_ok:
+                    failure_reason = f"Application '{app_name}' did not report an active process or window within timeout."
 
         # 2. Application Termination Verification
-        elif clean_tool in ["close_app", "kill_app"]:
-            app_name = parameters.get("app_name") or parameters.get("app") or ""
-            if app_name.lower() not in ["all", "tab", "window"]:
-                proc_dead = self.verify_process_state(app_name, expected_running=False, timeout_seconds=2.0)
-                sensory_ok = proc_dead
-                details["process_terminated"] = proc_dead
-                if not proc_dead:
-                    failure_reason = f"Application '{app_name}' still appears in active process table."
+        elif clean_tool in ["close_app", "kill_app", "process_manager"]:
+            pid = parameters.get("pid") or tool_result.get("pid")
+            if pid:
+                time.sleep(0.2)
+                p_dead = not psutil.pid_exists(int(pid))
+                sensory_ok = p_dead
+                details["process_terminated"] = p_dead
+                if not p_dead:
+                    failure_reason = f"Process with PID {pid} is still running."
             else:
-                sensory_ok = True
+                app_name = parameters.get("app_name") or parameters.get("app") or ""
+                if app_name.lower() not in ["all", "tab", "window"]:
+                    proc_dead = self.verify_process_state(app_name, expected_running=False, timeout_seconds=2.0)
+                    sensory_ok = proc_dead
+                    details["process_terminated"] = proc_dead
+                    if not proc_dead:
+                        failure_reason = f"Application '{app_name}' still appears in active process table."
+                else:
+                    sensory_ok = True
 
         # 3. File Creation / Write / Deletion Verification
         elif clean_tool in ["file_manager", "create_file", "delete_file"]:
@@ -255,7 +268,7 @@ class VerificationEngine:
                 sensory_ok = logical_ok
 
         # 5. System Telemetry & Read-Only Queries
-        elif clean_tool in ["query_system_telemetry", "system_status_report", "aws_cloud_health", "aws_list_s3_buckets", "aws_list_ec2", "network_control"]:
+        elif clean_tool in ["query_system_telemetry", "system_status_report", "aws_cloud_health", "aws_list_s3_buckets", "aws_list_ec2", "network_control", "browse_web", "manage_browser"]:
             sensory_ok = logical_ok
             details["read_verified"] = True
 

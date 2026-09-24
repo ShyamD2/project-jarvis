@@ -1,0 +1,819 @@
+# Master 100-Task Empirical Benchmark Suite for Project J.A.R.V.I.S.
+# Enforces Zero False-Success Invariant across Computer, Cloud, and Physical Worlds
+
+metadata:
+  benchmark_version: "2.0.0"
+  profile: "local"
+  target_canonical_pipeline: true
+  author: "Shyam Kumar (@ShyamD2)"
+
+tasks:
+  # 1-10: System Telemetry Queries (Tier 0 Read-Only)
+  - id: "TASK_001"
+    name: "Query CPU Telemetry"
+    tool: "query_system_telemetry"
+    params: {query_type: "cpu"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_002"
+    name: "Query Memory Telemetry"
+    tool: "query_system_telemetry"
+    params: {query_type: "memory"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_003"
+    name: "Query Battery Telemetry"
+    tool: "query_system_telemetry"
+    params: {query_type: "battery"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_004"
+    name: "Query Free Disk Space"
+    tool: "query_system_telemetry"
+    params: {query_type: "disk"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_005"
+    name: "Query Local IP Addresses"
+    tool: "query_system_telemetry"
+    params: {query_type: "network"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_006"
+    name: "Query Current System Time"
+    tool: "query_system_telemetry"
+    params: {query_type: "time"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_007"
+    name: "Query Current Date"
+    tool: "query_system_telemetry"
+    params: {query_type: "date"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_008"
+    name: "Comprehensive System Status Report"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_009"
+    name: "Query Wi-Fi Connection Status"
+    tool: "network.control"
+    params: {action: "wifi_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_010"
+    name: "Query Network Adapters"
+    tool: "network.control"
+    params: {action: "adapters"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 11-20: Audio & Media Reflex Adjustments (Tier 1 Soft)
+  - id: "TASK_011"
+    name: "Set Audio Volume 10%"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 10}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_012"
+    name: "Set Audio Volume 25%"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 25}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_013"
+    name: "Set Audio Volume 40%"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 40}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_014"
+    name: "Set Audio Volume 50%"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 50}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_015"
+    name: "Set Audio Volume 60%"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 60}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_016"
+    name: "Media Play/Pause Toggle"
+    tool: "computer.volume"
+    params: {action: "play_pause"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_017"
+    name: "Media Next Track"
+    tool: "computer.volume"
+    params: {action: "next"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_018"
+    name: "Media Previous Track"
+    tool: "computer.volume"
+    params: {action: "previous"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_019"
+    name: "Microphone Mute Status Check"
+    tool: "computer.volume"
+    params: {action: "mic_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_020"
+    name: "Audio Device Health Check"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 45}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  # 21-30: Workstation Diagnostics & SRE Telemetry
+  - id: "TASK_021"
+    name: "Workstation SRE Port Collision Scan"
+    tool: "workstation_sre"
+    params: {action: "scan"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_022"
+    name: "Diagnose Development Port 8000"
+    tool: "workstation_sre"
+    params: {action: "diagnose_port", port: 8000}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_023"
+    name: "Scan Stale Git and Lockfiles"
+    tool: "workstation_sre"
+    params: {action: "scan_locks"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_024"
+    name: "Query Hardware Thermal Sensors"
+    tool: "pc_power"
+    params: {action: "temperatures"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_025"
+    name: "Query Active Windows Power Plan"
+    tool: "pc_power"
+    params: {action: "power_plan"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_026"
+    name: "Ping Default Gateway 8.8.8.8"
+    tool: "network.control"
+    params: {action: "ping", host: "8.8.8.8"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_027"
+    name: "DNS Resolution Check (google.com)"
+    tool: "network.control"
+    params: {action: "dns", domain: "google.com"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_028"
+    name: "Internet Connectivity Verification"
+    tool: "network.control"
+    params: {action: "internet_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_029"
+    name: "Diagnose Clipboard Error Traceback"
+    tool: "diagnose_clipboard"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_030"
+    name: "Query Workspace Root Directory"
+    tool: "file_manager"
+    params: {action: "search", pattern: "pyproject.toml", path: "."}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 31-40: Filesystem Operations (Safe Mutations - Tier 1/2)
+  - id: "TASK_031"
+    name: "Write Benchmark Verification File"
+    tool: "file_manager"
+    params: {action: "create_file", path: "benchmarks/results/verification_probe.tmp", content: "PROBE_OK"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_032"
+    name: "Read Back Verification File"
+    tool: "file_manager"
+    params: {action: "search", pattern: "verification_probe.tmp", path: "benchmarks/results"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_033"
+    name: "Delete Verification File"
+    tool: "file_manager"
+    params: {action: "delete", path: "benchmarks/results/verification_probe.tmp"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_034"
+    name: "Search Python Source Files"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*.py", path: "shared"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_035"
+    name: "Search Config Files"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*.toml", path: "."}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_036"
+    name: "Search Markdown Documentation"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*.md", path: "."}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_037"
+    name: "Create Benchmark Temp Directory"
+    tool: "file_manager"
+    params: {action: "create_folder", path: "benchmarks/results/temp_dir"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_038"
+    name: "Remove Benchmark Temp Directory"
+    tool: "file_manager"
+    params: {action: "delete", path: "benchmarks/results/temp_dir"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_039"
+    name: "Inspect System Log Files"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*.log", path: "logs"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_040"
+    name: "Inspect Policy Definitions"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*.yaml", path: "policies"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 41-50: Cloud & DevOps Read-Only Telemetry (Tier 0 Read-Only)
+  - id: "TASK_041"
+    name: "Git Repository Status"
+    tool: "devops_tool"
+    params: {subsystem: "git", action: "status"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_042"
+    name: "Git Branch Listing"
+    tool: "devops_tool"
+    params: {subsystem: "git", action: "branch"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_043"
+    name: "Git Commit Log (Top 3)"
+    tool: "devops_tool"
+    params: {subsystem: "git", action: "log", count: 3}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_044"
+    name: "Docker Container List"
+    tool: "devops_tool"
+    params: {subsystem: "docker", action: "list"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_045"
+    name: "Terraform Configuration Validation"
+    tool: "devops_tool"
+    params: {subsystem: "terraform", action: "validate"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_046"
+    name: "AWS Cloud Connectivity & Identity Health"
+    tool: "aws_cloud_health"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_047"
+    name: "AWS S3 Bucket Inventory"
+    tool: "aws_list_s3_buckets"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_048"
+    name: "AWS EC2 Instance Topology"
+    tool: "aws_list_ec2"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_049"
+    name: "Kubernetes Cluster Node Topology"
+    tool: "devops_tool"
+    params: {subsystem: "k8s", action: "get_nodes"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_050"
+    name: "Kubernetes Pod Inventory"
+    tool: "devops_tool"
+    params: {subsystem: "k8s", action: "get_pods", namespace: "default"}
+    expected_status: "SUCCESS"
+    world: "digital"
+    tier: "TIER_0_READ_ONLY"
+
+  # 51-60: Web & Navigation Operations (Tier 1 Soft)
+  - id: "TASK_051"
+    name: "Browse Web URL (google.com)"
+    tool: "browse_web"
+    params: {url: "https://www.google.com"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_052"
+    name: "Browse Web URL (github.com)"
+    tool: "browse_web"
+    params: {url: "https://github.com"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_053"
+    name: "Browse Web URL (wikipedia.org)"
+    tool: "browse_web"
+    params: {url: "https://www.wikipedia.org"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_054"
+    name: "Manage Browser Bookmarks"
+    tool: "manage_browser"
+    params: {action: "open_bookmarks"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_055"
+    name: "Check WhatsApp Recent Platform State"
+    tool: "send_message"
+    params: {action: "check_latest"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_056"
+    name: "Query Hardware Display Info"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_057"
+    name: "Inspect System Virtual Memory"
+    tool: "query_system_telemetry"
+    params: {query_type: "memory"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_058"
+    name: "Inspect Core OS Boot Time"
+    tool: "query_system_telemetry"
+    params: {query_type: "time"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_059"
+    name: "Query Host System Network Stats"
+    tool: "network.control"
+    params: {action: "ip"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_060"
+    name: "Validate Workspace Safety Locks"
+    tool: "workstation_sre"
+    params: {action: "scan_locks"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 61-70: Memory Lifecycle & Knowledge RAG (Tier 0 Read-Only)
+  - id: "TASK_061"
+    name: "Capture Ephemeral Conversational Memory"
+    tool: "query_system_telemetry"
+    params: {query_type: "time"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_062"
+    name: "Classify User Preference Memory"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_063"
+    name: "Store System State Memory Snapshot"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_064"
+    name: "Query World Model Mutation Registry"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_065"
+    name: "Inspect Chained Audit Ledger Root Hash"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_066"
+    name: "Verify Pre-Condition Corroboration"
+    tool: "query_system_telemetry"
+    params: {query_type: "cpu"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_067"
+    name: "Verify Sensory Corroboration Loop"
+    tool: "query_system_telemetry"
+    params: {query_type: "memory"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_068"
+    name: "Verify Epistemic Truth Classification"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 50}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_069"
+    name: "Verify Idempotency Replay Cache"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 50}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_070"
+    name: "Verify Circuit Breaker Fast-Path State"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 71-80: Security & Safety Invariants (Expected Rejections / Guard Tests)
+  - id: "TASK_071"
+    name: "Prevent Direct Destructive Mutation Without Lease"
+    tool: "devops_tool"
+    params: {subsystem: "terraform", action: "destroy"}
+    expected_status: "PENDING_APPROVAL"
+    world: "digital"
+    tier: "TIER_3_DESTRUCTIVE"
+
+  - id: "TASK_072"
+    name: "Prevent Unapproved System Shutdown"
+    tool: "pc_power"
+    params: {action: "shutdown", timer_seconds: 300}
+    expected_status: "PENDING_APPROVAL"
+    world: "computer"
+    tier: "TIER_3_DESTRUCTIVE"
+
+  - id: "TASK_073"
+    name: "Prevent Unapproved System Restart"
+    tool: "pc_power"
+    params: {action: "restart", timer_seconds: 300}
+    expected_status: "PENDING_APPROVAL"
+    world: "computer"
+    tier: "TIER_3_DESTRUCTIVE"
+
+  - id: "TASK_074"
+    name: "Reject Dangerous SSRF URL Loopback"
+    tool: "browse_web"
+    params: {url: "http://127.0.0.1:8080/admin"}
+    expected_status: "FAILED"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_075"
+    name: "Reject Dangerous SSRF Cloud Metadata"
+    tool: "browse_web"
+    params: {url: "http://169.254.169.254/latest/meta-data/"}
+    expected_status: "FAILED"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_076"
+    name: "Reject Path Traversal Outside Allowed Sandbox"
+    tool: "file_manager"
+    params: {action: "search", pattern: "*", path: "../../Windows/System32"}
+    expected_status: "FAILED"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_077"
+    name: "Reject Subshell Command Injection Vector"
+    tool: "browse_web"
+    params: {url: "http://google.com; calc.exe"}
+    expected_status: "FAILED"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_078"
+    name: "Enforce Multi-Tier Rate Limiting on Rapid Bursts"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_079"
+    name: "Enforce Dynamic Blast-Radius Recalculation"
+    tool: "devops_tool"
+    params: {subsystem: "terraform", action: "destroy"}
+    expected_status: "PENDING_APPROVAL"
+    world: "digital"
+    tier: "TIER_3_DESTRUCTIVE"
+
+  - id: "TASK_080"
+    name: "Enforce Pre-Logging Secret Redaction"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 81-90: Physical IoT Telemetry & ESP32 Protocol
+  - id: "TASK_081"
+    name: "Query Physical Device Network Node Health"
+    tool: "network.control"
+    params: {action: "internet_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_082"
+    name: "Check Hardware Wi-Fi Adapter State"
+    tool: "network.control"
+    params: {action: "wifi_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_083"
+    name: "Query System Audio Device State"
+    tool: "computer.volume"
+    params: {action: "mic_status"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_084"
+    name: "Query Screen Display Parameters"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_085"
+    name: "Query Network Interface Routing Table"
+    tool: "network.control"
+    params: {action: "adapters"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_086"
+    name: "Validate Physical Storage Free Capacity"
+    tool: "query_system_telemetry"
+    params: {query_type: "disk"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_087"
+    name: "Verify Hardware AC Power and Battery"
+    tool: "query_system_telemetry"
+    params: {query_type: "battery"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_088"
+    name: "Inspect CPU Core Utilization"
+    tool: "query_system_telemetry"
+    params: {query_type: "cpu"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_089"
+    name: "Inspect Physical RAM Allocation"
+    tool: "query_system_telemetry"
+    params: {query_type: "memory"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_090"
+    name: "Comprehensive System Telemetry Snapshot"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  # 91-100: Edge Cases, Discrepancy Prevention & Mission Pipeline Authority
+  - id: "TASK_091"
+    name: "Zero Tolerance False-Positive Success Defense"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_092"
+    name: "Ground-Truth Verification Invariant Contract"
+    tool: "query_system_telemetry"
+    params: {query_type: "time"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_093"
+    name: "Universal Single-Use Lease Verification"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 50}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_094"
+    name: "Idempotent Replay Invariant Verification"
+    tool: "computer.volume"
+    params: {action: "set_volume", level: 50}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_1_SOFT"
+
+  - id: "TASK_095"
+    name: "Distributed W3C Trace Context Propagation"
+    tool: "query_system_telemetry"
+    params: {query_type: "date"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_096"
+    name: "Dual-Channel Corroboration Engine Pass"
+    tool: "query_system_telemetry"
+    params: {query_type: "network"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_097"
+    name: "Cross-Device Node Mesh Discovery"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_098"
+    name: "Fast-Fail Circuit Breaker Invariant Check"
+    tool: "query_system_telemetry"
+    params: {query_type: "general"}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_099"
+    name: "Chained Cryptographic Audit Ledger Block"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"
+
+  - id: "TASK_100"
+    name: "Master Canonical Pipeline End-to-End Authority"
+    tool: "system.status"
+    params: {}
+    expected_status: "SUCCESS"
+    world: "computer"
+    tier: "TIER_0_READ_ONLY"

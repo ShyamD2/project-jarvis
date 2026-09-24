@@ -13,6 +13,8 @@ import uuid
 import hashlib
 from typing import Dict, Any, Optional, List
 
+from dataclasses import dataclass, field
+
 from shared.schemas.action_envelope import ActionEnvelope, ActionTier, TargetWorld, ExecutionClass, UniversalTransactionRecord
 from shared.schemas.verification_contract import VerificationResult, VerificationStatus
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -30,9 +32,28 @@ from services.security.circuit_breaker import circuit_breaker
 logger = get_logger("JarvisCanonicalPipeline")
 
 
+@dataclass
+class IdempotencyRecord:
+    key: str
+    tool_name: str
+    arguments_hash: str
+    device_id: str
+    status: str  # "IN_FLIGHT", "COMPLETED", "FAILED"
+    timestamp: float
+    result: Optional[Dict[str, Any]] = None
+
+
 class CanonicalPipeline:
     def __init__(self):
         self.transactions: Dict[str, UniversalTransactionRecord] = {}
+        self._idempotency_cache: Dict[str, IdempotencyRecord] = {}
+        self._idempotency_ttl: float = 300.0  # 5 minutes
+
+    def get_idempotency_record(self, key: str) -> Optional[IdempotencyRecord]:
+        return self._idempotency_cache.get(key)
+
+    def clear_idempotency_cache(self) -> None:
+        self._idempotency_cache.clear()
 
     async def execute_request(
         self,
@@ -45,12 +66,15 @@ class CanonicalPipeline:
         trace_id: Optional[str] = None,
         mission_id: Optional[str] = None,
         confidence: float = 1.0,
-        raw_query: Optional[str] = None
+        raw_query: Optional[str] = None,
+        idempotency_key: Optional[str] = None,
+        device_id: str = "local_node"
     ) -> Dict[str, Any]:
         """
         Universal canonical execution router for all tool operations.
         Guarantees that NO tool executes without policy check, permission check,
         and post-condition verification.
+        Includes universal action lease validation and idempotency deduplication.
         """
         t0 = time.time()
         params = parameters or {}
@@ -61,6 +85,40 @@ class CanonicalPipeline:
         # Compute arguments hash
         arg_str = str(sorted(params.items()))
         arg_hash = hashlib.sha256(arg_str.encode("utf-8")).hexdigest()[:16]
+
+        # Idempotency deduplication check (Item 20)
+        if idempotency_key:
+            now = time.time()
+            cached = self._idempotency_cache.get(idempotency_key)
+            if cached:
+                if now - cached.timestamp <= self._idempotency_ttl:
+                    if cached.status == "IN_FLIGHT":
+                        logger.warning(f"⚠️ [CanonicalPipeline] Idempotency conflict: key '{idempotency_key}' currently IN_FLIGHT.")
+                        return {
+                            "success": False,
+                            "status": "duplicate_in_flight",
+                            "final_status": "FAILED",
+                            "error": f"A request with idempotency key '{idempotency_key}' is currently being executed.",
+                            "idempotency_key": idempotency_key,
+                            "duration_ms": (now - t0) * 1000
+                        }
+                    elif cached.status == "COMPLETED" and cached.result is not None:
+                        logger.info(f"🔁 [CanonicalPipeline] Idempotency hit: key '{idempotency_key}'. Returning cached execution result.")
+                        replayed = dict(cached.result)
+                        replayed["idempotent_replay"] = True
+                        replayed["idempotency_key"] = idempotency_key
+                        return replayed
+                else:
+                    del self._idempotency_cache[idempotency_key]
+
+            self._idempotency_cache[idempotency_key] = IdempotencyRecord(
+                key=idempotency_key,
+                tool_name=tool_name,
+                arguments_hash=arg_hash,
+                device_id=device_id,
+                status="IN_FLIGHT",
+                timestamp=now
+            )
 
         # 0. Emergency Stand-Down & Circuit Breaker Check
         if emergency_stop.is_stopped:
@@ -189,6 +247,8 @@ class CanonicalPipeline:
         }
 
         if not decision.authorized:
+            if idempotency_key:
+                self._idempotency_cache.pop(idempotency_key, None)
             tx.final_status = "BLOCKED"
             tx.duration_ms = (time.time() - t0) * 1000
             tx.stage_latencies = stage_latencies
@@ -304,7 +364,7 @@ class CanonicalPipeline:
 
         logger.info(f"✔ [CanonicalPipeline: {exec_class.value.upper()}] Tool '{canonical_name}' -> Final Status: [{final_status}] ({tx.duration_ms:.1f}ms)")
 
-        return {
+        final_resp = {
             "success": final_status == "SUCCESS",
             "final_status": final_status,
             "action_id": act_id,
@@ -316,6 +376,12 @@ class CanonicalPipeline:
             "traceparent": t_span.to_traceparent(),
             "duration_ms": round(tx.duration_ms, 2)
         }
+
+        if idempotency_key and idempotency_key in self._idempotency_cache:
+            self._idempotency_cache[idempotency_key].status = "COMPLETED"
+            self._idempotency_cache[idempotency_key].result = final_resp
+
+        return final_resp
 
 
 canonical_pipeline = CanonicalPipeline()

@@ -218,15 +218,20 @@ class FileAgent:
         # Safe delete via Windows Shell Recycle Bin
         try:
             safe_path = real_path.replace("'", "''")
+            is_dir = os.path.isdir(real_path)
+            method = "DeleteDirectory" if is_dir else "DeleteFile"
             ps_cmd = f"""
             Add-Type -AssemblyName Microsoft.VisualBasic
-            [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{safe_path}', 'OnlyErrorDialogs', 'SendToRecycleBin')
+            [Microsoft.VisualBasic.FileIO.FileSystem]::{method}('{safe_path}', 'OnlyErrorDialogs', 'SendToRecycleBin')
             """
             res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
             if res.returncode == 0:
                 return {"success": True, "action": "recycle_bin", "path": real_path}
             # Fallback to standard remove if Shell COM fails
-            os.remove(real_path)
+            if is_dir:
+                shutil.rmtree(real_path)
+            else:
+                os.remove(real_path)
             return {"success": True, "action": "deleted", "path": real_path}
         except Exception as e:
             return {"success": False, "error": str(e)}

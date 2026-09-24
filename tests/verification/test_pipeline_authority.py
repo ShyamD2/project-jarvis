@@ -19,17 +19,22 @@ from shared.schemas.verification_contract import VerificationResult, Verificatio
 class TestPipelineAuthority(unittest.IsolatedAsyncioTestCase):
     async def test_tool_cannot_declare_success_on_verification_failure(self):
         """Even if the tool returns success=True, verification failure forces pipeline final_status=FAILED."""
-        # Execute launch_app with non-existent process so verification fails
-        res = await canonical_pipeline.execute_request(
-            tool_name="computer.open_app",
-            parameters={"app": "non_existent_fake_app_xyz_999.exe"},
-            source="test_authority",
-            user_role="OWNER"
-        )
-        self.assertFalse(res["success"])
-        self.assertEqual(res["final_status"], "FAILED")
-        self.assertEqual(res["verification"]["status"], "failed")
-        self.assertFalse(res["verification"]["match"])
+        with patch("services.brain.canonical_pipeline.tool_registry.execute_tool") as mock_exec:
+            mock_exec.return_value = {
+                "success": True,
+                "status": "success",
+                "result": {"success": True, "pid": 9999999}
+            }
+            res = await canonical_pipeline.execute_request(
+                tool_name="computer.open_app",
+                parameters={"app": "non_existent_fake_app_xyz_999.exe"},
+                source="test_authority",
+                user_role="OWNER"
+            )
+            self.assertFalse(res["success"])
+            self.assertEqual(res["final_status"], "FAILED")
+            self.assertEqual(res["verification"]["status"], "failed")
+            self.assertFalse(res["verification"]["match"])
 
     def test_observation_not_equal_to_correction_drift_detection(self):
         """World model updates belief state on drift without modifying external production (Item 116)."""

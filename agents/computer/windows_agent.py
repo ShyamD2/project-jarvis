@@ -964,6 +964,9 @@ class WindowsAgent:
                     self._open_url_safely('https://web.whatsapp.com')
             time.sleep(0.4)
             focus_window_by_name("WhatsApp")
+            return {"success": True, "action": "check_latest", "platform": platform}
+        return {"success": True, "action": "check_latest", "platform": platform}
+
     def list_running_applications(self) -> Dict[str, Any]:
         """Lists active GUI desktop applications with window titles and memory usage."""
         logger.info("[WindowsAgent] Listing active running GUI applications")

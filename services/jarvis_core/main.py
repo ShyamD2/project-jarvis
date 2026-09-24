@@ -12,8 +12,9 @@ import uvicorn
 import os
 import sys
 
-# Ensure project root is in sys.path
+# Ensure project root and jarvis_core are in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from shared.sdk_python.jarvis_sdk.config import config
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -35,6 +36,7 @@ from routes.security import router as security_router
 from routes.knowledge import router as knowledge_router
 from routes.web_research import router as web_research_router
 from routes.diagnostics import router as diagnostics_router
+from routes.api_v1 import router as api_v1_router
 
 logger = get_logger("JarvisCoreService")
 
@@ -161,6 +163,7 @@ app.include_router(security_router)
 app.include_router(knowledge_router)
 app.include_router(web_research_router)
 app.include_router(diagnostics_router)
+app.include_router(api_v1_router)
 
 # Mount Static Dashboard
 static_path = os.path.join(os.path.dirname(__file__), "static")

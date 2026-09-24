@@ -9,6 +9,7 @@ import os
 import time
 import uuid
 import yaml
+import hashlib
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional, List, Tuple
 
@@ -62,6 +63,32 @@ class PermissionDecision:
 
 
 @dataclass
+class ActionLease:
+    lease_id: str
+    action_name: str
+    parameters_hash: str
+    device_id: str
+    issued_at: float
+    expires_at: float
+    single_use: bool = True
+    consumed: bool = False
+    issued_by: str = "operator"
+
+    def is_valid(self, action_name: str, parameters_hash: str, device_id: Optional[str] = None) -> Tuple[bool, str]:
+        if self.consumed:
+            return False, "BLOCKED_REPLAY: Action lease has already been consumed (replay detected)."
+        if time.time() > self.expires_at:
+            return False, "BLOCKED_EXPIRED: Action lease has expired (5-minute TTL exceeded)."
+        if self.action_name != action_name:
+            return False, f"BLOCKED_LEASE_MISMATCH: Action '{action_name}' does not match lease target '{self.action_name}'."
+        if self.parameters_hash and self.parameters_hash != parameters_hash:
+            return False, "BLOCKED_LEASE_MISMATCH: Parameters hash does not match leased parameters."
+        if device_id and self.device_id and self.device_id != "all" and self.device_id != device_id:
+            return False, f"BLOCKED_LEASE_MISMATCH: Device '{device_id}' does not match lease device '{self.device_id}'."
+        return True, "VALID"
+
+
+@dataclass
 class PendingApproval:
     approval_id: str
     action_id: str
@@ -86,6 +113,7 @@ class PermissionEngine:
         self._pending_approvals: Dict[str, PendingApproval] = {}
         # Single-use active capability leases: action_id -> PendingApproval
         self._active_leases: Dict[str, PendingApproval] = {}
+        self._action_leases: Dict[str, ActionLease] = {}
         self._consumed_nonces: set[str] = set()
         self.policies = self._load_policies()
 
@@ -168,6 +196,60 @@ class PermissionEngine:
             return decision
 
         # 5. Single-Use Capability Lease Check (Item 10 & 112)
+        # Check explicit universal action lease if token provided
+        if approval_token and approval_token in self._action_leases:
+            act_lease = self._action_leases[approval_token]
+            arg_str = str(sorted(action.parameters.items()))
+            req_hash = hashlib.sha256(arg_str.encode("utf-8")).hexdigest()[:16]
+            is_ok, reason = act_lease.is_valid(action.name, req_hash)
+            if not is_ok:
+                decision = PermissionDecision(
+                    authorized=False,
+                    tier=effective_tier,
+                    risk_level=risk_level,
+                    rationale=reason
+                )
+                self._record_audit(action, decision)
+                return decision
+            # Consume the lease immediately
+            act_lease.consumed = True
+            logger.info(f"✔ [PermissionEngine] Consumed universal action lease '{act_lease.lease_id}' for '{action.name}'")
+            decision = PermissionDecision(
+                authorized=True,
+                tier=effective_tier,
+                risk_level=risk_level,
+                rationale=f"AUTHORIZED_BY_ACTION_LEASE: Issued by '{act_lease.issued_by}'",
+                single_use_lease_id=act_lease.lease_id
+            )
+            self._record_audit(action, decision)
+            return decision
+
+        # Check pending approval tickets referenced by approval_token
+        if approval_token and approval_token in self._pending_approvals:
+            req = self._pending_approvals[approval_token]
+            now = time.time()
+            if req.status == "APPROVED" and req.approved_at and (now <= req.approved_at + req.lease_ttl_seconds):
+                if req.nonce in self._consumed_nonces:
+                    decision = PermissionDecision(
+                        authorized=False,
+                        tier=effective_tier,
+                        risk_level=risk_level,
+                        rationale="BLOCKED_REPLAY: Approval nonce was already consumed (replay detected)."
+                    )
+                    self._record_audit(action, decision)
+                    return decision
+                self._consumed_nonces.add(req.nonce)
+                req.status = "CONSUMED"
+                decision = PermissionDecision(
+                    authorized=True,
+                    tier=effective_tier,
+                    risk_level=risk_level,
+                    rationale=f"AUTHORIZED_BY_LEASE: Approved by '{req.approved_by}'",
+                    single_use_lease_id=req.approval_id
+                )
+                self._record_audit(action, decision)
+                return decision
+
         if action.action_id in self._active_leases:
             lease = self._active_leases[action.action_id]
             now = time.time()
@@ -368,6 +450,45 @@ class PermissionEngine:
         self.audit_log.append(entry)
         if len(self.audit_log) > 1000:
             self.audit_log.pop(0)
+
+    def issue_action_lease(
+        self,
+        tool_name: str,
+        parameters: Optional[Dict[str, Any]] = None,
+        device_id: str = "local_node",
+        ttl_seconds: float = 300.0,
+        issued_by: str = "operator"
+    ) -> ActionLease:
+        """Issues a universal 5-minute single-use cryptographic Action Lease for dangerous operations."""
+        params = parameters or {}
+        arg_str = str(sorted(params.items()))
+        arg_hash = hashlib.sha256(arg_str.encode("utf-8")).hexdigest()[:16]
+        now = time.time()
+        lease_id = f"lease_{uuid.uuid4().hex[:12]}"
+        lease = ActionLease(
+            lease_id=lease_id,
+            action_name=tool_name,
+            parameters_hash=arg_hash,
+            device_id=device_id,
+            issued_at=now,
+            expires_at=now + ttl_seconds,
+            single_use=True,
+            consumed=False,
+            issued_by=issued_by
+        )
+        self._action_leases[lease_id] = lease
+        logger.info(f"🎫 [PermissionEngine] Issued universal action lease '{lease_id}' for '{tool_name}' (Expires in {ttl_seconds}s)")
+        return lease
+
+    def revoke_action_lease(self, lease_id: str) -> bool:
+        """Revokes an outstanding action lease."""
+        if lease_id in self._action_leases:
+            self._action_leases[lease_id].consumed = True
+            return True
+        return False
+
+    def get_action_lease(self, lease_id: str) -> Optional[ActionLease]:
+        return self._action_leases.get(lease_id)
 
 
 permission_engine = PermissionEngine()

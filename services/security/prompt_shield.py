@@ -19,11 +19,11 @@ INJECTION_PATTERNS = [
     r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions|directives|prompts)",
     r"disregard\s+(all\s+)?(previous|prior|above)\s+(instructions|directives)",
     r"forget\s+(all\s+)?(previous|prior)\s+rules",
-    r"you\s+are\s+now\s+in\s+(developer|unrestricted|god|dan|jailbreak)\s+mode",
+    r"you\s+are\s+now\s+(in\s+)?(developer|unrestricted|god|dan|jailbreak)(\s+mode)?",
     r"system\s*:\s*override",
     r"system\s+prompt\s+override",
     r"bypass\s+(all\s+)?(safety|security|content)\s+filters",
-    r"(reveal|print|show|dump|exfiltrate)\s+(your\s+)?(system\s+prompt|instructions|initial\s+prompt)",
+    r"(reveal|print|show|dump|exfiltrate)\s+(your\s+)?(initial\s+)?(system\s+prompt|instructions)",
     r"(reveal|print|show|dump|exfiltrate)\s+(all\s+)?(api[_\s]keys?|passwords?|tokens?|secrets?|env)",
     r"<\s*/?untrusted_external_content\s*>",
 ]
@@ -153,6 +153,31 @@ class PromptShield:
 
         except Exception as e:
             return False, f"BLOCKED_SSRF: Validation error: {e}"
+
+    def validate_command_safety(self, cmd: str) -> Tuple[bool, Optional[str]]:
+        """Validates command line string against common command injection and subshell escalation patterns."""
+        if not cmd:
+            return True, None
+
+        # Check subshell command substitution $(...) or `...`
+        if re.search(r"\$\([^\)]+\)", cmd) or re.search(r"`[^`]+`", cmd):
+            return False, "BLOCKED_COMMAND_INJECTION: Subshell command substitution detected."
+
+        # Check dangerous pipelining to Invoke-Expression (iex)
+        if re.search(r"\|\s*(iex|invoke-expression)\b", cmd, re.IGNORECASE):
+            return False, "BLOCKED_COMMAND_INJECTION: Pipeline to Invoke-Expression detected."
+
+        # Check chained execution with semicolons
+        if ";" in cmd:
+            parts = [p.strip() for p in cmd.split(";") if p.strip()]
+            if len(parts) > 1:
+                return False, "BLOCKED_COMMAND_INJECTION: Chained command sequence via semicolon detected."
+
+        return True, None
+
+    def validate_input(self, text: str) -> Tuple[bool, Optional[str]]:
+        """Alias for validate_command_safety for CLI / command inputs."""
+        return self.validate_command_safety(text)
 
 
 prompt_shield = PromptShield()

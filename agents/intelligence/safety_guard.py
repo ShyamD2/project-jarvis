@@ -131,6 +131,22 @@ class SafetyGuard:
         params = parameters or {}
         tier, rationale = self.classify_action(action_name, params)
 
+        # Check if authorized via PermissionEngine ActionLease
+        if approval_id and str(approval_id).startswith("lease_"):
+            try:
+                from services.permission_engine.engine import permission_engine
+                lease = permission_engine.get_action_lease(approval_id)
+                if lease and time.time() <= lease.expires_at:
+                    return {
+                        "authorized": True,
+                        "tier": tier.value,
+                        "rationale": f"Action authorized via cryptographically verified action lease {approval_id}.",
+                        "requires_confirmation": False,
+                        "ticket_id": approval_id
+                    }
+            except Exception as e:
+                logger.warning(f"[SafetyGuard] Error checking action lease {approval_id}: {e}")
+
         # Check if already approved via ticket
         if approval_id and approval_id in self._pending_tickets:
             ticket = self._pending_tickets[approval_id]

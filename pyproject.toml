@@ -28,4 +28,6 @@ include = ["agents*", "services*", "shared*", "devices*"]
 namespaces = true
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["scratch", ".git", ".pytest_cache", "build", "dist"]
 addopts = "--capture=sys"

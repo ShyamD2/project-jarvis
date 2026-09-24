@@ -26,6 +26,9 @@ class ActionRequest(BaseModel):
     tier: str = "tier_1_soft"
     parameters: Dict[str, Any] = Field(default_factory=dict)
     approval_token: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    device_id: Optional[str] = "local_node"
+    user_role: Optional[str] = "OPERATOR"
 
 
 @router.post("")
@@ -62,7 +65,10 @@ async def dispatch_action(req: ActionRequest, background_tasks: BackgroundTasks)
         tool_name=action.name,
         parameters=action.parameters,
         source="core_api",
-        approval_token=req.approval_token
+        approval_token=req.approval_token,
+        idempotency_key=req.idempotency_key,
+        device_id=req.device_id or "local_node",
+        user_role=req.user_role or "OPERATOR"
     )
 
     # Publish action execution event to Mesh
