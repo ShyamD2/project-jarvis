@@ -7,26 +7,30 @@ on:
     branches: [ main, master ]
   schedule:
     - cron: '0 0 * * 0' # Weekly scan
+  workflow_dispatch:
 
 jobs:
   security:
     name: Security Invariant Regression & Static Analysis
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    env:
+      PYTHONPATH: .
+      JARVIS_ENV: test
+      JARVIS_MASTER_SECRET: test_security_secret_key_32_bytes_len_1234
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-          cache: "pip"
+          python-version: "3.13"
 
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install bandit safety pytest pytest-asyncio pyyaml psutil
+          pip install -r requirements.txt
 
       - name: Run Permanent Security Regression Suite
         run: |
