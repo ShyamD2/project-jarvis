@@ -12,7 +12,14 @@ import subprocess
 import threading
 import time
 from typing import Optional, List
-import pygame
+
+try:
+    import pygame
+    PYGAME_AVAILABLE = True
+except (ImportError, Exception):
+    pygame = None
+    PYGAME_AVAILABLE = False
+
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisVoiceSynthesizer")
@@ -69,14 +76,17 @@ class VoiceSynthesizer:
                 clauses.append(s)
         return clauses or [clean]
 
-    def _ensure_mixer(self):
+    def _ensure_mixer(self) -> bool:
         """Ensures pygame.mixer is initialized for audio playback."""
-        if not pygame.mixer.get_init():
-            try:
+        if not PYGAME_AVAILABLE or pygame is None:
+            return False
+        try:
+            if not pygame.mixer.get_init():
                 pygame.mixer.init()
-            except Exception as e:
-                logger.error(f"[VoiceSynthesizer] Failed to initialize pygame.mixer: {e}")
-                raise
+            return True
+        except Exception as e:
+            logger.error(f"[VoiceSynthesizer] Failed to initialize pygame.mixer: {e}")
+            return False
 
     def interrupt(self):
         """
@@ -90,7 +100,7 @@ class VoiceSynthesizer:
             logger.debug(f"[VoiceSynthesizer] Soundboard stop error: {e}")
 
         try:
-            if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+            if PYGAME_AVAILABLE and pygame and pygame.mixer.get_init() and pygame.mixer.music.get_busy():
                 pygame.mixer.music.stop()
                 if hasattr(pygame.mixer.music, "unload"):
                     pygame.mixer.music.unload()

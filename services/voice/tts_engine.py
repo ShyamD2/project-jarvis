@@ -12,7 +12,13 @@ import sys
 import time
 import threading
 from typing import Optional, List, Callable
-import pygame
+
+try:
+    import pygame
+    PYGAME_AVAILABLE = True
+except (ImportError, Exception):
+    pygame = None
+    PYGAME_AVAILABLE = False
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -104,7 +110,7 @@ class TTSEngine:
         soundboard.stop_all()
 
         try:
-            if pygame.mixer.get_init() and pygame.mixer.music.get_busy():
+            if PYGAME_AVAILABLE and pygame and pygame.mixer.get_init() and pygame.mixer.music.get_busy():
                 pygame.mixer.music.stop()
                 if hasattr(pygame.mixer.music, "unload"):
                     pygame.mixer.music.unload()
@@ -115,13 +121,16 @@ class TTSEngine:
             logger.info("⚡ [TTS Engine] Vocal barge-in cutoff triggered (<5ms)")
             self._is_speaking = False
 
-    def _ensure_mixer(self):
-        if not pygame.mixer.get_init():
-            try:
+    def _ensure_mixer(self) -> bool:
+        if not PYGAME_AVAILABLE or pygame is None:
+            return False
+        try:
+            if not pygame.mixer.get_init():
                 pygame.mixer.init()
-            except Exception as e:
-                logger.error(f"[TTS Engine] Failed to initialize pygame mixer: {e}")
-                raise
+            return True
+        except Exception as e:
+            logger.error(f"[TTS Engine] Failed to initialize pygame mixer: {e}")
+            return False
 
     async def synthesize_bytes(self, text: str) -> Optional[bytes]:
         """

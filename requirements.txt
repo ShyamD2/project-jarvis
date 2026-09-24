@@ -11,6 +11,9 @@ pyyaml>=6.0
 websockets>=12.0
 cryptography>=42.0.0
 pyjwt>=2.8.0
+pygame>=2.5.0
+Pillow>=10.0.0
+numpy>=1.26.0
 
 # Testing, Verification & Benchmarking
 pytest>=8.0.0

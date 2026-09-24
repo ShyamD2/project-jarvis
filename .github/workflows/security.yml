@@ -31,11 +31,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e .
 
       - name: Run Permanent Security Regression Suite
         run: |
-          pytest tests/security/ -v --tb=short
+          python -m pytest tests/security/ -v --tb=short
 
       - name: Static Security Scan (Bandit)
         run: |
-          bandit -r services/ shared/ -ll -ii -x "tests/,scratch/" || true
+          python -m bandit -r services/ shared/ -ll -ii -x "tests/,scratch/" || true
