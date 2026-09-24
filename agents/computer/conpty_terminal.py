@@ -46,7 +46,7 @@ class PersistentShellSession:
             self._running = True
             self._reader_thread = threading.Thread(target=self._read_loop, daemon=True, name=f"PTYReader-{self.session_id}")
             self._reader_thread.start()
-            time.sleep(0.15)
+            time.sleep(0.3)
             logger.info(f"[ConPTYTerminal] Spawned persistent session '{self.session_id}' using {self.shell} (PID: {self.process.pid})")
         except Exception as e:
             logger.error(f"[ConPTYTerminal] Failed to spawn {self.shell}: {e}")
@@ -76,8 +76,8 @@ class PersistentShellSession:
             logger.error(f"[ConPTYTerminal] Write error in session '{self.session_id}': {e}")
             return False
 
-    def read_available_output(self, timeout: float = 5.0) -> str:
-        """Reads output lines until stream pauses or timeout expires."""
+    def read_available_output(self, timeout: float = 6.0, expected: Optional[str] = None) -> str:
+        """Reads output lines until stream pauses, expected content appears, or timeout expires."""
         lines = []
         deadline = time.time() + timeout
         quiescent_count = 0
@@ -88,10 +88,15 @@ class PersistentShellSession:
                 while not self.output_queue.empty():
                     lines.append(self.output_queue.get_nowait())
                 quiescent_count = 0
+                if expected and any(expected in l for l in lines):
+                    time.sleep(0.05)
+                    while not self.output_queue.empty():
+                        lines.append(self.output_queue.get_nowait())
+                    break
             except queue.Empty:
                 if lines:
                     quiescent_count += 1
-                    if quiescent_count >= 3:
+                    if quiescent_count >= 8:
                         break
 
         return "".join(lines).strip()
@@ -115,14 +120,18 @@ class ConPTYManager:
             self._sessions[session_id] = PersistentShellSession(session_id, shell=shell)
         return self._sessions[session_id]
 
-    def execute_in_session(self, command: str, session_id: str = "default", timeout: float = 5.0) -> Dict[str, Any]:
+    def execute_in_session(self, command: str, session_id: str = "default", timeout: float = 6.0) -> Dict[str, Any]:
         """Executes an interactive command within a persistent terminal context."""
         sess = self.get_session(session_id)
         ok = sess.send_command(command)
         if not ok:
             return {"success": False, "error": "Failed to send command to persistent shell"}
 
-        output = sess.read_available_output(timeout=timeout)
+        # Target token from command for early return if present
+        parts = command.strip().split()
+        expected_token = parts[-1] if parts else None
+
+        output = sess.read_available_output(timeout=timeout, expected=expected_token)
         return {
             "success": True,
             "session_id": session_id,

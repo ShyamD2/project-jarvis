@@ -1,7 +1,7 @@
 # J.A.R.V.I.S. Real Execution Audit Report
 **Date:** September 12, 2026  
 **Repository:** `d:\Project J.A.R.V.I.S`  
-**Host Machine:** Windows 10/11 Workstation (`dines`)  
+**Host Machine:** Windows 10/11 Workstation  
 **Audit Target:** End-to-End Real Execution & Computer Control Architecture  
 
 ---
@@ -11,13 +11,13 @@
 Project J.A.R.V.I.S. contains genuine low-level infrastructure on this machine:
 - Real Windows process inspection and process management (`psutil`, `shutil.which`, Windows App Paths registry)
 - Installed and detected desktop executables:
-  - **Opera GX:** `C:\Users\dines\AppData\Local\Programs\Opera GX\opera.exe` (Verified Present)
-  - **VS Code:** `C:\Users\dines\AppData\Local\Programs\Microsoft VS Code\Code.exe` (Verified Present)
+  - **Opera GX:** `%LOCALAPPDATA%\Programs\Opera GX\opera.exe` (Verified Present)
+  - **VS Code:** `%LOCALAPPDATA%\Programs\Microsoft VS Code\Code.exe` (Verified Present)
   - **Microsoft Edge:** `C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe` (Verified Present)
   - **Terraform:** `C:\Terraform\terraform.EXE` (Verified Present)
-  - **Docker Desktop Binaries:** `C:\Users\dines\AppData\Local\Programs\DockerDesktop\resources\bin\docker.EXE` (Verified Present)
+  - **Docker Desktop Binaries:** `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin\docker.EXE` (Verified Present)
   - **Git CLI:** `C:\Program Files\Git\cmd\git.EXE` (Verified Present)
-- Real AWS IAM identity verified: `arn:aws:iam::197550036081:user/dev-cli-user` (Region: `us-east-1`)
+- Real AWS IAM identity verified: `arn:aws:iam::123456789012:user/dev-cli-user` (Region: `us-east-1`)
 - Real Speech Recognition (`speech_recognition`, `pyaudio`) and Neural Speech Synthesis (`edge_tts`, `pygame`)
 - Authentic Iron Man movie soundboard and 4-tier cryptographic blast-radius security engine
 
@@ -42,7 +42,7 @@ This audit documents every subsystem status and maps the required repairs.
 | **Action Dispatcher** | `agents/action_dispatcher.py` | `PARTIALLY WORKING` / `DISCONNECTED` | Only handles `launch_app`, `open_app`, `execute_powershell`, and physical relays. Missing `close_app`, `focus_app`, `open_url`, `screenshot`, `system_status`, `browser_agent` calls. Returns `"status": "dispatched"` on success. |
 | **Windows Agent** | `agents/computer/windows_agent.py` | `PARTIALLY WORKING` | Has real `find_app_path` (locates Opera GX), `launch_app` (spawns subprocess & verifies PID via `psutil`), and `verify_process_running`. **MISSING:** `close_app`, `focus_app`, `open_url`, `screenshot`, `system_status`, `open_folder`, `open_file`. |
 | **Browser Agent** | `services/pc-agent/browser_agent.py` | `PARTIALLY WORKING` / `DISCONNECTED` | Real DuckDuckGo HTML scraping (`search_web`) and page text extraction (`fetch_page_summary`), but not wired into `ActionDispatcher` or the central tool registry. |
-| **AWS Agent** | `agents/cloud/aws_agent.py` | `WORKING` | Real Boto3 STS identity (`197550036081`), EC2 describe, S3 list/create. Tested and verified on host. |
+| **AWS Agent** | `agents/cloud/aws_agent.py` | `WORKING` | Real Boto3 STS identity (`123456789012`), EC2 describe, S3 list/create. Tested and verified on host. |
 | **Terraform Runner** | `agents/cloud/terraform_runner.py` | `WORKING` | Real Terraform CLI execution (`terraform validate` and `terraform plan`). Tested and verified on host. |
 | **Unified AI Provider** | `services/brain/providers/unified_ai_provider.py` | `PARTIALLY WORKING` / `MOCKED` | Single-turn Gemini function calling: returns `ToolCall` but does not support conversation history or function result re-injection. `stream()` is faked (`for word in res.content.split()`). |
 | **Gemini Provider** | `services/brain/providers/gemini_provider.py` | `PARTIALLY WORKING` | Only implements text generation; does not declare or handle `tools` schema. |
@@ -103,7 +103,7 @@ Permission Engine evaluates ActionEnvelope:
 Action Dispatcher routes to WindowsAgent
   ↓
 WindowsAgent:
-  1. find_app_path("opera") -> C:\Users\dines\AppData\Local\Programs\Opera GX\opera.exe
+  1. find_app_path("opera") -> %LOCALAPPDATA%\Programs\Opera GX\opera.exe
   2. subprocess.Popen([path], detached=True)
   3. psutil.pid_exists(pid) & status != zombie
   4. Returns VerificationResult: {success: True, status: "running", pid: 1234, app: "Opera GX"}

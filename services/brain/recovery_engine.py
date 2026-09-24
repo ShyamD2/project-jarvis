@@ -50,12 +50,23 @@ class RecoveryEngine:
         """Multi-stage recovery for application launches."""
         logger.info(f"[RecoveryEngine] Stage 1: Searching Windows App Paths & Registry for '{app_name}'...")
         
-        # Strategy 1: Check known executable aliases
+        local_app_data = os.environ.get("LOCALAPPDATA", os.path.expanduser(r"~\AppData\Local"))
         known_aliases = {
-            "opera": [r"C:\Users\dines\AppData\Local\Programs\Opera\launcher.exe", r"C:\Program Files\Opera\launcher.exe"],
-            "chrome": [r"C:\Program Files\Google\Chrome\Application\chrome.exe"],
+            "opera": [
+                os.path.join(local_app_data, "Programs", "Opera", "launcher.exe"),
+                os.path.join(local_app_data, "Programs", "Opera GX", "opera.exe"),
+                r"C:\Program Files\Opera\launcher.exe",
+                r"C:\Program Files\Opera GX\launcher.exe"
+            ],
+            "chrome": [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+            ],
             "edge": [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
-            "code": [r"C:\Users\dines\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
+            "code": [
+                os.path.join(local_app_data, "Programs", "Microsoft VS Code", "Code.exe"),
+                r"C:\Program Files\Microsoft VS Code\Code.exe"
+            ],
             "calculator": ["calc.exe"],
             "notepad": ["notepad.exe"],
             "explorer": ["explorer.exe"],

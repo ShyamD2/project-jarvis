@@ -83,9 +83,9 @@ class UnifiedAIProvider(BaseLLMProvider):
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.gemini_key}"
         
         sys_instruction = system_prompt or (
-            "You are J.A.R.V.I.S. (Just A Rather Very Intelligent System), the cyber-physical AI assistant created for Tony Stark. "
+            "You are J.A.R.V.I.S. (Just A Rather Very Intelligent System), the cyber-physical operating system created for Tony Stark. "
             "You speak with a refined, witty British tone, addressing the user as 'sir'. "
-            "Execute user tasks, assist with computer operations, and provide intelligent, succinct responses."
+            "Execute user tasks, manage computer operations, and provide intelligent, succinct responses."
         )
 
         # Build tools schema for Gemini
@@ -139,7 +139,7 @@ class UnifiedAIProvider(BaseLLMProvider):
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {self.openai_key}", "Content-Type": "application/json"}
 
-        sys_msg = system_prompt or "You are J.A.R.V.I.S., a witty, refined British AI assistant addressing the user as 'sir'."
+        sys_msg = system_prompt or "You are J.A.R.V.I.S., a witty, refined British companion addressing the user as 'sir'."
         messages = [
             {"role": "system", "content": sys_msg},
             {"role": "user", "content": prompt}
@@ -169,7 +169,7 @@ class UnifiedAIProvider(BaseLLMProvider):
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {"Authorization": f"Bearer {self.groq_key}", "Content-Type": "application/json"}
 
-        sys_msg = system_prompt or "You are J.A.R.V.I.S., a witty, refined British AI assistant addressing the user as 'sir'."
+        sys_msg = system_prompt or "You are J.A.R.V.I.S., a witty, refined British companion addressing the user as 'sir'."
         payload = {
             "model": "llama-3.3-70b-versatile",
             "messages": [

@@ -1,7 +1,7 @@
 # PROJECT J.A.R.V.I.S. — FULL COMPREHENSIVE CODEBASE AUDIT REPORT
 **Audit Pass Type:** Inspection & Architectural Analysis Only (Zero Code Modifications)  
 **Date:** September 11, 2026  
-**Auditor:** Antigravity Autonomous Diagnostic Agent  
+**Auditor:** Autonomous Systems Architecture & Verification Group  
 **Repository Root:** `d:\Project J.A.R.V.I.S`  
 
 ---
@@ -237,7 +237,7 @@ Each source file is classified into exactly one category:
 | 88 | `services/jarvis-core/websocket/manager.py` | `REAL` | FastAPI WebSocket connection manager. |
 | 89 | `services/memory/__init__.py` | `REAL` | Memory exports. |
 | 90 | `services/memory/feedback_learning.py` | `REAL` | Regex-based user preference learner (`L42-85`); writes to `learned_memory.json`. |
-| 91 | `services/memory/hierarchical_memory.py` | `WIRED BUT UNVERIFIED` | Coordinates 7 tiers; contains hardcoded user path `C:\Users\dines\...` (`L57`). |
+| 91 | `services/memory/hierarchical_memory.py` | `WIRED BUT UNVERIFIED` | Coordinates 7 tiers; contains user-specific local path (`L57`). |
 | 92 | `services/memory/knowledge_rag.py` | `STUB/MOCK` | Keyword matching over hardcoded in-memory document list (`L20-40`). |
 | 93 | `services/memory/long_term.py` | `DEAD/UNUSED` | Abandoned JSON store (`L15-66`); superseded by `feedback_learning.py`. |
 | 94 | `services/memory/short_term.py` | `DEAD/UNUSED` | Conversation history buffer (`L22-72`); `add_turn` is never called during chat! |
@@ -584,8 +584,8 @@ jarvis.py:100: def start_server():
 ### 5.1 Hardcoded Local Paths
 The codebase contains hardcoded user-specific Windows filesystem paths:
 - **`services/memory/hierarchical_memory.py:57`**:
-  `"path": "C:\\Users\\dines\\AppData\\Local\\Programs\\Opera GX\\opera.exe"`
-  *Breaks on any machine not owned by user `dines`.*
+  `"path": "C:\\Users\\<user>\\AppData\\Local\\Programs\\Opera GX\\opera.exe"`
+  *Breaks on machines with non-standard install paths.*
 - **`services/brain/providers/mock_provider.py:170`**:
   `psutil.disk_usage('C:\\')`
   *Hardcoded Windows drive letter `C:\`. Immediately crashes with `FileNotFoundError` on Linux or macOS.*
@@ -597,7 +597,7 @@ The codebase contains hardcoded user-specific Windows filesystem paths:
   `approval_token: 'stark_industries_override_alpha'`
   *The Zero-Trust cryptographic override token is committed directly to the frontend JavaScript source code, completely subverting authorization.*
 - **`services/jarvis-core/routes/cloud.py:164`**:
-  `"account": health.get("account", "197550036081")`
+  `"account": health.get("account", "123456789012")`
   *Hardcoded AWS Account ID.*
 
 ### 5.3 Windows / Linux Portability Assumptions
@@ -630,7 +630,7 @@ The codebase contains hardcoded user-specific Windows filesystem paths:
 | **Phase 7: Autonomous Missions** | 8-phase DAG (Analyze->Plan->Auth->Exec->Verify->Report) | Timed `asyncio.sleep(1.5)` sequence emitting pre-scripted status strings and auto-incrementing progress to 100%. | **THEATRICAL STUB** |
 | **Phase 8: Multimodal Vision** | Real-time screen analysis & UI understanding | PIL grabs screenshot. If Gemini key missing, fakes analysis by reading active process names from `psutil`. | **STUB / MOCK** |
 | **Phase 9: Continuous Learning** | Remembers user corrections and habits | Works via regex pattern matching; persists preferences to `learned_memory.json`. | **REAL** |
-| **Phase 10: FinOps & Cloud Telemetry**| AWS budget tracking & resource cost attribution | Hardcoded arithmetic: multiplies EC2 count by $15 and S3 by $0.50. Hardcoded AWS Account `197550036081`. | **STUB / MOCK** |
+| **Phase 10: FinOps & Cloud Telemetry**| AWS budget tracking & resource cost attribution | Hardcoded arithmetic: multiplies EC2 count by $15 and S3 by $0.50. Hardcoded AWS Account `123456789012`. | **STUB / MOCK** |
 | **Phase 11: Swarm Orchestrator** | 6 autonomous agent personas collaborating | Simulates 6 static personas in an in-memory dictionary with simulated task counters. | **STUB / MOCK** |
 | **Phase 12: Atomic Rollback Engine** | Transaction checkpoints & automated self-healing | In-memory checkpoint journal exists. `/rollback/test` route executes a purely hardcoded simulation. | **PARTIAL / STUB** |
 | **Phase 13: Kubernetes Agent** | Orchestrates pods, ingress, and deployments | **ZERO CODE.** No files, no classes, no kubectl commands exist anywhere in the repository. | **COMPLETELY ABSENT** |
@@ -653,7 +653,7 @@ When transitioning from this audit to an active repair and implementation pass, 
    - Wire `short_term_memory.add_turn()` into `routes/query.py` so dialogue history is persisted across conversation turns.
 4. **Phase D: Security & Sanitization**
    - Remove hardcoded master secret `'stark_industries_override_alpha'` from `static/index.html`.
-   - Remove hardcoded user path `C:\Users\dines\...` from `hierarchical_memory.py`.
+   - Generalize user profile paths via `%LOCALAPPDATA%` in `hierarchical_memory.py`.
    - Eliminate silent `try/except ... pass` blocks across audio, subprocess, and event mesh dispatchers.
 5. **Phase E: Align UI with Reality**
    - Remove hardcoded "PASS" diagnostic strings in `static/index.html`; wire UI test buttons to genuine backend test runner outputs (`/api/v1/diagnostics`).

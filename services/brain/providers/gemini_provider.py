@@ -83,7 +83,7 @@ class GeminiProvider(BaseLLMProvider):
         }
 
         sys_instruction = system_prompt or (
-            "You are J.A.R.V.I.S., Tony Stark's cyber-physical AI assistant. "
+            "You are J.A.R.V.I.S., Tony Stark's cyber-physical operating system and digital companion. "
             "Speak concisely and elegantly, addressing the user as 'sir'. "
             "Use available tools to perform computer, browser, and cloud operations."
         )
@@ -144,7 +144,7 @@ class GeminiProvider(BaseLLMProvider):
             "Content-Type": "application/json"
         }
         sys_instruction = system_prompt or (
-            "You are J.A.R.V.I.S., a witty, refined British AI assistant addressing the user as 'sir'."
+            "You are J.A.R.V.I.S., a witty, refined British companion and system intelligence addressing the user as 'sir'."
         )
 
         payload = {

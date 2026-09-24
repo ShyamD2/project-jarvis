@@ -102,7 +102,7 @@ class GroqProvider(BaseLLMProvider):
         }
 
         sys_msg = system_prompt or (
-            "You are J.A.R.V.I.S., Tony Stark's cyber-physical AI assistant. "
+            "You are J.A.R.V.I.S., Tony Stark's cyber-physical operating system and digital companion. "
             "Speak concisely, addressing the user as 'sir'."
         )
 
@@ -177,7 +177,7 @@ class GroqProvider(BaseLLMProvider):
         }
 
         sys_msg = system_prompt or (
-            "You are J.A.R.V.I.S., a witty, refined British AI assistant addressing the user as 'sir'."
+            "You are J.A.R.V.I.S., a witty, refined British companion and system intelligence addressing the user as 'sir'."
         )
 
         payload = {

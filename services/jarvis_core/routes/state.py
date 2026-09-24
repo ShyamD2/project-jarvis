@@ -69,7 +69,7 @@ _CLOUD_CACHE = {
     "last_checked": time.time(),
     "data": {
         "success": True,
-        "account": "197550036081",
+        "account": os.getenv("AWS_ACCOUNT_ID", "123456789012"),
         "region": "us-east-1"
     }
 }
@@ -115,7 +115,7 @@ async def get_full_world_state():
 
     cached_cloud = _CLOUD_CACHE["data"]
     _LIVE_WORLD_STATE["cloud"]["aws_connected"] = cached_cloud.get("success", True)
-    _LIVE_WORLD_STATE["cloud"]["account"] = cached_cloud.get("account", "197550036081")
+    _LIVE_WORLD_STATE["cloud"]["account"] = cached_cloud.get("account", os.getenv("AWS_ACCOUNT_ID", "123456789012"))
     _LIVE_WORLD_STATE["cloud"]["region"] = cached_cloud.get("region", "us-east-1")
 
     # Live User Geolocation & Weather (Coimbatore, Tamil Nadu, India)

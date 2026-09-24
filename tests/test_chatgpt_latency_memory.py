@@ -1,7 +1,7 @@
 """
 Comprehensive Verification Test Suite for:
 1. Whole-Ecosystem Sub-200ms Latency Acceleration (Groq HTTP/2 Keep-Alive + Zero-Token Pruning)
-2. ChatGPT Plus Level Creative Intelligence (Markdown, Code Blocks, In-depth Explanations)
+2. Structured Engineering Depth & Creative Intelligence (Markdown, Code Blocks, In-depth Explanations)
 3. Deep Learning Neural Memory Graph (Passive Fact Extraction, Hybrid Semantic Recall <5ms)
 4. Speculative Pre-Computation Engine (Pillar 9: 0ms Proactive Cache Hit)
 5. Darwinian Self-Optimizing Agent (Pillar 10: Telemetry Profiling & Evolution Sandbox)
@@ -41,7 +41,7 @@ def test_01_tool_pruning_and_latency_fast_path():
     asyncio.run(_run())
 
 
-def test_02_chatgpt_creative_depth_and_markdown():
+def test_02_creative_depth_and_markdown():
     """Verify responses are articulate, creative, and contain structured Markdown and code blocks."""
     async def _run():
         provider = GroqProvider()
@@ -53,7 +53,7 @@ def test_02_chatgpt_creative_depth_and_markdown():
         resp = await provider.generate(
             prompt=prompt,
             system_prompt=(
-                "You are J.A.R.V.I.S., possessing the creative brilliance and structured depth of ChatGPT. "
+                "You are J.A.R.V.I.S., possessing rich creative depth and structured engineering clarity. "
                 "Respond in rich Markdown with comparison tables and code snippets."
             ),
             tools=None
@@ -63,7 +63,7 @@ def test_02_chatgpt_creative_depth_and_markdown():
 
         text = resp.content or ""
         print(f"[Test 2] Response length: {len(text)} chars")
-        assert len(text) > 200, "Response is too short for ChatGPT-level creative depth"
+        assert len(text) > 200, "Response is too short for structured reasoning depth"
         assert "|" in text or "```" in text or "#" in text, "Markdown formatting absent"
 
     asyncio.run(_run())
@@ -151,7 +151,7 @@ def test_05_darwinian_optimizer_and_ast_sandbox():
 
 if __name__ == "__main__":
     asyncio.run(test_01_tool_pruning_and_latency_fast_path())
-    asyncio.run(test_02_chatgpt_creative_depth_and_markdown())
+    asyncio.run(test_02_creative_depth_and_markdown())
     test_03_neural_memory_passive_extraction_and_recall()
     test_04_speculative_precomputation_engine()
     test_05_darwinian_optimizer_and_ast_sandbox()
