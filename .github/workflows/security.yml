@@ -18,6 +18,9 @@ jobs:
       JARVIS_ENV: test
       JARVIS_MASTER_SECRET: test_security_secret_key_32_bytes_len_1234
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -34,9 +37,35 @@ jobs:
           pip install -e .
 
       - name: Run Permanent Security Regression Suite
+        id: pytest_step
         run: |
-          python -m pytest tests/security/ -v --tb=short
+          python -m pytest tests/security/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_security.log
+        continue-on-error: true
+
+      - name: Upload Pytest Security Log Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-security-log
+          path: pytest_security.log
+
+      - name: Push Log to Debug Branch
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B ci-debug
+          git add pytest_security.log
+          git commit -m "ci: debug pytest security log" || true
+          git push origin ci-debug --force || true
 
       - name: Static Security Scan (Bandit)
         run: |
           python -m bandit -r services/ shared/ -ll -ii -x "tests/,scratch/" || true
+
+      - name: Verify Pytest Status
+        run: |
+          if ("${{ steps.pytest_step.outcome }}" -ne "success") {
+            Get-Content pytest_security.log
+            exit 1
+          }

@@ -16,6 +16,9 @@ jobs:
       JARVIS_ENV: test
       JARVIS_MASTER_SECRET: test_security_secret_key_32_bytes_len_1234
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -32,25 +35,47 @@ jobs:
           pip install -e .
 
       - name: Run Security Regression Suite (10 Audit Invariants)
+        id: security_step
         run: |
-          python -m pytest tests/security/ -v --tb=short
+          python -m pytest tests/security/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_security_test.log
+        continue-on-error: true
 
       - name: Run Ground-Truth Verification Invariant Suite
+        id: verif_step
         run: |
-          python -m pytest tests/verification/ -v --tb=short
+          python -m pytest tests/verification/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_verification.log
+        continue-on-error: true
 
       - name: Run Real-Machine E2E Tests
+        id: e2e_step
         run: |
-          python -m pytest tests/e2e/ -v --tb=short
+          python -m pytest tests/e2e/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_e2e.log
+        continue-on-error: true
 
       - name: Execute Empirical Reliability Benchmark Runner
+        id: bench_step
         run: |
-          python benchmarks/run_benchmark.py --profile local
+          python benchmarks/run_benchmark.py --profile local 2>&1 | Tee-Object -FilePath benchmark.log
+        continue-on-error: true
 
-      - name: Upload Benchmark Results & Report
+      - name: Upload Test and Benchmark Logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-artifacts
+          name: test-and-benchmark-logs
           path: |
+            pytest_security_test.log
+            pytest_verification.log
+            pytest_e2e.log
+            benchmark.log
             benchmarks/results/latest.json
             benchmarks/report.md
+
+      - name: Verify All Test Steps Succeeded
+        run: |
+          $failed = $false
+          if ("${{ steps.security_step.outcome }}" -ne "success") { Write-Error "Security tests failed"; $failed = $true }
+          if ("${{ steps.verif_step.outcome }}" -ne "success") { Write-Error "Verification tests failed"; $failed = $true }
+          if ("${{ steps.e2e_step.outcome }}" -ne "success") { Write-Error "E2E tests failed"; $failed = $true }
+          if ("${{ steps.bench_step.outcome }}" -ne "success") { Write-Error "Benchmark failed"; $failed = $true }
+          if ($failed) { exit 1 }
