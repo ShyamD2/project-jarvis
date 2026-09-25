@@ -59,18 +59,23 @@ WHISPER_PROMPT = (
 )
 
 
-@router.post("/transcribe")
-async def transcribe_audio(request: Request, file: UploadFile = File(None)):
+try:
+    import python_multipart
+    MULTIPART_AVAILABLE = True
+except ImportError:
+    try:
+        from multipart.multipart import parse_options_header
+        MULTIPART_AVAILABLE = True
+    except ImportError:
+        MULTIPART_AVAILABLE = False
+
+
+async def _transcribe_impl(audio_bytes: bytes) -> Dict[str, Any]:
     """
-    Transcribes audio recording (WAV) from browser microphone into text.
+    Transcribes audio recording (WAV) from raw bytes into text.
     Applies audio energy filtering, gain normalization, and Groq Whisper with zero temperature.
     """
     try:
-        if file:
-            audio_bytes = await file.read()
-        else:
-            audio_bytes = await request.body()
-
         if not audio_bytes or len(audio_bytes) < 300:
             return {"status": "error", "message": "Audio stream too short or empty", "transcript": ""}
 
@@ -207,6 +212,28 @@ async def transcribe_audio(request: Request, file: UploadFile = File(None)):
     except Exception as e:
         logger.error(f"Transcribe error: {e}")
         return {"status": "error", "message": str(e), "transcript": ""}
+
+
+if MULTIPART_AVAILABLE:
+    @router.post("/transcribe")
+    async def transcribe_audio(request: Request, file: UploadFile = File(None)):
+        """
+        Transcribes audio recording (WAV) from browser microphone into text.
+        Accepts multipart file upload or direct binary body.
+        """
+        if file:
+            audio_bytes = await file.read()
+        else:
+            audio_bytes = await request.body()
+        return await _transcribe_impl(audio_bytes)
+else:
+    @router.post("/transcribe")
+    async def transcribe_audio(request: Request):
+        """
+        Transcribes audio recording (WAV) from raw body when python-multipart is absent.
+        """
+        audio_bytes = await request.body()
+        return await _transcribe_impl(audio_bytes)
 
 
 @router.post("/interrupt")
