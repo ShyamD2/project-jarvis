@@ -18,8 +18,34 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
 
 
+def ensure_high_dpi_aware() -> bool:
+    """Initializes Per-Monitor v2 High-DPI awareness for pixel-perfect coordinates across multi-monitor scaled displays."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            res = ctypes.windll.user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+            if res:
+                return True
+        except Exception:
+            pass
+        try:
+            import ctypes
+            res = ctypes.windll.shcore.SetProcessDpiAwareness(2)
+            if res == 0:
+                return True
+        except Exception:
+            pass
+        try:
+            import ctypes
+            return bool(ctypes.windll.user32.SetProcessDPIAware())
+        except Exception:
+            pass
+    return False
+
+
 def ensure_interactive_desktop():
     """Binds calling thread to WinSta0\\Default interactive desktop so GUI windows and ShellExecute appear on active display."""
+    ensure_high_dpi_aware()
     if sys.platform == "win32":
         try:
             import ctypes
@@ -248,6 +274,10 @@ def find_start_menu_app(name: str) -> Optional[str]:
 
 
 class WindowsAgent:
+    def __init__(self):
+        ensure_high_dpi_aware()
+        ensure_interactive_desktop()
+
     def find_app_path(self, app_name: str) -> Optional[str]:
         """Dynamically locates exact executable path for desktop apps on Windows"""
         if not app_name:

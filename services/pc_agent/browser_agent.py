@@ -123,33 +123,66 @@ class BrowserAgent:
             return None
 
     async def search_web(self, query: str, max_results: int = 5) -> List[Dict[str, Any]]:
-        """Performs web search using DuckDuckGo HTML endpoint with Playwright option."""
+        """Performs structured web search using DuckDuckGo JSON API with HTML fallback."""
         logger.info(f"[BrowserAgent] Performing web search for: '{query}'")
-        url = "https://html.duckduckgo.com/html/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        results = []
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(url, data={"q": query}, headers=headers)
-                snippets = re.findall(
-                    r'<a class="result__url"[^>]*href="([^"]+)"[^>]*>.*?</a>.*?<a class="result__snippet"[^>]*>(.*?)</a>',
-                    resp.text,
-                    re.DOTALL
-                )
-                for href, snippet in snippets[:max_results]:
-                    clean_snip = re.sub(r'<[^>]+>', '', snippet).strip()
-                    results.append({"url": href.strip(), "snippet": clean_snip})
-        except Exception as e:
-            logger.warning(f"Web search query failed: {e}")
+        results: List[Dict[str, Any]] = []
 
+        # 1. Primary: DuckDuckGo Instant Answer JSON API
+        try:
+            api_url = "https://api.duckduckgo.com/"
+            params = {"q": query, "format": "json", "no_html": "1", "skip_disambig": "1"}
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Jarvis/2.0"}
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                resp = await client.get(api_url, params=params, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    abstract = data.get("AbstractText") or data.get("Abstract")
+                    abstract_url = data.get("AbstractURL")
+                    if abstract and abstract_url:
+                        results.append({"url": abstract_url, "snippet": abstract})
+
+                    for topic in data.get("RelatedTopics", []):
+                        if len(results) >= max_results:
+                            break
+                        if isinstance(topic, dict):
+                            t_text = topic.get("Text")
+                            t_url = topic.get("FirstURL")
+                            if t_text and t_url:
+                                results.append({"url": t_url, "snippet": t_text})
+        except Exception as e:
+            logger.debug(f"[BrowserAgent] DuckDuckGo JSON API notice: {e}")
+
+        # 2. Secondary: Resilient DuckDuckGo HTML parsing
+        if len(results) < max_results:
+            try:
+                html_url = "https://html.duckduckgo.com/html/"
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                }
+                async with httpx.AsyncClient(timeout=6.0) as client:
+                    resp = await client.post(html_url, data={"q": query}, headers=headers)
+                    snippets = re.findall(
+                        r'<a class="result__url"[^>]*href="([^"]+)"[^>]*>.*?</a>.*?<a class="result__snippet"[^>]*>(.*?)</a>',
+                        resp.text,
+                        re.DOTALL
+                    )
+                    for href, snippet in snippets:
+                        if len(results) >= max_results:
+                            break
+                        clean_snip = re.sub(r'<[^>]+>', '', snippet).strip()
+                        clean_href = href.strip()
+                        if not any(r["url"] == clean_href for r in results):
+                            results.append({"url": clean_href, "snippet": clean_snip})
+            except Exception as e:
+                logger.debug(f"[BrowserAgent] HTML search fallback notice: {e}")
+
+        # 3. Fallback: Direct query navigation URL
         if not results:
             results.append({
                 "url": f"https://duckduckgo.com/?q={query}",
                 "snippet": f"Search results for: {query}"
             })
-        return results
+        return results[:max_results]
 
     async def fetch_page_summary(self, url: str) -> Dict[str, Any]:
         """Fetches and extracts clean text summary from a webpage using CDP or HTTP."""

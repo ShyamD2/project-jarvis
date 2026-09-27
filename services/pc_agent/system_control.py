@@ -53,13 +53,23 @@ class SystemControl:
         return {"success": True, "action": action_name, "steps": steps, "channel_1_logical": True}
 
     def set_volume(self, level_percent: int) -> Dict[str, Any]:
-        """Sets Windows master audio volume (0 to 100) via PowerShell Audio endpoint"""
+        """Sets Windows master audio volume (0 to 100) instantly via Core Audio endpoint without stealing focus."""
         try:
             target_level = max(0, min(100, int(level_percent)))
         except (ValueError, TypeError):
             target_level = 50
         logger.info(f"[SystemControl] Setting audio volume to {target_level}%")
-        # PowerShell script using Audio Device endpoint
+
+        # 1. Native Windows Core Audio (Fast, zero-SendKeys, zero focus-stealing)
+        try:
+            from services.pc_agent.native_audio import set_master_volume
+            ok = set_master_volume(target_level)
+            if ok:
+                return {"success": True, "volume_set": target_level, "channel_1_logical": True}
+        except Exception as e:
+            logger.debug(f"[SystemControl] Native audio notice: {e}")
+
+        # 2. Legacy PowerShell fallback
         ps_script = f"""
         $wsh = New-Object -ComObject WScript.Shell
         1..50 | ForEach-Object {{ $wsh.SendKeys([char]174) }} # Mute / Volume Down to 0

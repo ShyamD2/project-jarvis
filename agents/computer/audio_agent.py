@@ -55,16 +55,24 @@ class AudioAgent:
             return {"success": False, "error": f"Unknown direction: {direction}"}
 
     def set_volume_percent(self, percent: int) -> Dict[str, Any]:
-        """Sets Windows master volume to an exact percentage (0-100) via PowerShell Audio API"""
+        """Sets Windows master volume to an exact percentage (0-100) via native Core Audio endpoint"""
         target = max(0, min(100, int(percent)))
         logger.info(f"[AudioAgent] Setting volume to exact: {target}%")
+
+        # 1. Direct Windows Core Audio manipulation
         try:
-            # PowerShell script using Audio Device API to set master volume
+            from services.pc_agent.native_audio import set_master_volume
+            ok = set_master_volume(target)
+            if ok:
+                return {"success": True, "action": "set_volume", "target_percent": target}
+        except Exception as e:
+            logger.debug(f"[AudioAgent] Native audio notice: {e}")
+
+        # 2. PowerShell fallback
+        try:
             ps_script = f"""
             $obj = New-Object -ComObject WScript.Shell
-            # Reset to zero
             1..50 | ForEach-Object {{ $obj.SendKeys([char]174) }}
-            # Increment to target (each step is 2%)
             $steps = [math]::Round({target} / 2)
             1..$steps | ForEach-Object {{ $obj.SendKeys([char]175) }}
             """
