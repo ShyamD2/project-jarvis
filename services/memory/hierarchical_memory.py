@@ -67,6 +67,19 @@ class HierarchicalMemory:
         })
 
         self.episodic: List[Dict[str, Any]] = self._load_json(EPISODIC_FILE, [])
+        short_term_memory.register_archive_callback(self._on_turns_archived)
+
+    def _on_turns_archived(self, turns: List[Any], summary: str):
+        self.remember_episode(
+            event_name="conversation_distillation",
+            outcome="ARCHIVED",
+            details={
+                "turn_count": len(turns),
+                "summary": summary,
+                "first_turn": getattr(turns[0], "content", "")[:60] if turns else "",
+                "last_turn": getattr(turns[-1], "content", "")[:60] if turns else ""
+            }
+        )
 
     def _load_json(self, path: str, default: Any) -> Any:
         if os.path.exists(path):
@@ -150,6 +163,13 @@ class HierarchicalMemory:
     def get_experiences(self) -> Dict[str, Any]:
         return long_term_memory.experiences
 
+    # Tier 1 & 2: Summary methods
+    def get_condensed_summary(self) -> Optional[str]:
+        return short_term_memory.condensed_summary
+
+    def compress_working_memory(self) -> str:
+        return short_term_memory.compress_history()
+
     # Tier 7: Knowledge & RAG
     def search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
         return knowledge_rag.search(query, limit)
@@ -165,6 +185,7 @@ class HierarchicalMemory:
 
         return {
             "working_memory": short_term_memory.context_scratchpad,
+            "condensed_summary": short_term_memory.condensed_summary,
             "recent_turns": short_term_memory.get_recent_history(limit=4),
             "procedural": matched_proc,
             "preferences": self.get_preferences(),

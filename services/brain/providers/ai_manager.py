@@ -100,13 +100,44 @@ class AIManager(BaseLLMProvider):
         system_prompt: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.7,
-        messages: Optional[List[Dict[str, Any]]] = None
+        messages: Optional[List[Dict[str, Any]]] = None,
+        tier: Optional[str] = None
     ) -> LLMResponse:
         """
         Coordinates primary and fallback AI generation with resilient multi-tier routing:
-        Preferred Provider -> Fallbacks -> Local Cognitive Reflex
+        Reflex Tier (Groq 8B / local) <-> Reasoning Tier (OpenRouter 70B / Gemini Pro) <-> Fast Tier
         """
         self.refresh_keys()
+        target_tier = (tier or "auto").lower()
+
+        # Dynamic tier-based provider ordering
+        if target_tier in ["tier_0_reflex", "reflex"] and self.groq.is_configured:
+            # Reflex queries prioritize high-speed Groq (<300ms)
+            try:
+                logger.info("[AIManager] Fast-path reflex: Invoking Groq High-Speed Provider...")
+                return await self.groq.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    temperature=temperature,
+                    messages=messages
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] Groq reflex failed: {e}. Cascading...")
+
+        elif target_tier in ["tier_2_deep", "deep", "reasoning"] and self.openrouter.is_configured:
+            # Complex reasoning queries prioritize high-capacity OpenRouter
+            try:
+                logger.info(f"[AIManager] Deep reasoning: Invoking OpenRouter ({self.openrouter.model})...")
+                return await self.openrouter.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    tools=tools,
+                    temperature=temperature,
+                    messages=messages
+                )
+            except Exception as e:
+                logger.warning(f"[AIManager] OpenRouter reasoning failed: {e}. Cascading...")
 
         # 1. Preferred Provider Attempt
         if self.preferred_provider == "openrouter" and self.openrouter.is_configured:

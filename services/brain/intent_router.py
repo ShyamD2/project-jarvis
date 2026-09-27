@@ -18,14 +18,22 @@ class IntentType(str, Enum):
     CONVERSATION = "conversation"
 
 
+class ModelTier(str, Enum):
+    TIER_0_REFLEX = "tier_0_reflex"       # Sub-50ms local / Groq 8B reflex
+    TIER_1_FAST = "tier_1_fast"           # Low-latency (~200ms) Groq / Gemini Flash
+    TIER_2_DEEP = "tier_2_deep"           # High-capacity reasoning: OpenRouter 70B / Claude / Gemini Pro
+
+
 @dataclass
 class RoutedIntent:
     intent_type: IntentType
     confidence: float
-    recommended_model_tier: str       # "tier_1_fast" or "tier_2_deep"
+    recommended_model_tier: str                  # "tier_0_reflex", "tier_1_fast", "tier_2_deep"
     target_tool: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None
     raw_query: str = ""
+    estimated_latency_tier: str = "fast_reflex"  # "sub_50ms", "fast_reflex", "deep_reasoning"
+    cost_profile: str = "zero_cost"              # "zero_cost", "low_cost", "standard_cost"
 
 
 class IntentRouter:
@@ -130,16 +138,18 @@ class IntentRouter:
         ]
 
     def route(self, text: str) -> RoutedIntent:
-        """Classifies text and determines optimal execution tier"""
+        """Classifies text and determines optimal execution tier, model tier, and latency profile"""
         t = text.strip().lower()
 
-        # 1. Emergency Circuit Breaker check
+        # 1. Emergency Circuit Breaker check (<1ms zero-latency reflex)
         for pat in self.emergency_patterns:
             if re.search(pat, t):
                 return RoutedIntent(
                     intent_type=IntentType.EMERGENCY,
                     confidence=1.0,
-                    recommended_model_tier="tier_1_fast",
+                    recommended_model_tier=ModelTier.TIER_0_REFLEX.value,
+                    estimated_latency_tier="sub_50ms",
+                    cost_profile="zero_cost",
                     raw_query=text
                 )
 
@@ -149,7 +159,9 @@ class IntentRouter:
                 return RoutedIntent(
                     intent_type=IntentType.CONFIRMATION,
                     confidence=0.98,
-                    recommended_model_tier="tier_1_fast",
+                    recommended_model_tier=ModelTier.TIER_0_REFLEX.value,
+                    estimated_latency_tier="sub_50ms",
+                    cost_profile="zero_cost",
                     raw_query=text
                 )
 
@@ -160,13 +172,22 @@ class IntentRouter:
             default_params = item[2] if len(item) > 2 else None
             match = re.search(pat, t)
             if match:
+                is_pure_reflex = tool_name in [
+                    "control_system_audio", "audio_media", "lock_screen", "pc_power",
+                    "mouse_keyboard", "query_system_telemetry", "system_status_report"
+                ]
+                model_tier = ModelTier.TIER_0_REFLEX.value if is_pure_reflex else ModelTier.TIER_1_FAST.value
+                lat_tier = "sub_50ms" if is_pure_reflex else "fast_reflex"
+                cost_prof = "zero_cost" if is_pure_reflex else "low_cost"
                 return RoutedIntent(
                     intent_type=IntentType.DIRECT_ACTION,
                     confidence=0.95,
-                    recommended_model_tier="tier_1_fast",
+                    recommended_model_tier=model_tier,
                     target_tool=tool_name,
                     parameters=default_params,
-                    raw_query=text
+                    raw_query=text,
+                    estimated_latency_tier=lat_tier,
+                    cost_profile=cost_prof
                 )
 
         # 4. Complex Multi-Step Planner check
@@ -175,7 +196,9 @@ class IntentRouter:
                 return RoutedIntent(
                     intent_type=IntentType.COMPLEX_PLAN,
                     confidence=0.90,
-                    recommended_model_tier="tier_2_deep",
+                    recommended_model_tier=ModelTier.TIER_2_DEEP.value,
+                    estimated_latency_tier="deep_reasoning",
+                    cost_profile="standard_cost",
                     raw_query=text
                 )
 
@@ -183,7 +206,9 @@ class IntentRouter:
         return RoutedIntent(
             intent_type=IntentType.CONVERSATION,
             confidence=0.85,
-            recommended_model_tier="tier_1_fast",
+            recommended_model_tier=ModelTier.TIER_1_FAST.value,
+            estimated_latency_tier="fast_reflex",
+            cost_profile="low_cost",
             raw_query=text
         )
 

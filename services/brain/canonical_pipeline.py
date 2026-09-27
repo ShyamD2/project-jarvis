@@ -169,6 +169,20 @@ class CanonicalPipeline:
                 "duration_ms": (time.time() - t0) * 1000
             }
 
+        # 1.5. Pre-flight Parameter Schema Validation (Phase 4)
+        is_valid, val_err = tool_registry.validate_parameters(tool, params)
+        if not is_valid:
+            err_msg = f"Pre-flight schema validation failed for tool '{canonical_name}': {val_err}"
+            logger.warning(f"⚠️ [CanonicalPipeline] {err_msg}")
+            return {
+                "success": False,
+                "status": "validation_error",
+                "final_status": "FAILED",
+                "execution_class": "unknown",
+                "error": err_msg,
+                "duration_ms": (time.time() - t0) * 1000
+            }
+
         # 2. Construct Action Envelope with Execution Class
         effective_tier = tool.tier
 

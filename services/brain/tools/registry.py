@@ -77,7 +77,7 @@ class PCPowerTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_3_DESTRUCTIVE, # Default for shutdown/restart; safety guard verifies action parameter
                 parameters_schema={
-                    "action": {"type": "string", "enum": ["shutdown", "restart", "sleep", "hibernate", "sign_out", "display_off", "cancel_shutdown", "power_plan", "temperatures", "disk_space"], "required": True},
+                    "action": {"type": "string", "enum": ["shutdown", "restart", "sleep", "hibernate", "sign_out", "display_off", "cancel_shutdown", "power_plan", "temperatures", "disk_space"], "default": "temperatures"},
                     "timer_seconds": {"type": "integer", "default": 0},
                     "mode": {"type": "string", "default": "balanced"}
                 }
@@ -119,7 +119,7 @@ class AudioMediaTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
-                    "action": {"type": "string", "enum": ["increase", "decrease", "mute", "unmute", "set_volume", "play_pause", "next", "previous", "stop", "mic_status"], "required": True},
+                    "action": {"type": "string", "enum": ["increase", "decrease", "mute", "unmute", "set_volume", "play_pause", "next", "previous", "stop", "mic_status"], "default": "play_pause"},
                     "steps": {"type": "integer", "default": 5},
                     "level": {"type": "integer", "default": 50}
                 }
@@ -153,7 +153,7 @@ class DisplayControlTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_1_SOFT,
                 parameters_schema={
-                    "action": {"type": "string", "enum": ["set_brightness", "get_brightness", "switch_mode", "night_light"], "required": True},
+                    "action": {"type": "string", "enum": ["set_brightness", "get_brightness", "switch_mode", "night_light"], "default": "get_brightness"},
                     "level": {"type": "integer", "default": 80},
                     "mode": {"type": "string", "default": "extend"}
                 }
@@ -228,7 +228,7 @@ class FileManagerTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_2_MUTATING,
                 parameters_schema={
-                    "action": {"type": "string", "enum": ["open", "create_folder", "create_file", "rename", "move", "copy", "delete", "search", "zip", "unzip", "empty_recycle_bin"], "required": True},
+                    "action": {"type": "string", "enum": ["open", "create_folder", "create_file", "rename", "move", "copy", "delete", "search", "zip", "unzip", "empty_recycle_bin"], "default": "search"},
                     "path": {"type": "string"},
                     "source": {"type": "string"},
                     "destination": {"type": "string"},
@@ -677,7 +677,8 @@ class CloseAppTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_2_MUTATING,
                 parameters_schema={
-                    "app_name": {"type": "string", "required": True}
+                    "app_name": {"type": "string", "default": ""},
+                    "pid": {"type": "integer"}
                 }
             )
         )
@@ -1129,6 +1130,95 @@ class ToolRegistry:
             })
         return specs
 
+    def validate_parameters(self, tool: JarvisTool, parameters: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+        """
+        Pre-flight argument schema validation.
+        Validates parameters against tool's Pydantic input_schema (if defined)
+        and parameters_schema (types, required fields, enums, defaults).
+        """
+        # 1. Pydantic input_schema validation (if provided)
+        if getattr(tool.definition, "input_schema", None) is not None:
+            schema_cls = tool.definition.input_schema
+            try:
+                if hasattr(schema_cls, "model_validate"):
+                    schema_cls.model_validate(parameters)
+                elif callable(schema_cls):
+                    schema_cls(**parameters)
+            except Exception as e:
+                return False, f"Pydantic input schema error: {e}"
+
+        # 2. Parameters schema validation
+        schema = tool.definition.parameters_schema
+        if not schema or not isinstance(schema, dict):
+            return True, None
+
+        params_to_check = dict(parameters)
+
+        # Apply schema defaults for omitted keys on the validation copy only
+        for key, prop in schema.items():
+            if isinstance(prop, dict) and "default" in prop and key not in params_to_check:
+                params_to_check[key] = prop["default"]
+
+        # Check top-level 'required' list if present
+        top_required = schema.get("required")
+        if isinstance(top_required, list):
+            for req in top_required:
+                if req not in params_to_check or params_to_check[req] is None:
+                    return False, f"Missing required parameter '{req}'"
+
+        # Check field-level constraints
+        for key, prop in schema.items():
+            if not isinstance(prop, dict) or key == "required":
+                continue
+
+            # Check field-level required
+            if prop.get("required") and (key not in params_to_check or params_to_check[key] is None):
+                return False, f"Missing required parameter '{key}'"
+
+            if key not in params_to_check or params_to_check[key] is None:
+                continue
+
+            val = params_to_check[key]
+            exp_type = prop.get("type")
+
+            if exp_type == "integer":
+                if isinstance(val, bool) or not (
+                    isinstance(val, int)
+                    or (isinstance(val, str) and val.strip().lstrip("-").isdigit())
+                    or (isinstance(val, float) and val.is_integer())
+                ):
+                    return False, f"Parameter '{key}' must be an integer, got {type(val).__name__} ({val})"
+
+            elif exp_type == "boolean":
+                if not isinstance(val, bool):
+                    if not (isinstance(val, str) and val.lower() in ["true", "false"]):
+                        return False, f"Parameter '{key}' must be a boolean, got {type(val).__name__} ({val})"
+
+            elif exp_type == "string":
+                if not isinstance(val, str):
+                    return False, f"Parameter '{key}' must be a string, got {type(val).__name__}"
+
+            elif exp_type == "array":
+                if not isinstance(val, (list, tuple)):
+                    return False, f"Parameter '{key}' must be an array/list, got {type(val).__name__}"
+
+            elif exp_type == "object":
+                if not isinstance(val, dict):
+                    return False, f"Parameter '{key}' must be an object/dict, got {type(val).__name__}"
+
+            # Check enum constraints
+            if "enum" in prop:
+                allowed = prop["enum"]
+                if isinstance(val, str):
+                    allowed_lower = [str(x).lower() for x in allowed]
+                    if val.lower() not in allowed_lower:
+                        return False, f"Parameter '{key}' value '{val}' is not in allowed choices: {allowed}"
+                else:
+                    if val not in allowed:
+                        return False, f"Parameter '{key}' value '{val}' is not in allowed choices: {allowed}"
+
+        return True, None
+
     async def execute_tool(
         self,
         name: str,
@@ -1139,7 +1229,7 @@ class ToolRegistry:
     ) -> Dict[str, Any]:
         """
         Executes a tool through the strict architectural pipeline:
-        Mandatory ActionTier Check -> Emergency Check -> SafetyGuard 4-Tier Check -> Cryptographic Confirmation Gate -> Timeout Manager -> Execution -> Audit Logger -> Result
+        Mandatory ActionTier Check -> Emergency Check -> Pre-Flight Schema Check -> SafetyGuard 4-Tier Check -> Cryptographic Confirmation Gate -> Timeout Manager -> Execution -> Audit Logger -> Result
         """
         start_time = time.time()
         tool = self.get_tool(name)
@@ -1188,6 +1278,27 @@ class ToolRegistry:
 
         if parameters is None:
             parameters = {}
+
+        # 1.5. PRE-FLIGHT PARAMETER SCHEMA VALIDATION
+        is_valid, validation_err = self.validate_parameters(tool, parameters)
+        if not is_valid:
+            err_msg = f"Pre-flight schema validation failed for tool '{name}': {validation_err}"
+            logger.warning(f"⚠️ [ToolRegistry] {err_msg}")
+            audit_logger.record_entry(
+                user_query=raw_query or name,
+                intent="validation_error",
+                tool=name,
+                parameters=parameters,
+                risk_tier=tool.risk_level,
+                result="VALIDATION_FAILED",
+                duration_ms=0.0,
+                details={"error": err_msg}
+            )
+            return {
+                "success": False,
+                "status": "validation_error",
+                "error": err_msg
+            }
 
         # 2. SAFETY GUARD 4-TIER EVALUATION (Zero Bypass for Tier 3)
         action_name = parameters.get("action") or parameters.get("workflow") or name
