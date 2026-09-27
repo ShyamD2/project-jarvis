@@ -170,5 +170,9 @@ class WorldModel:
             "entities": {k: v.to_dict() for k, v in self.entities.items()}
         }
 
+    def get_full_world_state(self) -> Dict[str, Any]:
+        """Alias for get_snapshot providing backwards-compatible digital twin telemetry."""
+        return self.get_snapshot()
+
 
 world_model = WorldModel()

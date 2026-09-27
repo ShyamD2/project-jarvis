@@ -52,7 +52,7 @@ async def launch_docker_desktop():
     for p in paths:
         if os.path.exists(p):
             import subprocess
-            subprocess.Popen(f'cmd.exe /c start "" "{p}"', shell=True)
+            subprocess.Popen(["cmd.exe", "/c", "start", "", p], shell=False)
             return {"status": "launching", "path": p}
     return {"status": "error", "message": "Docker Desktop executable not found on host"}
 

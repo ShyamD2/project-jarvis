@@ -37,6 +37,7 @@ from routes.knowledge import router as knowledge_router
 from routes.web_research import router as web_research_router
 from routes.diagnostics import router as diagnostics_router
 from routes.api_v1 import router as api_v1_router
+from services.security.security_middleware import SecurityGuardMiddleware
 
 logger = get_logger("JarvisCoreService")
 
@@ -145,6 +146,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SecurityGuardMiddleware)
 
 # Mount Routes
 app.include_router(events_router)

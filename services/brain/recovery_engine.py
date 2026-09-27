@@ -104,8 +104,8 @@ class RecoveryEngine:
         # Strategy 3: PowerShell Start-Process with fallback
         logger.info(f"[RecoveryEngine] Stage 3: Attempting PowerShell Start-Process...")
         try:
-            cmd = f'powershell -Command "Start-Process \\"{app_name}\\" -ErrorAction SilentlyContinue"'
-            res = subprocess.run(cmd, shell=True, capture_output=True, timeout=5)
+            cmd = ["powershell", "-NoProfile", "-Command", f'Start-Process "{app_name}" -ErrorAction SilentlyContinue']
+            res = subprocess.run(cmd, shell=False, capture_output=True, timeout=5)
             if res.returncode == 0:
                 logger.info("[RecoveryEngine] Stage 3 Recovery SUCCESS via PowerShell Start-Process")
                 return {"recovered": True, "method": "powershell_start_process"}

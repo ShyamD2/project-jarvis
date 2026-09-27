@@ -64,10 +64,10 @@ class SystemUndo:
         git_head = "unknown"
         git_dirty = False
         try:
-            res = subprocess.run("git rev-parse --short HEAD", shell=True, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=2)
+            res = subprocess.run(["git", "rev-parse", "--short", "HEAD"], shell=False, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=2)
             if res.returncode == 0:
                 git_head = res.stdout.strip()
-            diff_res = subprocess.run("git status --porcelain", shell=True, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=2)
+            diff_res = subprocess.run(["git", "status", "--porcelain"], shell=False, capture_output=True, text=True, cwd=PROJECT_ROOT, timeout=2)
             git_dirty = bool(diff_res.stdout.strip())
         except Exception:
             pass

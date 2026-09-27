@@ -4,6 +4,7 @@ Auto-synthesized by J.A.R.V.I.S. SkillSynthesizer.
 """
 
 import subprocess
+import shlex
 import asyncio
 from typing import Dict, Any
 from services.brain.tools.base import JarvisTool, ToolDefinition
@@ -42,7 +43,11 @@ class TestPingVerifierTool(JarvisTool):
                 res = await loop.run_in_executor(
                     None,
                     lambda c=formatted_cmd: subprocess.run(
-                        c, shell=True, capture_output=True, text=True, timeout=timeout_seconds
+                        shlex.split(c, posix=False) if isinstance(c, str) else c,
+                        shell=False,
+                        capture_output=True,
+                        text=True,
+                        timeout=timeout_seconds
                     )
                 )
                 outputs.append({

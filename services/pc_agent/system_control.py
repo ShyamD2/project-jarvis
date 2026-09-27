@@ -72,21 +72,60 @@ class SystemControl:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    BLOCKED_SENSITIVE_PATTERNS = [
+        r"[\\/]\.aws[\\/]",
+        r"[\\/]\.ssh[\\/]",
+        r"[\\/](id_rsa|id_ed25519|id_ecdsa)",
+        r"[\\/]windows[\\/]system32[\\/]config",
+        r"[\\/]etc[\\/](shadow|passwd|master\.passwd)",
+        r"(^|[\\/])\.env($|\.)"
+    ]
+
+    def _is_path_permitted(self, target_path: str) -> bool:
+        """Enforces security boundaries against sensitive credential exfiltration and system files."""
+        normalized = os.path.normpath(os.path.abspath(target_path))
+        import re
+        for pat in self.BLOCKED_SENSITIVE_PATTERNS:
+            if re.search(pat, normalized, re.IGNORECASE):
+                logger.warning(f"🔒 [SystemControl] Blocked access to sensitive path: {normalized}")
+                return False
+        return True
+
     def search_files(self, directory: str, pattern: str) -> List[str]:
-        """Searches files by glob pattern"""
+        """Searches files by glob pattern with directory jail protection"""
         logger.info(f"[SystemControl] Searching files in '{directory}' matching '{pattern}'")
-        search_path = os.path.join(directory, "**", pattern)
-        matches = glob.glob(search_path, recursive=True)
-        return matches[:25] # Return top 25 matches
+        if not self._is_path_permitted(directory):
+            return []
+
+        # Prevent unbounded root directory freezing
+        norm_dir = os.path.normpath(os.path.abspath(directory))
+        if norm_dir in ("C:\\", "D:\\", "/", "\\"):
+            logger.warning(f"[SystemControl] Unbounded root scan on '{norm_dir}' restricted to depth 2.")
+            search_path = os.path.join(directory, "*", pattern)
+        else:
+            search_path = os.path.join(directory, "**", pattern)
+
+        try:
+            matches = glob.glob(search_path, recursive=True)
+            safe_matches = [m for m in matches if self._is_path_permitted(m)]
+            return safe_matches[:25]
+        except Exception as e:
+            logger.error(f"[SystemControl] File search error: {e}")
+            return []
 
     def read_file_preview(self, file_path: str, max_chars: int = 1000) -> Dict[str, Any]:
-        """Reads preview of a text file safely"""
-        if not os.path.exists(file_path):
+        """Reads preview of a text file safely with path traversal protection"""
+        if not self._is_path_permitted(file_path):
+            return {"success": False, "error": "SECURITY_ERROR: Access to sensitive or restricted path is prohibited."}
+
+        norm_path = os.path.normpath(os.path.abspath(file_path))
+        if not os.path.exists(norm_path):
             return {"success": False, "error": "File not found"}
+
         try:
-            with open(file_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read(max_chars)
-            return {"success": True, "file": file_path, "preview": content}
+            with open(norm_path, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read(min(max(10, max_chars), 50000))
+            return {"success": True, "file": norm_path, "preview": content}
         except Exception as e:
             return {"success": False, "error": str(e)}
 

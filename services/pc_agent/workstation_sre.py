@@ -79,9 +79,9 @@ class WorkstationSRE:
             logger.warning(f"[WorkstationSRE] psutil port scan failed: {e}")
             # Fallback to Windows netstat
             try:
-                out = subprocess.check_output(f'netstat -ano | findstr :{port}', shell=True, text=True)
+                out = subprocess.check_output(["netstat", "-ano"], shell=False, text=True)
                 for line in out.strip().splitlines():
-                    if "LISTENING" in line:
+                    if f":{port}" in line and "LISTENING" in line:
                         parts = line.split()
                         pid = int(parts[-1])
                         result["pid"] = pid

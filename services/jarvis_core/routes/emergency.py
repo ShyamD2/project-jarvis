@@ -6,6 +6,8 @@ Provides instant "Stand Down" kill-switch, pending ticket confirmation, and audi
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+import os
+import secrets
 
 from shared.sdk_python.jarvis_sdk.config import config
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -49,7 +51,14 @@ async def trigger_stand_down(req: EmergencyRequest):
 
 @router.post("/resume")
 async def resume_operations(req: EmergencyRequest):
-    """Resumes normal autonomous operations after emergency freeze."""
+    """Resumes normal autonomous operations after emergency freeze with mandatory secret verification."""
+    expected_secret = os.getenv("JARVIS_EMERGENCY_PASSPHRASE") or os.getenv("JARVIS_MASTER_SECRET")
+    if expected_secret:
+        if not req.passphrase or not secrets.compare_digest(req.passphrase.strip(), expected_secret.strip()):
+            raise HTTPException(
+                status_code=403,
+                detail="FORBIDDEN: Valid emergency passphrase or master secret required to resume operations."
+            )
     res = emergency_stop.resume_operations()
     return res
 

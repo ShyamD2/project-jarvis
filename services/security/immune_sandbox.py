@@ -174,9 +174,11 @@ class ImmuneSandbox:
 
         # Safe execution
         try:
+            import shlex
+            cmd_args = shlex.split(cmd, posix=False) if isinstance(cmd, str) else cmd
             res = subprocess.run(
-                cmd,
-                shell=True,
+                cmd_args,
+                shell=False,
                 capture_output=True,
                 text=True,
                 cwd=cwd or PROJECT_ROOT,

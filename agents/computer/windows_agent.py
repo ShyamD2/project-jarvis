@@ -108,7 +108,9 @@ def launch_process_on_interactive_desktop(cmd: str, cwd: Optional[str] = None) -
     """
     if sys.platform != "win32":
         try:
-            subprocess.Popen(cmd, shell=True, cwd=cwd)
+            import shlex
+            cmd_args = shlex.split(cmd) if isinstance(cmd, str) else cmd
+            subprocess.Popen(cmd_args, shell=False, cwd=cwd)
             return True
         except Exception:
             return False
@@ -181,7 +183,9 @@ def launch_process_on_interactive_desktop(cmd: str, cwd: Optional[str] = None) -
         logger.warning(f"[WindowsAgent] launch_process_on_interactive_desktop error: {e}")
 
     try:
-        subprocess.Popen(cmd, cwd=cwd, shell=True)
+        import shlex
+        cmd_args = shlex.split(cmd, posix=False) if isinstance(cmd, str) else cmd
+        subprocess.Popen(cmd_args, cwd=cwd, shell=False)
         return True
     except Exception as e_sub:
         logger.error(f"[WindowsAgent] Subprocess fallback failed: {e_sub}")
