@@ -15,6 +15,7 @@ import uuid
 from typing import Dict, Any, List, Optional, Callable
 from collections import deque
 from shared.sdk_python.jarvis_sdk.logger import get_logger
+from shared.database import get_sqlite_connection
 
 logger = get_logger("JarvisMQTTBuffer")
 
@@ -31,7 +32,7 @@ class MQTTOfflineBuffer:
 
     def _init_db(self):
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_sqlite_connection(self.db_path) as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS buffered_messages (
                         id TEXT PRIMARY KEY,
@@ -65,7 +66,7 @@ class MQTTOfflineBuffer:
 
         # 2. Persist to SQLite
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_sqlite_connection(self.db_path) as conn:
                 conn.execute("""
                     INSERT OR IGNORE INTO buffered_messages (id, topic, payload, idempotency_key, created_at, dispatched)
                     VALUES (?, ?, ?, ?, ?, 0)
@@ -110,7 +111,7 @@ class MQTTOfflineBuffer:
         # Mark dispatched in DB
         if drained_ids:
             try:
-                with sqlite3.connect(self.db_path) as conn:
+                with get_sqlite_connection(self.db_path) as conn:
                     conn.executemany(
                         "UPDATE buffered_messages SET dispatched = 1 WHERE id = ?",
                         [(did,) for did in drained_ids]
@@ -129,7 +130,7 @@ class MQTTOfflineBuffer:
         """Clears in-memory and persistent buffer."""
         self._mem_queue.clear()
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_sqlite_connection(self.db_path) as conn:
                 conn.execute("DELETE FROM buffered_messages")
                 conn.commit()
         except Exception:

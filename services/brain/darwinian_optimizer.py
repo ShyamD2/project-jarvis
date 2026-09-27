@@ -87,7 +87,7 @@ class DarwinianOptimizer:
         """Identifies tools that exceed latency thresholds or fail unacceptably."""
         candidates = []
         for name, record in self._fitness_records.items():
-            if record.invocations >= 3:
+            if record.invocations >= 2:
                 needs_opt = False
                 reasons = []
                 if record.avg_latency_ms > self.latency_threshold_ms:

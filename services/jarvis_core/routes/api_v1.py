@@ -151,20 +151,33 @@ async def get_capabilities():
     }
 
 
+try:
+    from health import check_liveness, check_readiness
+except ImportError:
+    from services.jarvis_core.health import check_liveness, check_readiness
+from fastapi.responses import JSONResponse
+
+
+@router.get("/health/live")
+async def get_health_live():
+    """Liveness probe: verifies process is alive and responsive."""
+    return check_liveness()
+
+
+@router.get("/health/ready")
+async def get_health_ready():
+    """Readiness probe: deep probe of SQLite, memory, disk, and safety."""
+    is_ready, details = check_readiness()
+    if not is_ready:
+        return JSONResponse(status_code=503, content=details)
+    return details
+
+
 @router.get("/health")
 async def get_health():
     """Returns granular subsystem health status."""
-    return {
-        "healthy": not emergency_stop.is_stopped,
-        "subsystems": {
-            "canonical_pipeline": "HEALTHY",
-            "permission_engine": "HEALTHY",
-            "verification_engine": "HEALTHY",
-            "tool_registry": "HEALTHY",
-            "emergency_circuit": "HEALTHY" if not emergency_stop.is_stopped else "HALTED"
-        },
-        "timestamp": time.time()
-    }
+    _, details = check_readiness()
+    return details
 
 
 @router.get("/metrics")

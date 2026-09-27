@@ -27,6 +27,8 @@ EXEMPT_PATHS: Set[str] = {
     "/health/ready",
     "/metrics",
     "/api/v1/health",
+    "/api/v1/health/live",
+    "/api/v1/health/ready",
     "/api/v1/metrics",
     "/api/v1/status",
 }

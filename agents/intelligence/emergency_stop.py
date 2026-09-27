@@ -22,6 +22,7 @@ class EmergencyStopController:
         self._registered_cancellation_callbacks: List[Callable[[], None]] = []
         self._hotkey_thread: threading.Thread | None = None
         self._is_listening_hotkey = False
+        self.stop_reason: str | None = None
 
         # Start global hotkey listener
         self.start_hotkey_listener()
@@ -42,6 +43,7 @@ class EmergencyStopController:
         logger.critical(f"🛑 [EMERGENCY STOP TRIGGERED] Source: {source} | Reason: {reason}")
         self._stop_event.set()
         config.emergency_stand_down = True
+        self.stop_reason = reason
 
         # Run registered cancellation callbacks (e.g., abort mouse/keyboard loops, cancel async tasks)
         for cb in self._registered_cancellation_callbacks:
@@ -73,10 +75,11 @@ class EmergencyStopController:
             "message": "All autonomous operations, automation loops, and pending workflows have been aborted immediately, sir."
         }
 
-    def resume_operations(self) -> Dict[str, Any]:
+    def resume_operations(self, *args, **kwargs) -> Dict[str, Any]:
         """Resets emergency flags and resumes normal operations"""
         self._stop_event.clear()
         config.emergency_stand_down = False
+        self.stop_reason = None
         logger.info("Emergency stand-down lifted. Normal operations restored.")
 
         event = JarvisEvent(
@@ -86,14 +89,18 @@ class EmergencyStopController:
         )
         try:
             mesh.publish(event)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to publish operations resumed event to mesh: {e}")
 
         return {
             "status": "operational",
             "emergency_stand_down": False,
-            "message": "Operations resumed, sir. Ready for instructions."
+            "message": "Emergency stand-down has been lifted. All systems operational."
         }
+
+    def resume(self, *args, **kwargs) -> Dict[str, Any]:
+        """Alias for resume_operations."""
+        return self.resume_operations(*args, **kwargs)
 
     lift_emergency_stop = resume_operations
     stop = trigger_emergency_stop

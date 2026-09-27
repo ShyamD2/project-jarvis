@@ -19,6 +19,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
 
 from shared.sdk_python.jarvis_sdk.logger import get_logger
+from shared.database import get_sqlite_connection
 
 logger = get_logger("JarvisEpisodicMemory")
 
@@ -34,9 +35,7 @@ class EpisodicMemory:
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return get_sqlite_connection(self.db_path)
 
     def _init_db(self):
         """Initializes relational and FTS5 tables."""

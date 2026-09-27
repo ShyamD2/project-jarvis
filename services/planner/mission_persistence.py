@@ -12,6 +12,7 @@ import time
 import uuid
 from typing import Dict, Any, List, Optional
 from shared.sdk_python.jarvis_sdk.logger import get_logger
+from shared.database import get_sqlite_connection
 
 logger = get_logger("JarvisMissionPersistence")
 
@@ -27,7 +28,7 @@ class MissionPersistenceManager:
 
     def _init_db(self):
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with get_sqlite_connection(self.db_path) as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS missions (
                         mission_id TEXT PRIMARY KEY,
@@ -66,7 +67,7 @@ class MissionPersistenceManager:
         now = time.time()
         dag_json = json.dumps(mission_data.get("live_actions", []))
 
-        with sqlite3.connect(self.db_path) as conn:
+        with get_sqlite_connection(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO missions (
                     mission_id, name, objective, current_phase, progress_percent,
@@ -96,8 +97,7 @@ class MissionPersistenceManager:
         return m_id
 
     def get_mission(self, mission_id: str) -> Optional[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with get_sqlite_connection(self.db_path) as conn:
             row = conn.execute("SELECT * FROM missions WHERE mission_id = ?", (mission_id,)).fetchone()
             if not row:
                 return None
@@ -106,8 +106,7 @@ class MissionPersistenceManager:
             return d
 
     def list_missions(self, limit: int = 50) -> List[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with get_sqlite_connection(self.db_path) as conn:
             rows = conn.execute("SELECT * FROM missions ORDER BY updated_at DESC LIMIT ?", (limit,)).fetchall()
             missions = []
             for r in rows:
@@ -123,7 +122,7 @@ class MissionPersistenceManager:
         snap_json = json.dumps(snapshot)
         state_hash = snapshot.get("state_hash", "")
 
-        with sqlite3.connect(self.db_path) as conn:
+        with get_sqlite_connection(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO checkpoints (checkpoint_id, mission_id, step_index, state_hash, snapshot_json, timestamp)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -132,8 +131,7 @@ class MissionPersistenceManager:
         return cp_id
 
     def get_latest_checkpoint(self, mission_id: str) -> Optional[Dict[str, Any]]:
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with get_sqlite_connection(self.db_path) as conn:
             row = conn.execute(
                 "SELECT * FROM checkpoints WHERE mission_id = ? ORDER BY step_index DESC LIMIT 1",
                 (mission_id,)
@@ -147,8 +145,7 @@ class MissionPersistenceManager:
     def get_interrupted_missions(self) -> List[Dict[str, Any]]:
         """Returns all missions in non-terminal active phases that survived a crash."""
         terminal_phases = ("complete", "aborted", "failed")
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
+        with get_sqlite_connection(self.db_path) as conn:
             rows = conn.execute(
                 f"SELECT * FROM missions WHERE current_phase NOT IN ({','.join(['?']*len(terminal_phases))})",
                 terminal_phases

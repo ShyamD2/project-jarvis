@@ -51,6 +51,15 @@ async def create_mission(req: CreateMissionRequest):
     return {"status": "created", "mission": res}
 
 
+@router.get("/{mission_id}")
+async def get_mission_by_id(mission_id: str):
+    """Returns details for a specific mission by ID"""
+    m = mission_control.get_mission(mission_id)
+    if not m:
+        raise HTTPException(status_code=404, detail=f"Mission '{mission_id}' not found")
+    return {"status": "success", "mission": m}
+
+
 @router.post("/{mission_id}/abort")
 async def abort_mission(mission_id: str):
     """Aborts a running mission"""

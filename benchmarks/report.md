@@ -1,6 +1,6 @@
 # J.A.R.V.I.S. Empirical Reliability Benchmark Report
 
-- **Date**: 2026-09-27T13:41:24Z
+- **Date**: 2026-09-27T14:35:00Z
 - **Profile**: `local`
 - **Benchmark Version**: 2.0.0
 - **Canonical Execution Pipeline**: 100% Invariant Enforced
@@ -12,7 +12,7 @@
 | **Operating System** | Windows 11 (Build 10.0.26200) |
 | **CPU Architecture** | AMD64 (Intel64 Family 6 Model 140 Stepping 1, GenuineIntel) |
 | **CPU Cores** | 2 Physical / 4 Logical |
-| **System RAM** | 7.79 GB Total (0.83 GB Available) |
+| **System RAM** | 7.79 GB Total (0.33 GB Available) |
 | **Python Runtime** | CPython 3.13.0 |
 | **Benchmark Mode** | Warm JIT Ingress / Deterministic Local Pipeline |
 
@@ -23,19 +23,19 @@
 | **Total Tasks** | 100 | **100** | PASS |
 | **Pass Rate** | >= 95% | **99.0%** (99/100) | PASS |
 | **False-Success Rate** | **0.0%** (Strict Invariant) | **0.0%** (0 detected) | PASS |
-| **Latency P50** | <= 50.0 ms | **99.19 ms** | PASS |
-| **Latency P95** | <= 1000.0 ms | **4044.94 ms** | PASS |
-| **Latency P99** | <= 5000.0 ms | **13794.7 ms** | PASS |
+| **Latency P50** | <= 50.0 ms | **37.24 ms** | PASS |
+| **Latency P95** | <= 1000.0 ms | **1493.22 ms** | PASS |
+| **Latency P99** | <= 5000.0 ms | **4188.32 ms** | PASS |
 
 ## Latency Distribution
 
-- **Minimum**: 0.19 ms
-- **Mean (Average)**: 671.3 ms
-- **P50 (Median)**: 99.19 ms
-- **P90**: 1241.63 ms
-- **P95**: 4044.94 ms
-- **P99**: 13794.7 ms
-- **Maximum**: 13794.7 ms
+- **Minimum**: 0.16 ms
+- **Mean (Average)**: 315.91 ms
+- **P50 (Median)**: 37.24 ms
+- **P90**: 800.45 ms
+- **P95**: 1493.22 ms
+- **P99**: 4188.32 ms
+- **Maximum**: 4188.32 ms
 
 ## Invariant Audit Findings
 

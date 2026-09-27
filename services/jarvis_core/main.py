@@ -116,7 +116,24 @@ async def lifespan(app: FastAPI):
         pc_daemon.stop()
     if pc_task:
         pc_task.cancel()
-    logger.info("J.A.R.V.I.S. Core Engine shutting down.")
+
+    # Flush all SQLite WAL checkpoints cleanly to disk on shutdown
+    try:
+        from shared.database import checkpoint_sqlite_db
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        db_paths = [
+            os.path.join(project_root, "data", "memory", "episodic_memory.db"),
+            os.path.join(project_root, "services", "planner", "storage", "missions.db"),
+            os.path.join(project_root, "services", "iot_agent", "storage", "mqtt_buffer.db"),
+            os.path.join(project_root, "data", "audit_ledger.db"),
+        ]
+        for p in db_paths:
+            checkpoint_sqlite_db(p)
+        logger.info("⚡ [Lifespan] Flushed all SQLite WAL checkpoints cleanly to disk.")
+    except Exception as e:
+        logger.warning(f"[Lifespan] SQLite WAL checkpoint on shutdown notice: {e}")
+
+    logger.info("J.A.R.V.I.S. Core Engine shutting down gracefully.")
 
 
 app = FastAPI(
@@ -210,15 +227,34 @@ if os.path.exists(static_path):
         return shared_context.request_handoff(src, tgt)
 
 
+try:
+    from health import check_liveness, check_readiness
+except ImportError:
+    from services.jarvis_core.health import check_liveness, check_readiness
+from fastapi.responses import JSONResponse
+
+
+@app.get("/health/live", tags=["Health"])
+async def health_liveness():
+    """Liveness probe: verifies process is alive and responsive."""
+    return check_liveness()
+
+
+@app.get("/health/ready", tags=["Health"])
+async def health_readiness():
+    """Readiness probe: validates SQLite, storage, and emergency breaker."""
+    is_ready, details = check_readiness()
+    if not is_ready:
+        return JSONResponse(status_code=503, content=details)
+    return details
+
+
 @app.get("/health", tags=["Health"])
 async def health_check():
-    return {
-        "service": "jarvis-core",
-        "status": "healthy",
-        "env": config.env,
-        "emergency_stand_down": config.emergency_stand_down,
-        "fast_path_mesh": "connected"
-    }
+    _, details = check_readiness()
+    details["service"] = "jarvis-core"
+    details["env"] = config.env
+    return details
 
 
 @app.get("/metrics", tags=["Observability"])

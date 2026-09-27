@@ -58,6 +58,14 @@ try:
 except Exception:
     esp32_agent = None
 
+try:
+    from services.planner.mission_persistence import mission_persistence
+except ImportError:
+    try:
+        from mission_persistence import mission_persistence
+    except Exception:
+        mission_persistence = None
+
 logger = get_logger("JarvisMissionControl")
 
 
@@ -98,9 +106,60 @@ class Mission:
 
 
 class MissionControl:
-    def __init__(self):
+    def __init__(self, persistence=None):
+        self.persistence = persistence or mission_persistence
         self.missions: Dict[str, Mission] = {}
         self._active_mission_id: Optional[str] = None
+        self._load_persisted_missions()
+
+    def _load_persisted_missions(self):
+        if not self.persistence:
+            return
+        try:
+            persisted = self.persistence.list_missions(limit=50)
+            for p in persisted:
+                m_id = p.get("mission_id")
+                if m_id and m_id not in self.missions:
+                    try:
+                        phase_enum = MissionPhase(p.get("current_phase", "analyze"))
+                    except Exception:
+                        phase_enum = MissionPhase.ANALYZE
+                    m = Mission(
+                        id=m_id,
+                        name=p.get("name", "Unnamed"),
+                        objective=p.get("objective", ""),
+                        current_phase=phase_enum,
+                        progress_percent=p.get("progress_percent", 0),
+                        risk_level=p.get("risk_level", "LOW"),
+                        cost_usd=p.get("cost_usd", 0.0),
+                        final_result=p.get("final_result"),
+                        live_actions=p.get("live_actions", []),
+                        created_at=p.get("created_at", time.time()),
+                        updated_at=p.get("updated_at", time.time())
+                    )
+                    self.missions[m_id] = m
+                    if phase_enum not in (MissionPhase.COMPLETE, MissionPhase.ABORTED) and not self._active_mission_id:
+                        self._active_mission_id = m_id
+        except Exception as e:
+            logger.warning(f"[MissionControl] Could not load persisted missions: {e}")
+
+    def _checkpoint_and_persist(self, m: Mission, step_index: int, snapshot_desc: str):
+        m.updated_at = time.time()
+        if self.persistence:
+            try:
+                self.persistence.save_mission(m.to_dict())
+                self.persistence.save_checkpoint(
+                    mission_id=m.id,
+                    step_index=step_index,
+                    snapshot={
+                        "phase": m.current_phase.value,
+                        "progress": m.progress_percent,
+                        "description": snapshot_desc,
+                        "actions_count": len(m.live_actions)
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"[MissionControl] Persistence checkpoint failed for {m.id}: {e}")
 
     async def create_mission(self, name: str, objective: str, risk_level: str = "LOW") -> Dict[str, Any]:
         mission_id = f"mission_{uuid.uuid4().hex[:8]}"
@@ -115,6 +174,7 @@ class MissionControl:
         )
         self.missions[mission_id] = m
         self._active_mission_id = mission_id
+        self._checkpoint_and_persist(m, 0, "mission_created")
 
         if obs_recorder:
             obs_recorder.record_mission_event(mission_id, "CREATED", "analyze", {"name": name, "objective": objective})
@@ -153,6 +213,7 @@ class MissionControl:
         else:
             action_1 = "Host telemetry baseline captured: logical interface nominal"
         m.live_actions.append({"timestamp": time.time(), "action": action_1, "agent": "Master Orchestrator", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 1, "analyze_complete")
         await asyncio.sleep(0.1)
 
         # Step 2: PLAN (Determine agents based on objective)
@@ -175,6 +236,7 @@ class MissionControl:
         m.agents_working = assigned
         action_2 = f"Execution DAG synthesized: {len(assigned)} agent personas assigned -> {', '.join(assigned)}"
         m.live_actions.append({"timestamp": time.time(), "action": action_2, "agent": "Master Planner", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 2, "plan_complete")
         await asyncio.sleep(0.1)
 
         # Step 3: AUTHORIZE (Policy check)
@@ -182,6 +244,7 @@ class MissionControl:
         m.progress_percent = 45
         action_3 = f"Zero-Trust Policy Engine: Verified risk tier [{m.risk_level}]. Automated execution authorized."
         m.live_actions.append({"timestamp": time.time(), "action": action_3, "agent": "Security Sentinel", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 3, "authorize_complete")
         await asyncio.sleep(0.1)
 
         # Step 4: EXECUTE (Run real subsystem tasks)
@@ -214,6 +277,7 @@ class MissionControl:
             real_exec_action = f"Security Sentinel: Local socket sweep complete. Port 8000: {'OPEN' if port_open else 'CLOSED'} (0 critical leaks)"
 
         m.live_actions.append({"timestamp": time.time(), "action": real_exec_action, "agent": assigned[-1], "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 4, "execute_complete")
         await asyncio.sleep(0.1)
 
         # Step 5: MONITOR
@@ -225,6 +289,7 @@ class MissionControl:
         else:
             action_5 = "SRE Watchdog: Live execution metrics corroborated. Telemetry heartbeat 200 OK."
         m.live_actions.append({"timestamp": time.time(), "action": action_5, "agent": "SRE Agent", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 5, "monitor_complete")
         await asyncio.sleep(0.1)
 
         # Step 6: VERIFY
@@ -233,6 +298,7 @@ class MissionControl:
         elapsed_sec = round(time.time() - t_start, 2)
         action_6 = f"Verification Engine: Dual-channel logical corroboration confirmed nominal in {elapsed_sec}s."
         m.live_actions.append({"timestamp": time.time(), "action": action_6, "agent": "Verification Engine", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 6, "verify_complete")
         await asyncio.sleep(0.1)
 
         # Step 7 & 8: COMPLETE & REPORT
@@ -242,6 +308,7 @@ class MissionControl:
         m.final_result = f"Mission '{m.name}' successfully achieved all objectives across all 8 phases in {total_time}s."
         action_7 = f"Mission Completed: {m.final_result}"
         m.live_actions.append({"timestamp": time.time(), "action": action_7, "agent": "Master Orchestrator", "status": "VERIFIED"})
+        self._checkpoint_and_persist(m, 7, "complete")
 
         if obs_recorder:
             obs_recorder.record_mission_event(mission_id, "COMPLETE", "complete", {"result": m.final_result})
@@ -254,13 +321,41 @@ class MissionControl:
         mesh.publish(event)
         logger.info(f"Mission [{mission_id}] Completed Successfully in {total_time}s.")
 
+    def get_mission(self, mission_id: str) -> Optional[Dict[str, Any]]:
+        if mission_id in self.missions:
+            return self.missions[mission_id].to_dict()
+        if self.persistence:
+            try:
+                return self.persistence.get_mission(mission_id)
+            except Exception:
+                pass
+        return None
+
     def get_active_mission(self) -> Optional[Dict[str, Any]]:
         if self._active_mission_id and self._active_mission_id in self.missions:
             return self.missions[self._active_mission_id].to_dict()
+        if self.persistence:
+            try:
+                interrupted = self.persistence.get_interrupted_missions()
+                if interrupted:
+                    latest = interrupted[0]
+                    self._active_mission_id = latest["mission_id"]
+                    return self.get_mission(latest["mission_id"])
+            except Exception:
+                pass
         return None
 
     def get_all_missions(self) -> List[Dict[str, Any]]:
-        return [m.to_dict() for m in self.missions.values()]
+        in_memory = {m.id: m.to_dict() for m in self.missions.values()}
+        if self.persistence:
+            try:
+                for pm in self.persistence.list_missions(limit=50):
+                    m_id = pm.get("mission_id")
+                    if m_id and m_id not in in_memory:
+                        in_memory[m_id] = pm
+            except Exception:
+                pass
+        return list(in_memory.values())
 
     def abort_mission(self, mission_id: str) -> bool:
         m = self.missions.get(mission_id)
@@ -274,6 +369,7 @@ class MissionControl:
             "agent": "human_operator",
             "status": "ABORTED"
         })
+        self._checkpoint_and_persist(m, 999, "mission_aborted")
         if obs_recorder:
             obs_recorder.record_mission_event(mission_id, "ABORTED", "aborted")
         return True

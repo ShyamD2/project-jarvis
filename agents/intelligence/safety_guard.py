@@ -169,6 +169,20 @@ class SafetyGuard:
         # Check if already approved via ticket
         if approval_id and approval_id in self._pending_tickets:
             ticket = self._pending_tickets[approval_id]
+
+            # Cryptographic integrity check: Verify parameters have not been altered post-approval
+            import hmac
+            expected_sig = self._compute_ticket_signature(ticket.action_name, params, ticket.expires_at)
+            if not hmac.compare_digest(ticket.crypto_signature, expected_sig):
+                logger.critical(f"🚨 [SafetyGuard] Cryptographic ticket violation! Parameters tampered for action: '{action_name}'")
+                return {
+                    "authorized": False,
+                    "tier": tier.value,
+                    "rationale": "SECURITY VIOLATION: Cryptographic authorization ticket verification failed. Parameters altered post-approval.",
+                    "requires_confirmation": True,
+                    "ticket_id": None
+                }
+
             if ticket.status == "CONSUMED" or ticket.consumed:
                 logger.critical(f"🚨 [SafetyGuard] Replay attack detected for ticket {approval_id}!")
                 return {
@@ -185,19 +199,6 @@ class SafetyGuard:
                         "authorized": False,
                         "tier": tier.value,
                         "rationale": "Confirmation ticket has expired. Please re-issue the command.",
-                        "requires_confirmation": True,
-                        "ticket_id": None
-                    }
-
-                # Cryptographic integrity check: Verify parameters have not been altered post-approval
-                import hmac
-                expected_sig = self._compute_ticket_signature(ticket.action_name, params, ticket.expires_at)
-                if not hmac.compare_digest(ticket.crypto_signature, expected_sig):
-                    logger.critical(f"🚨 [SafetyGuard] Cryptographic ticket violation! Parameters tampered for action: '{action_name}'")
-                    return {
-                        "authorized": False,
-                        "tier": tier.value,
-                        "rationale": "SECURITY VIOLATION: Cryptographic authorization ticket verification failed. Parameters altered post-approval.",
                         "requires_confirmation": True,
                         "ticket_id": None
                     }
