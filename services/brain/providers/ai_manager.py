@@ -12,6 +12,7 @@ from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
 from services.brain.providers.openrouter_provider import OpenRouterProvider
 from services.brain.providers.gemini_provider import GeminiProvider
 from services.brain.providers.groq_provider import GroqProvider
+from services.brain.providers.local_reflex_provider import LocalReflexProvider
 from services.brain.providers.mock_provider import MockLLMProvider
 from services.brain.providers.ollama_provider import OllamaProvider
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -25,7 +26,7 @@ class AIManager(BaseLLMProvider):
         self.gemini = GeminiProvider()
         self.groq = GroqProvider()
         self.ollama = OllamaProvider()
-        self.local = MockLLMProvider("jarvis-local-cognitive-brain")
+        self.local = LocalReflexProvider("jarvis-local-cognitive-brain")
         default_pref = "groq" if self.groq.is_configured else ("openrouter" if self.openrouter.is_configured else "gemini")
         self.preferred_provider = os.getenv("JARVIS_PRIMARY_AI", default_pref).strip().lower()
 

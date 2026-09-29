@@ -34,6 +34,15 @@ class EventMesh:
         self._eventbridge_client = None
         self._subscribers: Dict[str, List[Callable[[JarvisEvent], None]]] = {}
         self._is_connected_mqtt = False
+        self._offline_buffer = None
+
+        # Initialize Offline Buffer for resilience during broker disconnects
+        try:
+            from services.iot_agent.mqtt_buffer import MQTTOfflineBuffer
+            self._offline_buffer = MQTTOfflineBuffer()
+        except Exception as e:
+            logger.debug(f"MQTTOfflineBuffer not available: {e}")
+            self._offline_buffer = None
 
         # Initialize AWS / LocalStack EventBridge client
         if BOTO3_AVAILABLE:
@@ -85,8 +94,30 @@ class EventMesh:
             logger.info("Connected to Local Fast-Path MQTT Broker.")
             # Subscribe to all jarvis topics
             client.subscribe("jarvis/#")
+            self._drain_offline_buffer()
         else:
+            self._is_connected_mqtt = False
             logger.warning(f"MQTT connection failed with code {rc}")
+
+    def _drain_offline_buffer(self):
+        """Drains any buffered messages from offline periods once MQTT connection is restored."""
+        if not self._offline_buffer or not self._is_connected_mqtt or not self._mqtt_client:
+            return
+
+        def send_item(topic: str, payload: Dict[str, Any]) -> bool:
+            try:
+                res = self._mqtt_client.publish(topic, json.dumps(payload))
+                return getattr(res, "rc", 0) == 0
+            except Exception as ex:
+                logger.warning(f"Failed to publish drained message to {topic}: {ex}")
+                return False
+
+        try:
+            result = self._offline_buffer.drain(send_item)
+            if result.get("sent_count", 0) > 0:
+                logger.info(f"⚡ [EventMesh] Successfully drained {result['sent_count']} offline buffered messages to MQTT.")
+        except Exception as e:
+            logger.warning(f"[EventMesh] Error during offline buffer drain: {e}")
 
     def _on_mqtt_message(self, client, userdata, msg):
         try:
@@ -120,19 +151,28 @@ class EventMesh:
     def publish(self, event: JarvisEvent, fast_path: bool = True, cloud_sync: bool = True):
         """
         Dual-dispatch:
-        1. Fast-Path: In-memory & Local MQTT for instant <30ms reflex
+        1. Fast-Path: In-memory & Local MQTT for instant <30ms reflex (spools to SQLite buffer if broker offline)
         2. Heavy-Path: AWS EventBridge for telemetry, audit, and cloud coordination
         """
         # 1. In-process dispatch
         self._dispatch_local(event)
 
-        # 2. Local MQTT fast-path publish
-        if fast_path and self._is_connected_mqtt and self._mqtt_client:
-            try:
-                topic = f"jarvis/{event.type.replace('.', '/')}"
-                self._mqtt_client.publish(topic, event.to_json())
-            except Exception as e:
-                logger.warning(f"MQTT publish failed: {e}")
+        # 2. Local MQTT fast-path publish with offline buffer fallback
+        if fast_path:
+            topic = f"jarvis/{event.type.replace('.', '/')}"
+            if self._is_connected_mqtt and self._mqtt_client:
+                try:
+                    res = self._mqtt_client.publish(topic, event.to_json())
+                    if getattr(res, "rc", 0) != 0 and self._offline_buffer:
+                        logger.warning(f"MQTT publish returned rc={getattr(res, 'rc', None)}. Spooling event to offline buffer.")
+                        self._offline_buffer.enqueue(topic, event.to_dict(), idempotency_key=event.idempotency_key or event.id)
+                except Exception as e:
+                    logger.warning(f"MQTT publish failed: {e}. Spooling event to offline buffer.")
+                    if self._offline_buffer:
+                        self._offline_buffer.enqueue(topic, event.to_dict(), idempotency_key=event.idempotency_key or event.id)
+            else:
+                if self._offline_buffer:
+                    self._offline_buffer.enqueue(topic, event.to_dict(), idempotency_key=event.idempotency_key or event.id)
 
         # 3. Cloud Heavy-Path EventBridge publish
         if cloud_sync and self._eventbridge_client:

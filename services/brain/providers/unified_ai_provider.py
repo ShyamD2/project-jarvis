@@ -14,6 +14,7 @@ import time
 import httpx
 from typing import List, Dict, Any, Optional, AsyncGenerator
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
+from services.brain.providers.local_reflex_provider import LocalReflexProvider
 from services.brain.providers.mock_provider import MockLLMProvider
 from services.brain.providers.ollama_provider import OllamaProvider
 from services.brain.tools.registry import registry as tool_registry
@@ -29,7 +30,7 @@ class UnifiedAIProvider(BaseLLMProvider):
         self.groq_key = os.getenv("GROQ_API_KEY", "").strip()
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
         self.ollama_provider = OllamaProvider(base_url=self.ollama_url)
-        self.local_provider = MockLLMProvider("jarvis-local-cognitive-brain")
+        self.local_provider = LocalReflexProvider("jarvis-local-cognitive-brain")
 
     @property
     def active_backend(self) -> str:

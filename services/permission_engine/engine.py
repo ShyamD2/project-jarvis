@@ -379,6 +379,26 @@ class PermissionEngine:
         self._pending_approvals[app_id] = req
         return req
 
+    def get_pending_approvals(self) -> List[Dict[str, Any]]:
+        """Returns list of all active pending approval requests."""
+        return [
+            {
+                "approval_id": req.approval_id,
+                "action_id": req.action_id,
+                "action_name": req.action_name,
+                "actor": req.actor,
+                "target_world": req.target_world,
+                "risk_level": req.risk_level,
+                "tier": req.tier,
+                "rationale": req.rationale,
+                "parameters": req.parameters,
+                "status": req.status,
+                "created_at": req.created_at
+            }
+            for req in self._pending_approvals.values()
+            if req.status == "PENDING"
+        ]
+
     def approve_request(self, approval_id: str, approver: str = "operator", token: Optional[str] = None) -> bool:
         """Approves a pending ticket and creates an active single-use capability lease."""
         req = self._pending_approvals.get(approval_id)

@@ -32,7 +32,7 @@ class RecoveryEngine:
             return await self._recover_app_launch(target, original_error)
 
         # 2. BROWSER CDP / WEB RECOVERY
-        if "browser" in tool_name or tool_name in ["fetch_webpage", "web_search"]:
+        if "browser" in tool_name or "browse" in tool_name or tool_name in ["fetch_webpage", "web_search"]:
             url = parameters.get("url") or ""
             return await self._recover_browser_action(url, original_error)
 
@@ -117,10 +117,11 @@ class RecoveryEngine:
     async def _recover_browser_action(self, url: str, error: str) -> Dict[str, Any]:
         """Browser recovery: retry via system default browser or HTTP."""
         if url:
+            target_url = url if url.startswith(("http://", "https://")) else f"https://{url}"
             try:
-                os.startfile(url)
-                logger.info(f"[RecoveryEngine] Browser recovery SUCCESS via os.startfile('{url}')")
-                return {"recovered": True, "method": "os_startfile", "url": url}
+                os.startfile(target_url)
+                logger.info(f"[RecoveryEngine] Browser recovery SUCCESS via os.startfile('{target_url}')")
+                return {"recovered": True, "method": "os_startfile", "url": target_url}
             except Exception as e:
                 pass
         return {"recovered": False, "error": f"Browser recovery failed: {error}"}

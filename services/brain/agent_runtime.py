@@ -10,6 +10,7 @@ import json
 
 from services.brain.intent_router import router as intent_router, IntentType, RoutedIntent
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
+from services.brain.providers.local_reflex_provider import LocalReflexProvider
 from services.brain.providers.mock_provider import MockLLMProvider
 from services.brain.providers.ai_manager import ai_manager
 from services.memory.feedback_learning import learner

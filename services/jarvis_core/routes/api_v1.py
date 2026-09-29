@@ -140,7 +140,7 @@ async def get_capabilities():
         "count": len(tools),
         "capabilities": [
             {
-                "name": t.canonical_name,
+                "name": getattr(t, "name", getattr(t, "canonical_name", str(t))),
                 "tier": t.tier.value if hasattr(t.tier, "value") else str(t.tier),
                 "target_world": t.target_world.value if hasattr(t.target_world, "value") else str(t.target_world),
                 "description": t.description,

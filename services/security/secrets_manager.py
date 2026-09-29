@@ -16,6 +16,11 @@ from shared.sdk_python.jarvis_sdk.logger import get_logger
 logger = get_logger("JarvisSecretsManager")
 
 
+class SecurityError(Exception):
+    """Raised when a security policy or fail-closed secret requirement is violated."""
+    pass
+
+
 class SecretsManager:
     def __init__(self):
         self.env_mode = os.getenv("JARVIS_ENV", "development").lower().strip()

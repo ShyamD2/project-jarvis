@@ -245,3 +245,14 @@ async def interrupt_sensory_audio():
     res = interrupt_service.interrupt(source="sensory_api", reason="user_barge_in")
     return {"status": "success", "interrupted": True, "detail": res}
 
+
+@router.get("/status")
+async def get_sensory_status():
+    """Returns current status of sensory speech recognition and audio pipeline"""
+    return {
+        "status": "online",
+        "voice_session": voice_session.state.value if hasattr(voice_session, "state") else "idle",
+        "stt_available": RECOGNIZER is not None,
+        "soundfile_available": sf is not None
+    }
+
