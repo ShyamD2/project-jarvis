@@ -10,10 +10,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
-
-from providers.ai_manager import ai_manager
+from services.brain.providers.ai_manager import ai_manager
 
 router = APIRouter(prefix="/api/v1/web", tags=["Web & Research"])
 

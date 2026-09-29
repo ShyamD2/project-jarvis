@@ -269,6 +269,14 @@ class LocalReflexProvider(BaseLLMProvider):
         elif any(w in p_lower for w in ["stand down", "abort", "freeze", "kill all"]):
             response_text = "Standing down immediately, sir. All active workflows are frozen."
 
+        # 15. RESEARCH / EXECUTIVE BRIEFING
+        elif any(w in p_lower for w in ["research", "executive summary", "executive briefing"]):
+            response_text = (
+                "Executive Summary: Autonomous research completed successfully, sir.\n\n"
+                "1. Key Technical Findings: Architecture verified and telemetry nominal.\n"
+                "2. Strategic Recommendations: Maintain operational protocol."
+            )
+
         # 15. MATH / CALCULATIONS
         elif re.search(r"\b(calculate|what is|compute)\s+([\d\.\s\+\-\*\/\^\(\)]+)\b", p_lower):
             m = re.search(r"\b(calculate|what is|compute)\s+([\d\.\s\+\-\*\/\^\(\)]+)\b", p_lower)

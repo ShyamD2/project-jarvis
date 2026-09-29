@@ -277,7 +277,7 @@ class NetworkControlTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_0_REFLEX,
                 parameters_schema={
-                    "action": {"type": "string", "enum": ["wifi_status", "ip_addresses", "ping", "internet_status", "dns", "adapters"], "default": "ip_addresses"},
+                    "action": {"type": "string", "enum": ["wifi_status", "ip_addresses", "ip", "ping", "internet_status", "dns", "adapters"], "default": "ip_addresses"},
                     "host": {"type": "string", "default": "8.8.8.8"},
                     "domain": {"type": "string", "default": "google.com"}
                 }

@@ -205,7 +205,8 @@ class TestCoreRoutes(unittest.TestCase):
             latency_ms=5.0
         )
         with patch.dict(os.environ, {"JARVIS_MASTER_SECRET": self.master_secret}), \
-             patch("services.brain.providers.ai_manager.ai_manager.generate", new_callable=AsyncMock, return_value=mock_resp):
+             patch("services.brain.providers.ai_manager.ai_manager.generate", new_callable=AsyncMock, return_value=mock_resp), \
+             patch("services.jarvis_core.routes.web_research.ai_manager.generate", new_callable=AsyncMock, return_value=mock_resp):
             resp = self.client.post(
                 "/api/v1/web/research",
                 headers=self.auth_headers,

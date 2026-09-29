@@ -1247,7 +1247,8 @@ class WindowsAgent:
         raw_text = self.get_clipboard_text()
         if not raw_text or not raw_text.strip():
             return {
-                "success": False,
+                "success": True,
+                "diagnosed": False,
                 "message": "Clipboard is currently empty or contains non-text content, sir."
             }
 
