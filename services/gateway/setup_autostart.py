@@ -55,6 +55,22 @@ def install(auto_start_now: bool = True):
     print("   INSTALLING J.A.R.V.I.S. AUTO-START (WAKE-WORD & AGENTOS ENGINE)")
     print("=" * 70)
 
+    # Clean up any legacy console startup entries that could pop up terminal windows
+    legacy_tg_vbs = os.path.join(STARTUP_DIR, "JarvisTelegramGateway.vbs")
+    if os.path.exists(legacy_tg_vbs):
+        try:
+            os.remove(legacy_tg_vbs)
+            print(f"[OK] Cleaned up legacy Telegram startup VBS: {legacy_tg_vbs}")
+        except Exception:
+            pass
+    try:
+        k_clean = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY, 0, winreg.KEY_SET_VALUE)
+        winreg.DeleteValue(k_clean, "JarvisTelegramGateway")
+        winreg.CloseKey(k_clean)
+        print("[OK] Cleaned up legacy Telegram registry Run key")
+    except Exception:
+        pass
+
     create_vbs_script()
 
     # 1. Install to Windows Startup Folder
@@ -107,6 +123,14 @@ def uninstall():
         print(f"[OK] Removed registry key: {REG_NAME}")
     except Exception as e:
         print(f"Notice: {e}")
+
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY, 0, winreg.KEY_SET_VALUE)
+        winreg.DeleteValue(key, "JarvisTelegramGateway")
+        winreg.CloseKey(key)
+        print("[OK] Removed legacy registry key: JarvisTelegramGateway")
+    except Exception:
+        pass
 
     print("Auto-start uninstalled.")
 

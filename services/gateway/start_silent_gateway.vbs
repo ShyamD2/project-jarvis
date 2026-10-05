@@ -1,3 +1,5 @@
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.CurrentDirectory = "d:\Project J.A.R.V.I.S"
-WshShell.Run "cmd.exe /c """ & "d:\Project J.A.R.V.I.S\run_telegram_gateway.bat" & """", 0, False
+WshShell.CurrentDirectory = "D:\Project J.A.R.V.I.S"
+localAppData = WshShell.ExpandEnvironmentStrings("%LOCALAPPDATA%")
+cmd = Chr(34) & localAppData & "\Programs\Python\Python313\pythonw.exe" & Chr(34) & " " & Chr(34) & "D:\Project J.A.R.V.I.S\services\gateway\telegram_bot.py" & Chr(34)
+WshShell.Run cmd, 0, False
