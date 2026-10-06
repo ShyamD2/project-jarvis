@@ -298,7 +298,7 @@ class NetworkControlTool(JarvisTool):
             return network_agent.dns_lookup(domain=domain)
         elif act == "adapters":
             return network_agent.list_network_adapters()
-        return network_agent.get_ip_addresses()
+        return {"success": False, "error": f"Unknown network action: {action}"}
 
 
 # ==============================================================================
@@ -428,7 +428,7 @@ class AWSManagementTool(JarvisTool):
             return aws_agent.get_aws_cost_and_usage()
         elif act == "switch_region":
             return aws_agent.switch_aws_region(kwargs.get("region", "us-east-1"))
-        return aws_agent.check_cloud_health()
+        return {"success": False, "error": f"Unknown AWS action: {action}"}
 
 
 # ==============================================================================
@@ -471,7 +471,7 @@ class ProductivityTool(JarvisTool):
             return productivity_agent.list_tasks()
         elif act == "complete_task":
             return productivity_agent.complete_task(kwargs.get("task_id", 1))
-        return productivity_agent.list_tasks()
+        return {"success": False, "error": f"Unknown productivity action: {action}"}
 
 
 class CompoundWorkflowTool(JarvisTool):
@@ -611,7 +611,9 @@ class AudioVolumeTool(JarvisTool):
             return audio_agent.adjust_volume("down", steps=steps)
         elif act in ["mute", "unmute"]:
             return audio_agent.adjust_volume("mute")
-        return audio_agent.set_volume_percent(level)
+        elif act in ["set", "set_volume"]:
+            return audio_agent.set_volume_percent(level)
+        return {"success": False, "error": f"Unknown audio volume action: {action}"}
 
 
 class SystemStatusReportTool(JarvisTool):
@@ -749,9 +751,11 @@ class SendMessageTool(JarvisTool):
 
     async def execute(self, action: str = "send", recipient: Optional[str] = None, message: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         act = (action or "").lower().strip()
-        if "check" in act or "read" in act or not message:
+        if "check" in act or "read" in act:
             return windows_agent.check_latest_messages(platform="whatsapp")
-        return windows_agent.send_whatsapp_message(message=message, recipient=recipient or "brother")
+        elif "send" in act:
+            return windows_agent.send_whatsapp_message(message=message or "", recipient=recipient or "brother")
+        return {"success": False, "error": f"Unknown message action: {action}"}
 
 
 class SystemQueryTool(JarvisTool):
@@ -763,7 +767,7 @@ class SystemQueryTool(JarvisTool):
                 target_world=TargetWorld.COMPUTER,
                 tier=ActionTier.TIER_0_REFLEX,
                 parameters_schema={
-                    "query_type": {"type": "string", "required": True}
+                    "query_type": {"type": "string", "default": "general"}
                 }
             )
         )
@@ -1245,7 +1249,7 @@ class ToolRegistry:
                 duration_ms=0.0,
                 details={"error": err_msg}
             )
-            return {"success": False, "error": err_msg, "status": "not_found"}
+            return {"success": False, "verified": False, "error": err_msg, "status": "not_found"}
 
         # 0. MANDATORY ACTIONTIER DECLARATION VERIFICATION
         if not getattr(tool.definition, "tier", None):
@@ -1253,6 +1257,7 @@ class ToolRegistry:
             logger.critical(f"🚨 {err_msg}")
             return {
                 "success": False,
+                "verified": False,
                 "status": "security_violation",
                 "error": err_msg
             }
@@ -1272,6 +1277,7 @@ class ToolRegistry:
             )
             return {
                 "success": False,
+                "verified": False,
                 "status": "emergency_halted",
                 "error": "Execution halted: Emergency Stand-Down is currently active."
             }
@@ -1296,6 +1302,7 @@ class ToolRegistry:
             )
             return {
                 "success": False,
+                "verified": False,
                 "status": "validation_error",
                 "error": err_msg
             }
@@ -1438,6 +1445,7 @@ class ToolRegistry:
             )
             return {
                 "success": False,
+                "verified": False,
                 "status": "timeout",
                 "error": err_msg,
                 "duration_ms": round(duration_ms, 2)
@@ -1458,6 +1466,7 @@ class ToolRegistry:
             )
             return {
                 "success": False,
+                "verified": False,
                 "status": "error",
                 "error": str(e),
                 "duration_ms": round(duration_ms, 2)

@@ -104,6 +104,9 @@ class FileAgent:
     def open_path(self, target_path: str) -> Dict[str, Any]:
         """Opens file, folder, or application associated with the file type"""
         real_path = self._resolve_path(target_path)
+        safe, err = self._check_jail(real_path, "open_path")
+        if not safe:
+            return {"success": False, "error": err}
         logger.info(f"[FileAgent] Opening path: {real_path}")
         if not os.path.exists(real_path):
             return {"success": False, "error": f"Path not found: {real_path}"}
@@ -179,6 +182,9 @@ class FileAgent:
         """Copies a file or folder"""
         src = self._resolve_path(source)
         dest = self._resolve_path(destination)
+        safe_src, err_src = self._check_jail(src, "copy_item_source")
+        if not safe_src:
+            return {"success": False, "error": err_src}
         safe_dest, err_dest = self._check_jail(dest, "copy_item_dest")
         if not safe_dest:
             return {"success": False, "error": err_dest}
@@ -248,6 +254,9 @@ class FileAgent:
     def search_files(self, pattern: str, directory: str = "workspace", max_results: int = 20) -> Dict[str, Any]:
         """Searches for files matching pattern within a directory"""
         root_dir = self._resolve_path(directory)
+        safe, err = self._check_jail(root_dir, "search_files")
+        if not safe:
+            return {"success": False, "error": err}
         logger.info(f"[FileAgent] Searching for '{pattern}' in {root_dir}")
         matches = []
         try:
@@ -299,7 +308,16 @@ class FileAgent:
             return {"success": False, "error": err}
         try:
             os.makedirs(out_dir, exist_ok=True)
+            base_dir = os.path.abspath(out_dir)
             with zipfile.ZipFile(src, 'r') as z:
+                for member in z.infolist():
+                    member_path = os.path.abspath(os.path.join(base_dir, member.filename))
+                    try:
+                        is_safe = (os.path.commonpath([base_dir, member_path]) == base_dir) and not os.path.islink(member_path)
+                    except ValueError:
+                        is_safe = False
+                    if not is_safe:
+                        return {"success": False, "error": f"Zip Slip path traversal blocked: {member.filename}"}
                 z.extractall(out_dir)
             return {"success": True, "extracted_to": out_dir}
         except Exception as e:

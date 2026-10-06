@@ -17,7 +17,7 @@ jobs:
       JARVIS_MASTER_SECRET: test_security_secret_key_32_bytes_len_1234
 
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout Code
@@ -38,25 +38,25 @@ jobs:
         id: security_step
         run: |
           python -m pytest tests/security/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_security_test.log
-        continue-on-error: true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Unit & Production Readiness Test Suite
         id: unit_step
         run: |
           python -m pytest tests/unit/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_unit.log
-        continue-on-error: true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Ground-Truth Verification Invariant Suite
         id: verif_step
         run: |
           python -m pytest tests/verification/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_verification.log
-        continue-on-error: true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Real-Machine E2E Tests
         id: e2e_step
         run: |
           python -m pytest tests/e2e/ -v --tb=short 2>&1 | Tee-Object -FilePath pytest_e2e.log
-        continue-on-error: true
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Execute Empirical Reliability Benchmark Runner
         id: bench_step

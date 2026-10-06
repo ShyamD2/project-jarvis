@@ -56,8 +56,8 @@ class AgentRuntime:
         # 0. CONTINUOUS LEARNING & NEURAL MEMORY INGESTION
         try:
             neural_memory.auto_extract_and_remember(query)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[AgentRuntime][DEGRADED] Continuous learning / neural memory auto-extract failed: {e}")
 
         learning_result = learner.inspect_and_learn(query)
         if learning_result:
@@ -209,8 +209,8 @@ class AgentRuntime:
             res_data = exec_res.get("result", {})
             try:
                 darwinian_optimizer.profile_tool_execution(routed.target_tool, (time.time() - start_time) * 1000, exec_res.get("success", True))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[AgentRuntime][NON_CRITICAL] Darwinian optimizer tool profiling failed: {e}")
             actions_list = [{"tool": routed.target_tool, "arguments": routed.parameters, "result": res_data, "status": "completed"}]
             try:
                 episodic_memory.record_episode(
@@ -221,8 +221,8 @@ class AgentRuntime:
                     duration_ms=(time.time() - start_time) * 1000,
                     verified=bool(exec_res.get("success", True))
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"[AgentRuntime][DEGRADED] Fast-path episodic memory recording failed: {e}")
             return {
                 "response": self._synthesize_tool_response(routed.target_tool, routed.parameters, res_data),
                 "intent": routed.intent_type.value,
@@ -261,19 +261,19 @@ class AgentRuntime:
             if history_text:
                 recent_context = f"\nRecent Dialogue Context:\n{history_text}\n"
         except Exception as e:
-            logger.debug(f"[AgentRuntime] Memory context lookup: {e}")
+            logger.warning(f"[AgentRuntime][DEGRADED] Memory context lookup failed: {e}")
 
         neural_context = ""
         try:
             neural_context = neural_memory.format_memory_context(query)
         except Exception as e:
-            logger.debug(f"[AgentRuntime] Neural memory recall lookup: {e}")
+            logger.warning(f"[AgentRuntime][DEGRADED] Neural memory recall lookup failed: {e}")
 
         episodic_context = ""
         try:
             episodic_context = episodic_memory.format_episodic_context(query)
         except Exception as e:
-            logger.debug(f"[AgentRuntime] Episodic memory recall lookup: {e}")
+            logger.warning(f"[AgentRuntime][DEGRADED] Episodic memory recall lookup failed: {e}")
 
         intent_hint = ""
         if routed.target_tool and routed.intent_type in [IntentType.DIRECT_ACTION, IntentType.COMPLEX_PLAN]:
@@ -313,12 +313,26 @@ class AgentRuntime:
             {"role": "user", "content": query}
         ]
 
-        llm_response: LLMResponse = await active_provider.generate(
-            prompt=query,
-            system_prompt=system_prompt,
-            tools=tool_specs,
-            messages=messages
-        )
+        try:
+            llm_response: LLMResponse = await active_provider.generate(
+                prompt=query,
+                system_prompt=system_prompt,
+                tools=tool_specs,
+                messages=messages
+            )
+        except Exception as e:
+            logger.error(f"[AgentRuntime][DEGRADED] Primary LLM provider generation failed or timed out: {e}")
+            return {
+                "response": "Sir, my cognitive processing encountered a timeout or degraded connection. Operating in safe fallback mode.",
+                "intent": routed.intent_type.value,
+                "model": getattr(active_provider, "name", "unknown"),
+                "actions_executed": [],
+                "iterations": 0,
+                "verified": False,
+                "status": "DEGRADED",
+                "error": str(e),
+                "latency_ms": round((time.time() - start_time) * 1000, 2)
+            }
 
         executed_actions: List[Dict[str, Any]] = []
         iteration = 0
@@ -385,8 +399,8 @@ class AgentRuntime:
                 is_verified = bool(exec_res.get("verified", exec_res.get("success", False)))
                 try:
                     darwinian_optimizer.profile_tool_execution(tc.tool_name, exec_res.get("duration_ms", 0.0), is_verified)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"[AgentRuntime][NON_CRITICAL] Darwinian optimizer multi-turn profiling failed: {e}")
 
                 executed_actions.append({
                     "tool": tc.tool_name,
@@ -406,8 +420,8 @@ class AgentRuntime:
                 )
                 try:
                     mesh.publish(action_event)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"[AgentRuntime][DEGRADED] EventMesh action event publishing failed: {e}")
 
                 # Truncate oversized output to prevent context window overflow
                 output_str = json.dumps(tool_output) if isinstance(tool_output, (dict, list)) else str(tool_output)
@@ -435,7 +449,7 @@ class AgentRuntime:
                 )
                 logger.info(f"🧠 [AgentRuntime: Multi-Turn] Iteration {iteration} completed. Model response: '{llm_response.content[:80] if llm_response.content else '[Emitted more tools]'}'")
             except Exception as e:
-                logger.warning(f"[AgentRuntime] Multi-turn follow-up inference notice: {e}")
+                logger.warning(f"[AgentRuntime][EXECUTION_FAILURE] Multi-turn follow-up inference failed: {e}")
                 break
 
         total_latency = (time.time() - start_time) * 1000
@@ -451,9 +465,12 @@ class AgentRuntime:
 
         # Continuous ML Learning: Record operator command ONLY for real executed actions
         if executed_actions and routed.intent_type == IntentType.DIRECT_ACTION:
-            first_tool = executed_actions[0]["tool"]
-            first_args = executed_actions[0].get("arguments")
-            ml_learner.record_successful_turn(query, first_tool, first_args, total_latency)
+            try:
+                first_tool = executed_actions[0]["tool"]
+                first_args = executed_actions[0].get("arguments")
+                ml_learner.record_successful_turn(query, first_tool, first_args, total_latency)
+            except Exception as e:
+                logger.warning(f"[AgentRuntime][NON_CRITICAL] ML operator learner update failed: {e}")
 
         # Episodic Task Memory Recording
         try:
@@ -465,8 +482,8 @@ class AgentRuntime:
                 duration_ms=total_latency,
                 verified=all(a.get("verified", True) for a in executed_actions)
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[AgentRuntime][DEGRADED] Episodic task memory recording failed: {e}")
 
         return {
             "response": final_response,

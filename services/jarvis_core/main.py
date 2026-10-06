@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
 import sys
+import urllib.parse
 
 # Ensure project root and jarvis_core are in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -288,10 +289,21 @@ async def websocket_endpoint(websocket: WebSocket):
     voice audio chunks, and event subscriptions.
     """
     origin = websocket.headers.get("origin")
-    if origin and not any(origin.startswith(prefix) for prefix in ["http://127.0.0.1", "http://localhost", "https://127.0.0.1", "https://localhost", "vscode-webview:"]):
-        logger.warning(f"[Security] Rejected unauthorized cross-origin WebSocket connection from: {origin}")
-        await websocket.close(code=1008)
-        return
+    if origin:
+        try:
+            parsed = urllib.parse.urlparse(origin)
+            is_allowed = (
+                parsed.scheme in ('http', 'https')
+                and parsed.hostname in ('localhost', '127.0.0.1')
+                and parsed.port in (8000, 3000, None)
+            )
+        except Exception:
+            is_allowed = False
+
+        if not is_allowed:
+            logger.warning(f"[Security] Rejected unauthorized cross-origin WebSocket connection from: {origin}")
+            await websocket.close(code=1008)
+            return
 
     await ws_manager.connect(websocket)
     await ws_manager.send_personal_message(

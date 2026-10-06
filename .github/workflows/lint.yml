@@ -11,6 +11,9 @@ jobs:
     name: Syntax & Lint Checks
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,4 +30,4 @@ jobs:
 
       - name: Ruff Check
         run: |
-          ruff check services/ shared/ devices/ benchmarks/ --ignore E501,E402,F401,F841 || true
+          ruff check services/ shared/ devices/ benchmarks/ --ignore E501,E402,F401,F841

@@ -22,6 +22,15 @@ class VerificationStatus(str, Enum):
     ROLLED_BACK = "rolled_back"
 
 
+class VerificationMode(str, Enum):
+    LOGICAL_ONLY = "logical_only"
+    PROCESS_STATE = "process_state"
+    FILE_STATE = "file_state"
+    UI_STATE = "ui_state"
+    SENSOR_STATE = "sensor_state"
+    CLOUD_STATE = "cloud_state"
+
+
 @dataclass
 class VerificationResult:
     action_id: str
@@ -39,6 +48,7 @@ class VerificationResult:
     evidence: Dict[str, Any] = field(default_factory=dict)
     observed_at: float = field(default_factory=time.time)
     verifier: str = "VerificationEngine"
+    verification_mode: Optional[VerificationMode] = None
 
     def __post_init__(self):
         if self.status == VerificationStatus.VERIFIED:
@@ -51,6 +61,8 @@ class VerificationResult:
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
         d["status"] = self.status.value
+        if self.verification_mode:
+            d["verification_mode"] = self.verification_mode.value if hasattr(self.verification_mode, "value") else str(self.verification_mode)
         return d
 
     def to_json(self) -> str:
@@ -67,6 +79,17 @@ class VerificationResult:
             except ValueError:
                 st = VerificationStatus.UNKNOWN
 
+        mode_raw = data.get("verification_mode") or data.get("mode")
+        mode = None
+        if mode_raw:
+            try:
+                mode = VerificationMode(mode_raw)
+            except ValueError:
+                try:
+                    mode = VerificationMode[mode_raw]
+                except KeyError:
+                    mode = None
+
         return cls(
             action_id=data.get("action_id", str(uuid.uuid4())),
             status=st,
@@ -82,5 +105,6 @@ class VerificationResult:
             confidence=data.get("confidence", 1.0),
             evidence=data.get("evidence", {}),
             observed_at=data.get("observed_at", time.time()),
-            verifier=data.get("verifier", "VerificationEngine")
+            verifier=data.get("verifier", "VerificationEngine"),
+            verification_mode=mode
         )

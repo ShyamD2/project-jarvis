@@ -19,7 +19,7 @@ jobs:
       JARVIS_MASTER_SECRET: test_security_secret_key_32_bytes_len_1234
 
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout Code
@@ -42,4 +42,4 @@ jobs:
 
       - name: Static Security Scan (Bandit)
         run: |
-          python -m bandit -r services/ shared/ -ll -ii -x "tests/,scratch/" || true
+          python -m bandit -r services/ shared/ -ll -ii -x "tests/,scratch/"
