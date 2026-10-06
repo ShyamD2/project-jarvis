@@ -133,8 +133,7 @@ class WakeWordDaemon:
                 if wake_match:
                     logger.info("🎤 [WakeWordDaemon] Neural ONNX acoustic model confirmed wake word!")
                 else:
-                # Check speech transcription for wake word or interrupt keywords
-                if not text:
+                    # Check speech transcription for wake word or interrupt keywords
                     try:
                         text = self.recognizer.recognize_google(audio, language="en-US").strip()
                     except Exception:

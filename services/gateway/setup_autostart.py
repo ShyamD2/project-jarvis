@@ -42,9 +42,9 @@ WshShell.Run cmd, 0, False
 
 
 def start_now():
-    """Immediately ignites the background service via wscript."""
+    """Immediately ignites the background service silently via pythonw."""
     try:
-        subprocess.Popen(["wscript.exe", VBS_PATH], cwd=PROJECT_ROOT)
+        subprocess.Popen([PYTHON_EXE, MASTER_SERVICE], cwd=PROJECT_ROOT)
         print("[OK] J.A.R.V.I.S. Background Wake-Word Service started right now in the background!")
     except Exception as e:
         print(f"[WARN] Could not immediately start service: {e}")
@@ -71,24 +71,23 @@ def install(auto_start_now: bool = True):
     except Exception:
         pass
 
-    create_vbs_script()
+    # 1. Clean up Startup folder to avoid duplicate triggers and Windows console interception
+    for legacy_file in ["JarvisAutoStart.vbs", "JarvisTelegramGateway.vbs"]:
+        legacy_path = os.path.join(STARTUP_DIR, legacy_file)
+        if os.path.exists(legacy_path):
+            try:
+                os.remove(legacy_path)
+                print(f"[OK] Removed startup folder script: {legacy_path}")
+            except Exception:
+                pass
 
-    # 1. Install to Windows Startup Folder
-    if os.path.exists(STARTUP_DIR):
-        with open(STARTUP_VBS, "w", encoding="ascii") as f:
-            with open(VBS_PATH, "r", encoding="ascii") as src:
-                f.write(src.read())
-        print(f"[OK] Configured Windows Startup Folder: {STARTUP_VBS}")
-    else:
-        print(f"[WARN] Startup folder not found: {STARTUP_DIR}")
-
-    # 2. Install to Windows Registry Run Key
+    # 2. Install to Windows Registry Run Key directly with windowless pythonw.exe
     try:
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY, 0, winreg.KEY_SET_VALUE)
-        cmd = f'wscript.exe "{VBS_PATH}"'
-        winreg.SetValueEx(key, REG_NAME, 0, winreg.REG_SZ, cmd)
+        direct_cmd = f'"{PYTHON_EXE}" "{MASTER_SERVICE}"'
+        winreg.SetValueEx(key, REG_NAME, 0, winreg.REG_SZ, direct_cmd)
         winreg.CloseKey(key)
-        print(f"[OK] Registered HKCU Run key: {REG_NAME} -> {cmd}")
+        print(f"[OK] Registered HKCU Run key: {REG_NAME} -> {direct_cmd}")
     except Exception as e:
         print(f"[WARN] Registry setup error: {e}")
 
