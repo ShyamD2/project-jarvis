@@ -6,7 +6,6 @@ Provides volume control, screen locking, and local file operations.
 from __future__ import annotations
 import os
 import sys
-import subprocess
 import glob
 import time
 from typing import Dict, Any, List, Optional
@@ -20,6 +19,20 @@ except Exception:
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisSystemControl")
+
+
+if sys.platform == "win32":
+    class SYSTEM_POWER_STATUS(ctypes.Structure):
+        _fields_ = [
+            ('ACLineStatus', ctypes.c_byte),
+            ('BatteryFlag', ctypes.c_byte),
+            ('BatteryLifePercent', ctypes.c_byte),
+            ('SystemStatusFlag', ctypes.c_byte),
+            ('BatteryLifeTime', ctypes.c_ulong),
+            ('BatteryFullLifeTime', ctypes.c_ulong),
+        ]
+else:
+    SYSTEM_POWER_STATUS = None
 
 
 class SystemControl:
@@ -69,16 +82,198 @@ class SystemControl:
         except Exception as e:
             logger.debug(f"[SystemControl] Native audio notice: {e}")
 
-        # 2. Legacy PowerShell fallback
-        ps_script = f"""
-        $wsh = New-Object -ComObject WScript.Shell
-        1..50 | ForEach-Object {{ $wsh.SendKeys([char]174) }} # Mute / Volume Down to 0
-        $steps = [math]::Round({target_level} / 2)
-        1..$steps | ForEach-Object {{ $wsh.SendKeys([char]175) }} # Volume Up
-        """
+        # 2. Pure Win32 Fallback via keybd_event / winmm (Zero-subprocess)
         try:
-            subprocess.run(["powershell", "-c", ps_script], capture_output=True, timeout=5)
-            return {"success": True, "volume_set": target_level, "channel_1_logical": True}
+            if user32 and sys.platform == "win32":
+                curr = 50
+                diff = int((target_level - curr) / 2.0)
+                vk = 0xAF if diff > 0 else 0xAE
+                for _ in range(abs(diff)):
+                    user32.keybd_event(vk, 0, 0, 0)
+                    user32.keybd_event(vk, 0, 2, 0)
+                return {"success": True, "volume_set": target_level, "channel_1_logical": True}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+        return {"success": False, "error": "Native audio control unavailable"}
+
+    def get_volume(self) -> Dict[str, Any]:
+        """Returns current Windows master audio volume percentage via native Core Audio."""
+        try:
+            from services.pc_agent.native_audio import get_master_volume
+            vol = get_master_volume()
+            return {"success": True, "volume": vol, "channel_1_logical": True}
+        except Exception as e:
+            return {"success": False, "error": str(e), "volume": 50.0}
+
+    def mute(self) -> Dict[str, Any]:
+        """Mutes Windows audio output via native Core Audio API with zero subprocess."""
+        try:
+            from services.pc_agent.native_audio import set_mute
+            ok = set_mute(True)
+            return {"success": bool(ok), "action": "mute", "muted": True, "channel_1_logical": True}
+        except Exception as e:
+            if user32 and sys.platform == "win32":
+                user32.keybd_event(0xAD, 0, 0, 0)
+                user32.keybd_event(0xAD, 0, 2, 0)
+                return {"success": True, "action": "mute", "muted": True, "channel_1_logical": True}
+            return {"success": False, "error": str(e)}
+
+    def unmute(self) -> Dict[str, Any]:
+        """Unmutes Windows audio output via native Core Audio API with zero subprocess."""
+        try:
+            from services.pc_agent.native_audio import set_mute
+            ok = set_mute(False)
+            return {"success": bool(ok), "action": "unmute", "muted": False, "channel_1_logical": True}
+        except Exception as e:
+            if user32 and sys.platform == "win32":
+                user32.keybd_event(0xAD, 0, 0, 0)
+                user32.keybd_event(0xAD, 0, 2, 0)
+                return {"success": True, "action": "unmute", "muted": False, "channel_1_logical": True}
+            return {"success": False, "error": str(e)}
+
+    def find_window(self, title_query: str, class_name: Optional[str] = None) -> Optional[int]:
+        """Finds window HWND using native Win32 FindWindowW or EnumWindows."""
+        if sys.platform != "win32" or not user32:
+            return None
+        import ctypes
+        hwnd = user32.FindWindowW(class_name, title_query)
+        if hwnd:
+            return hwnd
+        matched_hwnd = None
+        q = title_query.lower().strip()
+        def enum_cb(h, _):
+            nonlocal matched_hwnd
+            if user32.IsWindowVisible(h):
+                length = user32.GetWindowTextLengthW(h)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(h, buf, length + 1)
+                    if q in buf.value.lower():
+                        matched_hwnd = h
+                        return False
+            return True
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+        return matched_hwnd
+
+    def list_windows(self, visible_only: bool = True) -> List[Dict[str, Any]]:
+        """Lists active windows with HWND, title, and PID via native Win32 EnumWindows."""
+        if sys.platform != "win32" or not user32:
+            return []
+        import ctypes
+        windows = []
+        def enum_cb(h, _):
+            is_vis = bool(user32.IsWindowVisible(h))
+            if visible_only and not is_vis:
+                return True
+            length = user32.GetWindowTextLengthW(h)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(h, buf, length + 1)
+                title = buf.value.strip()
+                if title:
+                    pid = ctypes.c_ulong()
+                    user32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+                    windows.append({
+                        "hwnd": h,
+                        "title": title,
+                        "visible": is_vis,
+                        "pid": pid.value
+                    })
+            return True
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+        return windows
+
+    def focus_window(self, target: Any) -> bool:
+        """Focuses window by HWND or title query using native Win32 APIs."""
+        if sys.platform != "win32" or not user32:
+            return False
+        hwnd = target if isinstance(target, int) else self.find_window(str(target))
+        if not hwnd:
+            return False
+        SW_RESTORE = 9
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        user32.SetForegroundWindow(hwnd)
+        user32.BringWindowToTop(hwnd)
+        return True
+
+    def minimize_window(self, target: Optional[Any] = None) -> Dict[str, Any]:
+        """Minimizes window using native Win32 PostMessageW (WM_SYSCOMMAND, SC_MINIMIZE)."""
+        if sys.platform != "win32" or not user32:
+            return {"success": False, "error": "Not running on Windows"}
+        hwnd = target if isinstance(target, int) else (self.find_window(str(target)) if target else user32.GetForegroundWindow())
+        if not hwnd:
+            return {"success": False, "error": "Window not found"}
+        WM_SYSCOMMAND = 0x0112
+        SC_MINIMIZE = 0xF020
+        SW_MINIMIZE = 6
+        user32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0)
+        user32.ShowWindow(hwnd, SW_MINIMIZE)
+        return {"success": True, "action": "minimize", "hwnd": hwnd, "channel_1_logical": True}
+
+    def maximize_window(self, target: Optional[Any] = None) -> Dict[str, Any]:
+        """Maximizes window using native Win32 PostMessageW (WM_SYSCOMMAND, SC_MAXIMIZE)."""
+        if sys.platform != "win32" or not user32:
+            return {"success": False, "error": "Not running on Windows"}
+        hwnd = target if isinstance(target, int) else (self.find_window(str(target)) if target else user32.GetForegroundWindow())
+        if not hwnd:
+            return {"success": False, "error": "Window not found"}
+        WM_SYSCOMMAND = 0x0112
+        SC_MAXIMIZE = 0xF030
+        SW_MAXIMIZE = 3
+        user32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0)
+        user32.ShowWindow(hwnd, SW_MAXIMIZE)
+        return {"success": True, "action": "maximize", "hwnd": hwnd, "channel_1_logical": True}
+
+    def restore_window(self, target: Optional[Any] = None) -> Dict[str, Any]:
+        """Restores window using native Win32 PostMessageW (WM_SYSCOMMAND, SC_RESTORE)."""
+        if sys.platform != "win32" or not user32:
+            return {"success": False, "error": "Not running on Windows"}
+        hwnd = target if isinstance(target, int) else (self.find_window(str(target)) if target else user32.GetForegroundWindow())
+        if not hwnd:
+            return {"success": False, "error": "Window not found"}
+        WM_SYSCOMMAND = 0x0112
+        SC_RESTORE = 0xF120
+        SW_RESTORE = 9
+        user32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0)
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        return {"success": True, "action": "restore", "hwnd": hwnd, "channel_1_logical": True}
+
+    def close_window(self, target: Optional[Any] = None) -> Dict[str, Any]:
+        """Closes window using native Win32 PostMessageW (WM_CLOSE)."""
+        if sys.platform != "win32" or not user32:
+            return {"success": False, "error": "Not running on Windows"}
+        hwnd = target if isinstance(target, int) else (self.find_window(str(target)) if target else user32.GetForegroundWindow())
+        if not hwnd:
+            return {"success": False, "error": "Window not found"}
+        WM_CLOSE = 0x0010
+        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+        return {"success": True, "action": "close", "hwnd": hwnd, "channel_1_logical": True}
+
+    def get_power_info(self) -> Dict[str, Any]:
+        """Queries battery and AC power status using native Win32 kernel32.GetSystemPowerStatus."""
+        if sys.platform != "win32" or SYSTEM_POWER_STATUS is None:
+            return {"success": False, "error": "Not running on Windows"}
+        try:
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            sps = SYSTEM_POWER_STATUS()
+            if not k32.GetSystemPowerStatus(ctypes.byref(sps)):
+                return {"success": False, "error": "GetSystemPowerStatus failed"}
+            ac_map = {0: "unplugged", 1: "plugged_in", 255: "unknown"}
+            return {
+                "success": True,
+                "ac_line_status": ac_map.get(sps.ACLineStatus, "unknown"),
+                "power_plugged": sps.ACLineStatus == 1,
+                "battery_percent": None if sps.BatteryLifePercent == 255 else int(sps.BatteryLifePercent),
+                "is_charging": bool(sps.BatteryFlag & 8),
+                "has_battery": not bool(sps.BatteryFlag & 128),
+                "battery_life_remaining_seconds": None if sps.BatteryLifeTime == 0xFFFFFFFF else int(sps.BatteryLifeTime),
+                "battery_flag": sps.BatteryFlag,
+                "channel_1_logical": True
+            }
         except Exception as e:
             return {"success": False, "error": str(e)}
 

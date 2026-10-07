@@ -5,6 +5,10 @@ Routes authorized actions to Computer, Physical, or Digital world agents with du
 
 from typing import Dict, Any, Optional
 import time
+import hashlib
+import json
+import uuid
+from datetime import datetime, timezone
 
 from shared.schemas.action_envelope import ActionEnvelope, TargetWorld, ActionTier
 from shared.schemas.verification_contract import VerificationResult, VerificationStatus, VerificationMode
@@ -19,11 +23,50 @@ from agents.physical.esp32_agent import esp32_agent
 from agents.cloud.aws_agent import aws_agent
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 from services.verification.verification_engine import verification_engine
+from services.verification.proof_of_execution import proof_engine
 
 logger = get_logger("JarvisActionDispatcher")
 
 
 class ActionDispatcher:
+    def _capture_state_snapshot(self, action: ActionEnvelope, stage: str = "pre_execution") -> Dict[str, Any]:
+        """Captures structured state snapshot before and after action execution."""
+        world_val = action.target_world.value if hasattr(action.target_world, "value") else str(action.target_world)
+        snapshot: Dict[str, Any] = {
+            "world": world_val,
+            "action": action.name,
+            "stage": stage,
+            "timestamp": time.time(),
+            "parameters": dict(action.parameters or {})
+        }
+        try:
+            if action.target_world == TargetWorld.COMPUTER:
+                spec = action.verification_spec if isinstance(action.verification_spec, dict) else {}
+                target_app = (
+                    action.parameters.get("app")
+                    or action.parameters.get("name")
+                    or spec.get("process_name")
+                )
+                if target_app:
+                    snapshot["target_app"] = target_app
+                target_file = (
+                    action.parameters.get("path")
+                    or action.parameters.get("file_path")
+                    or spec.get("path")
+                )
+                if target_file:
+                    snapshot["target_file"] = target_file
+                    snapshot["file_exists"] = os.path.exists(target_file)
+            elif action.target_world == TargetWorld.PHYSICAL:
+                snapshot["device_id"] = action.parameters.get("device_id", "esp32_lab_01")
+                snapshot["target"] = action.parameters.get("target", "desk_lamp")
+                snapshot["requested_state"] = action.parameters.get("state", True)
+            elif action.target_world == TargetWorld.DIGITAL:
+                snapshot["subcommand"] = action.parameters.get("subcommand", "status")
+        except Exception as e:
+            logger.debug(f"State snapshot non-fatal notice: {e}")
+        return snapshot
+
     async def dispatch(
         self,
         action: ActionEnvelope,
@@ -32,13 +75,21 @@ class ActionDispatcher:
     ) -> Dict[str, Any]:
         """
         Validates permissions and executes the action in the appropriate world.
-        Returns execution and verification results.
+        Returns execution and verification results with cryptographic proof of execution.
         Fails closed on any unverified execution or unsupported action.
         """
+        t_start = time.time()
+        started_at = datetime.now(timezone.utc).isoformat()
+        before_state = self._capture_state_snapshot(action, stage="pre_execution")
+
         # 1. Authorize via Permission Engine
         role = user_role or ("OWNER" if action.approved_by else "OPERATOR")
         decision = permission_engine.evaluate(action, approval_token, user_role=role)
         if not decision.authorized:
+            t_finish = time.time()
+            finished_at = datetime.now(timezone.utc).isoformat()
+            duration_ms = round((t_finish - t_start) * 1000, 2)
+
             verification = VerificationResult(
                 action_id=action.action_id,
                 status=VerificationStatus.FAILED,
@@ -51,13 +102,53 @@ class ActionDispatcher:
                     "requires_approval": decision.requires_explicit_approval
                 }
             )
+
+            param_hash = hashlib.sha256(
+                json.dumps(action.parameters or {}, sort_keys=True, default=str).encode("utf-8")
+            ).hexdigest()
+
+            tier_str = decision.tier.value if hasattr(decision.tier, 'value') else str(getattr(decision, 'tier', action.tier.value if hasattr(action.tier, 'value') else str(action.tier)))
+            receipt = proof_engine.generate_receipt(
+                action_id=action.action_id,
+                request=action.name,
+                planned_action=f"{action.target_world.value if hasattr(action.target_world, 'value') else str(action.target_world)}:{action.name}",
+                risk_tier=tier_str,
+                authorization={
+                    "lease_id": getattr(decision, "single_use_lease_id", None) or approval_token,
+                    "nonce": uuid.uuid4().hex,
+                    "authorized_by": role,
+                    "parameter_hash": param_hash
+                },
+                execution={
+                    "started_at": started_at,
+                    "finished_at": finished_at,
+                    "duration_ms": duration_ms,
+                    "exit_code": 1
+                },
+                before_state=before_state,
+                after_state=before_state,
+                verification={
+                    "logical": False,
+                    "sensory": False,
+                    "state_match": False,
+                    "contract_mode": "none"
+                },
+                rollback={
+                    "available": bool((action.parameters or {}).get("can_rollback", False)),
+                    "executed": False
+                },
+                final_status="BLOCKED",
+                store=True
+            )
+
             return {
                 "success": False,
                 "action_id": action.action_id,
                 "status": "denied",
                 "rationale": decision.rationale,
                 "requires_approval": decision.requires_explicit_approval,
-                "verification": verification.to_dict()
+                "verification": verification.to_dict(),
+                "proof_of_execution": receipt.to_dict()
             }
 
         # 2. Execute in Target World
@@ -72,7 +163,9 @@ class ActionDispatcher:
                 )
             elif action.name == "execute_powershell":
                 raw_result = windows_agent.execute_powershell(
-                    action.parameters.get("script", "")
+                    action.parameters.get("script", ""),
+                    ticket_id=action.parameters.get("ticket_id"),
+                    operator_approved=True
                 )
             else:
                 raw_result = {
@@ -126,7 +219,12 @@ class ActionDispatcher:
                 "channel_2_sensory": False
             }
 
-        # 3. Formulate Dual-Channel Verification Result
+        # 3. Capture Post-Execution State Snapshot
+        after_state = self._capture_state_snapshot(action, stage="post_execution")
+        after_state["raw_result"] = {k: v for k, v in raw_result.items() if k not in ("channel_1_logical", "channel_2_sensory")}
+        after_state["success"] = raw_result.get("success", False)
+
+        # 4. Formulate Dual-Channel Verification Result
         execution_ok = raw_result.get("success", False) is True
         logical_ok = raw_result.get("channel_1_logical", execution_ok) is True
 
@@ -213,6 +311,52 @@ class ActionDispatcher:
             verification_mode=verification_mode
         )
 
+        t_finish = time.time()
+        finished_at = datetime.now(timezone.utc).isoformat()
+        duration_ms = round((t_finish - t_start) * 1000, 2)
+
+        param_hash = hashlib.sha256(
+            json.dumps(action.parameters or {}, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()
+
+        final_status = "VERIFIED" if overall_verified else "FAILED"
+        exit_code = 0 if overall_verified else (raw_result.get("exit_code", 1) if isinstance(raw_result.get("exit_code"), int) else 1)
+        contract_mode_str = str(verification_mode.value if hasattr(verification_mode, 'value') else (verification_mode or "logical_only"))
+
+        tier_str = decision.tier.value if hasattr(decision.tier, 'value') else str(getattr(decision, 'tier', action.tier.value if hasattr(action.tier, 'value') else str(action.tier)))
+        receipt = proof_engine.generate_receipt(
+            action_id=action.action_id,
+            request=action.name,
+            planned_action=f"{action.target_world.value if hasattr(action.target_world, 'value') else str(action.target_world)}:{action.name}",
+            risk_tier=tier_str,
+            authorization={
+                "lease_id": getattr(decision, "single_use_lease_id", None) or approval_token,
+                "nonce": uuid.uuid4().hex,
+                "authorized_by": role,
+                "parameter_hash": param_hash
+            },
+            execution={
+                "started_at": started_at,
+                "finished_at": finished_at,
+                "duration_ms": duration_ms,
+                "exit_code": exit_code
+            },
+            before_state=before_state,
+            after_state=after_state,
+            verification={
+                "logical": logical_ok,
+                "sensory": sensory_ok if action.target_world == TargetWorld.PHYSICAL else bool(raw_result.get("sensory_verified", False)),
+                "state_match": contract_ok,
+                "contract_mode": contract_mode_str
+            },
+            rollback={
+                "available": bool((action.parameters or {}).get("can_rollback", False)),
+                "executed": False
+            },
+            final_status=final_status,
+            store=True
+        )
+
         return {
             "success": overall_verified,
             "status": "dispatched" if overall_verified else "failed",
@@ -221,7 +365,8 @@ class ActionDispatcher:
             "world": action.target_world.value,
             "agent": action.target_agent,
             "verification": verification.to_dict(),
-            "details": raw_result
+            "details": raw_result,
+            "proof_of_execution": receipt.to_dict()
         }
 
 

@@ -18,7 +18,7 @@ def normalize_trace_id(t_id: Optional[str] = None) -> str:
     cleaned = t_id.replace("-", "").replace("trace_", "").replace("tr_", "")
     if len(cleaned) == 32 and all(c in "0123456789abcdefABCDEF" for c in cleaned):
         return cleaned.lower()
-    return hashlib.md5(t_id.encode("utf-8")).hexdigest()
+    return hashlib.md5(t_id.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
 def normalize_span_id(s_id: Optional[str] = None) -> str:
@@ -28,7 +28,7 @@ def normalize_span_id(s_id: Optional[str] = None) -> str:
     cleaned = s_id.replace("-", "").replace("span_", "").replace("sp_", "")
     if len(cleaned) == 16 and all(c in "0123456789abcdefABCDEF" for c in cleaned):
         return cleaned.lower()
-    return hashlib.md5(s_id.encode("utf-8")).hexdigest()[:16]
+    return hashlib.md5(s_id.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
 
 
 class Span:

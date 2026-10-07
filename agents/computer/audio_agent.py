@@ -6,7 +6,6 @@ Volume adjustments, play/pause, track skipping, microphone controls, and output 
 
 import sys
 import ctypes
-import subprocess
 from typing import Dict, Any, Optional
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
@@ -54,8 +53,21 @@ class AudioAgent:
         else:
             return {"success": False, "error": f"Unknown direction: {direction}"}
 
+    def get_volume(self) -> Dict[str, Any]:
+        """Returns current master volume percentage via native Core Audio / Win32 API."""
+        try:
+            from services.pc_agent.native_audio import get_master_volume
+            vol = get_master_volume()
+            return {"success": True, "action": "get_volume", "volume": vol, "target_percent": vol, "channel_1_logical": True}
+        except Exception as e:
+            return {"success": False, "error": str(e), "volume": 50.0}
+
+    def set_volume(self, percent: int) -> Dict[str, Any]:
+        """Sets Windows master volume to an exact percentage (0-100) using zero-subprocess native Win32 Core Audio."""
+        return self.set_volume_percent(percent)
+
     def set_volume_percent(self, percent: int) -> Dict[str, Any]:
-        """Sets Windows master volume to an exact percentage (0-100) via native Core Audio endpoint"""
+        """Sets Windows master volume to an exact percentage (0-100) via native Core Audio endpoint (zero subprocess)."""
         target = max(0, min(100, int(percent)))
         logger.info(f"[AudioAgent] Setting volume to exact: {target}%")
 
@@ -64,23 +76,50 @@ class AudioAgent:
             from services.pc_agent.native_audio import set_master_volume
             ok = set_master_volume(target)
             if ok:
-                return {"success": True, "action": "set_volume", "target_percent": target}
+                return {"success": True, "action": "set_volume", "target_percent": target, "channel_1_logical": True}
         except Exception as e:
             logger.debug(f"[AudioAgent] Native audio notice: {e}")
 
-        # 2. PowerShell fallback
+        # 2. Native Win32 SendMessageW / keybd_event fallback (Zero subprocess)
         try:
-            ps_script = f"""
-            $obj = New-Object -ComObject WScript.Shell
-            1..50 | ForEach-Object {{ $obj.SendKeys([char]174) }}
-            $steps = [math]::Round({target} / 2)
-            1..$steps | ForEach-Object {{ $obj.SendKeys([char]175) }}
-            """
-            subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, timeout=5)
-            return {"success": True, "action": "set_volume", "target_percent": target}
-        except Exception as e:
-            # Fallback to key taps
             return self.adjust_volume("up" if target > 50 else "down", steps=5)
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def mute(self) -> Dict[str, Any]:
+        """Mutes master audio output using zero-subprocess native Win32 Core Audio API."""
+        logger.info("[AudioAgent] Muting master audio output natively.")
+        try:
+            from services.pc_agent.native_audio import set_mute
+            ok = set_mute(True)
+            return {"success": bool(ok), "action": "mute", "muted": True, "channel_1_logical": True}
+        except Exception as e:
+            logger.debug(f"[AudioAgent] Native mute notice: {e}")
+            self._send_vk(self.VK_VOLUME_MUTE)
+            return {"success": True, "action": "mute", "muted": True, "channel_1_logical": True}
+
+    def unmute(self) -> Dict[str, Any]:
+        """Unmutes master audio output using zero-subprocess native Win32 Core Audio API."""
+        logger.info("[AudioAgent] Unmuting master audio output natively.")
+        try:
+            from services.pc_agent.native_audio import set_mute, get_mute
+            if get_mute() is False:
+                return {"success": True, "action": "unmute", "muted": False, "channel_1_logical": True}
+            ok = set_mute(False)
+            return {"success": bool(ok), "action": "unmute", "muted": False, "channel_1_logical": True}
+        except Exception as e:
+            logger.debug(f"[AudioAgent] Native unmute notice: {e}")
+            self._send_vk(self.VK_VOLUME_MUTE)
+            return {"success": True, "action": "unmute", "muted": False, "channel_1_logical": True}
+
+    def get_mute(self) -> Dict[str, Any]:
+        """Returns master audio mute status using zero-subprocess native Win32 Core Audio API."""
+        try:
+            from services.pc_agent.native_audio import get_mute
+            muted = get_mute()
+            return {"success": True, "muted": bool(muted), "channel_1_logical": True}
+        except Exception as e:
+            return {"success": False, "error": str(e), "muted": False}
 
     def control_media(self, command: str = "play_pause") -> Dict[str, Any]:
         """

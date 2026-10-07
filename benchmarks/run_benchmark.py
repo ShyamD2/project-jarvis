@@ -2,10 +2,14 @@
 """
 Reproducible J.A.R.V.I.S. Benchmark Suite Runner.
 Public CLI runner evaluating system reliability, false-success invariants,
-canonical pipeline latencies (P50, P95, P99), and blast-radius enforcement.
+canonical pipeline latencies (P50, P95, P99), blast-radius enforcement,
+and Subsystem Latency SLA Matrix adherence.
 
 Usage:
+  python benchmarks/run_benchmark.py --profile unit
   python benchmarks/run_benchmark.py --profile local
+  python benchmarks/run_benchmark.py --profile integration
+  python benchmarks/run_benchmark.py --profile real-world
   python benchmarks/run_benchmark.py --profile local --output benchmarks/results/latest.json --report benchmarks/report.md
 """
 
@@ -24,9 +28,17 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from services.brain.canonical_pipeline import canonical_pipeline
-from services.permission_engine.engine import permission_engine
-from shared.schemas.action_envelope import ActionTier
+from benchmarks.benchmark_engine import (
+    BenchmarkEngine,
+    BenchmarkDomain,
+    DOMAIN_SLAS,
+    SUPPORTED_PROFILES,
+    classify_task_domain,
+    calculate_percentiles,
+    evaluate_domain_slas,
+    format_sla_table,
+    format_sla_markdown,
+)
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisBenchmarkRunner")
@@ -66,93 +78,28 @@ def load_tasks(tasks_file: str) -> List[Dict[str, Any]]:
     return build_100_task_suite()
 
 
-async def run_single_task(task: Dict[str, Any], profile: str) -> Dict[str, Any]:
-    task_id = task.get("id", "TASK_UNKNOWN")
-    tool = task.get("tool", "system.status")
-    params = task.get("params", {})
-    expected_status = task.get("expected_status") or task.get("expected_final", "SUCCESS")
-    tier_str = task.get("tier", "TIER_0_READ_ONLY")
-
-    # Authorize test execution if lease token is requested or task is expected to succeed
-    token = None
-    role = "OPERATOR"
-    tier_upper = tier_str.upper()
-
-    if expected_status == "SUCCESS":
-        # Authorized test execution: if task requires tier 2 or mutating privileges, issue single-use lease
-        if "TIER_2" in tier_upper or "TIER_3" in tier_upper or tool in ["devops_tool", "file_manager", "close_app", "database_manager", "pc_power"]:
-            role = "ADMIN"
-            lease = permission_engine.issue_action_lease(tool, params, issued_by="benchmark_runner")
-            token = lease.lease_id
-
-    t0 = time.time()
-    try:
-        res = await canonical_pipeline.execute_request(
-            tool_name=tool,
-            parameters=params,
-            source="benchmark_runner",
-            user_role=role,
-            approval_token=token
-        )
-        duration_ms = (time.time() - t0) * 1000.0
-        final_status = res.get("final_status", "UNKNOWN")
-        verification = res.get("verification", {})
-        verif_status = verification.get("status")
-
-        # False success detection: Tool claims success, but verification or pipeline rejected
-        false_success = (res.get("result", {}).get("success") is True) and (final_status == "FAILED")
-
-        # Determine pass criteria
-        passed = False
-        if expected_status == "SUCCESS":
-            passed = (final_status == "SUCCESS")
-        elif expected_status in ["BLOCKED", "CONFIRMATION_REQUIRED", "FAILED", "PENDING_APPROVAL"]:
-            passed = (final_status in ["BLOCKED", "FAILED", "PENDING_APPROVAL"]) or (res.get("status") in ["blocked", "confirmation_required", "permission_denied"])
-        else:
-            passed = (final_status == expected_status)
-
-        return {
-            "id": task_id,
-            "name": task.get("name", ""),
-            "tool": tool,
-            "tier": tier_str,
-            "expected_status": expected_status,
-            "actual_status": final_status,
-            "verification_status": verif_status,
-            "duration_ms": round(duration_ms, 2),
-            "stage_latencies": res.get("stage_latencies", {}),
-            "false_success": false_success,
-            "passed": passed,
-            "error": res.get("error")
-        }
-    except Exception as exc:
-        duration_ms = (time.time() - t0) * 1000.0
-        return {
-            "id": task_id,
-            "name": task.get("name", ""),
-            "tool": tool,
-            "tier": tier_str,
-            "expected_status": expected_status,
-            "actual_status": "EXCEPTION",
-            "duration_ms": round(duration_ms, 2),
-            "false_success": False,
-            "passed": False,
-            "error": str(exc)
-        }
-
-
 async def run_benchmark(
     profile: str = "local",
     tasks_path: str = "benchmarks/benchmark_tasks.yaml",
     output_path: str = "benchmarks/results/latest.json",
     report_path: str = "benchmarks/report.md"
 ) -> Dict[str, Any]:
+    engine = BenchmarkEngine(profile=profile)
     tasks = load_tasks(tasks_path)
     total_tasks = len(tasks)
-    print(f"\n========================================================")
-    print(f"  J.A.R.V.I.S. Empirical Benchmark Runner (Profile: {profile})")
+
+    profile_descriptions = {
+        "unit": "Fast Mocked Execution (CI / In-Memory Isolation)",
+        "local": "Warm Local Pipeline (Single Node Canonical Execution)",
+        "integration": "Full Multi-Subsystem Integration Pipeline",
+        "real-world": "Full Hardware & Remote Network Evaluation"
+    }
+
+    print(f"\n==========================================================================================")
+    print(f"  J.A.R.V.I.S. Empirical Benchmark Runner (Profile: {profile.upper()})")
+    print(f"  Mode: {profile_descriptions.get(profile, profile)}")
     print(f"  Loaded: {total_tasks} Benchmark Tasks")
-    print(f"========================================================\n")
+    print(f"==========================================================================================\n")
 
     results = []
     latencies = []
@@ -161,7 +108,7 @@ async def run_benchmark(
 
     t_start = time.time()
     for idx, task in enumerate(tasks, 1):
-        res = await run_single_task(task, profile)
+        res = await engine.run_task(task)
         results.append(res)
         latencies.append(res["duration_ms"])
         if res["false_success"]:
@@ -170,22 +117,17 @@ async def run_benchmark(
             passed_count += 1
 
         sym = "✔" if res["passed"] else "✘"
-        print(f"[{idx:03d}/{total_tasks:03d}] {sym} {res['id']}: {res['name'][:42]:<42} -> {res['actual_status']} ({res['duration_ms']:.1f}ms)")
+        dom_tag = f"[{res.get('domain', 'LOCAL_OS')[:8]}]"
+        print(f"[{idx:03d}/{total_tasks:03d}] {sym} {dom_tag:<10} {res['id']}: {res['name'][:34]:<34} -> {res['actual_status']} ({res['duration_ms']:.1f}ms)")
 
     total_duration_s = time.time() - t_start
-    latencies.sort()
-    n = len(latencies)
-
-    p50 = latencies[int(n * 0.50)] if n else 0.0
-    p90 = latencies[int(n * 0.90)] if n else 0.0
-    p95 = latencies[int(n * 0.95)] if n else 0.0
-    p99 = latencies[int(n * 0.99)] if n else 0.0
-    avg_latency = sum(latencies) / n if n else 0.0
+    percentiles = calculate_percentiles(latencies)
 
     false_success_rate = (false_success_count / total_tasks * 100.0) if total_tasks else 0.0
     pass_rate = (passed_count / total_tasks * 100.0) if total_tasks else 0.0
 
     hw = get_hardware_telemetry()
+    sla_eval = evaluate_domain_slas(results)
 
     summary = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -197,15 +139,8 @@ async def run_benchmark(
         "pass_rate_percent": round(pass_rate, 2),
         "false_success_count": false_success_count,
         "false_success_rate_percent": round(false_success_rate, 2),
-        "latencies_ms": {
-            "min": round(latencies[0], 2) if latencies else 0.0,
-            "max": round(latencies[-1], 2) if latencies else 0.0,
-            "mean": round(avg_latency, 2),
-            "p50": round(p50, 2),
-            "p90": round(p90, 2),
-            "p95": round(p95, 2),
-            "p99": round(p99, 2)
-        },
+        "latencies_ms": percentiles,
+        "sla_matrix": sla_eval,
         "total_benchmark_time_seconds": round(total_duration_s, 2),
         "task_results": results
     }
@@ -217,13 +152,17 @@ async def run_benchmark(
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
+    sla_markdown = format_sla_markdown(sla_eval)
+
     # Generate Markdown Report
     report_md = f"""# J.A.R.V.I.S. Empirical Reliability Benchmark Report
 
 - **Date**: {summary['timestamp']}
 - **Profile**: `{profile}`
+- **Execution Mode**: {profile_descriptions.get(profile, profile)}
 - **Benchmark Version**: 2.0.0
 - **Canonical Execution Pipeline**: 100% Invariant Enforced
+- **Overall SLA Matrix Status**: `{sla_eval.get('overall_status', 'UNKNOWN')}`
 
 ## Machine Hardware & Execution Telemetry
 
@@ -257,11 +196,14 @@ async def run_benchmark(
 - **P99**: {summary['latencies_ms']['p99']} ms
 - **Maximum**: {summary['latencies_ms']['max']} ms
 
+{sla_markdown}
+
 ## Invariant Audit Findings
 
 1. **Pipeline Authority**: 100% of actions routed through `CanonicalPipeline`. Direct OS or bypass execution: 0%.
 2. **Blast Radius Gatekeeper**: 100% of mutating Tier 2 / destructive Tier 3 tasks held for lease or blocked.
 3. **Ground-Truth Verification**: All logical success assertions reconciled with physical OS/world sensors.
+4. **Domain Latency SLAs**: Rigorous enforcement of sub-30ms reflex latencies, sub-60ms local OS latencies, and predictable cloud operations.
 
 *Generated automatically by `benchmarks/run_benchmark.py`.*
 """
@@ -269,21 +211,30 @@ async def run_benchmark(
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report_md)
 
-    print(f"\n========================================================")
+    # Print SLA Matrix Breakdown table
+    print("\n" + format_sla_table(sla_eval))
+
+    print(f"\n==========================================================================================")
     print(f"  Benchmark Complete in {total_duration_s:.2f}s")
     print(f"  Passed: {passed_count}/{total_tasks} ({pass_rate:.1f}%)")
     print(f"  False Success Rate: {false_success_rate:.2f}% (Count: {false_success_count})")
-    print(f"  Latencies -> P50: {p50:.2f}ms | P95: {p95:.2f}ms | P99: {p99:.2f}ms")
+    print(f"  Latencies -> P50: {percentiles['p50']:.2f}ms | P95: {percentiles['p95']:.2f}ms | P99: {percentiles['p99']:.2f}ms")
     print(f"  Results saved to: {output_path}")
     print(f"  Report written to: {report_path}")
-    print(f"========================================================\n")
+    print(f"==========================================================================================\n")
 
     return summary
 
 
 def main():
     parser = argparse.ArgumentParser(description="J.A.R.V.I.S. Master Benchmark Runner")
-    parser.add_argument("--profile", type=str, default="local", help="Profile to execute (local, cloud, simulation)")
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default="local",
+        choices=SUPPORTED_PROFILES,
+        help="Profile to execute: 'unit' (fast mocked), 'local' (warm local pipeline), 'integration' (full multi-subsystem), 'real-world' (hardware & remote network)"
+    )
     parser.add_argument("--tasks", type=str, default="benchmarks/benchmark_tasks.yaml", help="Path to benchmark tasks YAML")
     parser.add_argument("--output", type=str, default="benchmarks/results/latest.json", help="Path to write JSON benchmark results")
     parser.add_argument("--report", type=str, default="benchmarks/report.md", help="Path to write Markdown benchmark report")

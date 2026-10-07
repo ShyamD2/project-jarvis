@@ -97,6 +97,58 @@ def _init_core_audio():
 _simulated_volume: float = 50.0
 _simulated_mute: bool = False
 
+WM_APPCOMMAND = 0x0319
+APPCOMMAND_VOLUME_MUTE = 8
+APPCOMMAND_VOLUME_DOWN = 9
+APPCOMMAND_VOLUME_UP = 10
+HWND_BROADCAST = 0xFFFF
+
+
+def _send_appcommand_audio(cmd: int) -> bool:
+    """Dispatches multimedia command using user32.SendMessageW with zero subprocess."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        lParam = cmd << 16
+        hwnd = user32.GetForegroundWindow() or HWND_BROADCAST
+        user32.SendMessageW(hwnd, WM_APPCOMMAND, 0, lParam)
+        return True
+    except Exception as e:
+        logger.debug(f"[NativeAudio] SendMessageW APPCOMMAND notice: {e}")
+        return False
+
+
+def _set_volume_winmm(percent: float) -> bool:
+    """Sets master volume using winmm.dll waveOutSetVolume as fallback."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        winmm = ctypes.windll.winmm
+        vol_int = int((max(0.0, min(100.0, float(percent))) / 100.0) * 0xFFFF)
+        dword_val = (vol_int << 16) | vol_int
+        return winmm.waveOutSetVolume(0, dword_val) == 0
+    except Exception:
+        return False
+
+
+def _get_volume_winmm() -> Optional[float]:
+    """Reads volume using winmm.dll waveOutGetVolume as fallback."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        winmm = ctypes.windll.winmm
+        vol_dword = ctypes.c_ulong()
+        if winmm.waveOutGetVolume(0, ctypes.byref(vol_dword)) == 0:
+            left = vol_dword.value & 0xFFFF
+            return round((left / 0xFFFF) * 100.0, 1)
+    except Exception:
+        pass
+    return None
+
 
 def get_master_volume() -> Optional[float]:
     """Returns current Windows master audio volume percentage (0.0 to 100.0)."""
@@ -110,6 +162,13 @@ def get_master_volume() -> Optional[float]:
             return val
         except Exception as e:
             logger.debug(f"[NativeAudio] Error reading volume scalar: {e}")
+
+    # Fallback to winmm if Core Audio unavailable
+    winmm_val = _get_volume_winmm()
+    if winmm_val is not None:
+        _simulated_volume = winmm_val
+        return winmm_val
+
     # Return simulated volume if no physical endpoint is present (e.g., headless CI VM)
     return _simulated_volume
 
@@ -117,7 +176,7 @@ def get_master_volume() -> Optional[float]:
 def set_master_volume(level_percent: float) -> bool:
     """
     Sets master audio volume directly in hardware endpoint in <2ms without stealing window focus.
-    Falls back gracefully to virtual state / keybd_event in headless VM environments.
+    Falls back gracefully to winmm / SendMessageW / virtual state with zero subprocess.
     """
     global _simulated_volume
     clamped = max(0.0, min(100.0, float(level_percent)))
@@ -133,16 +192,23 @@ def set_master_volume(level_percent: float) -> bool:
         except Exception as e:
             logger.warning(f"[NativeAudio] Core Audio SetMasterVolumeLevelScalar failed: {e}")
 
-    # Fallback to keybd_event if physical endpoint unavailable
+    # Pure Win32 Fallback: winmm.waveOutSetVolume
+    if _set_volume_winmm(clamped):
+        logger.info(f"🔊 [NativeAudio] Master volume set to {clamped:.1f}% via winmm.waveOutSetVolume.")
+        return True
+
+    # Fallback to SendMessageW or keybd_event if physical endpoint unavailable
     try:
         import ctypes
         user32 = ctypes.windll.user32
         curr = _simulated_volume
         diff = int((clamped - curr) / 2.0)
+        cmd = APPCOMMAND_VOLUME_UP if diff > 0 else APPCOMMAND_VOLUME_DOWN
         vk = 0xAF if diff > 0 else 0xAE
         for _ in range(abs(diff)):
-            user32.keybd_event(vk, 0, 0, 0)
-            user32.keybd_event(vk, 0, 2, 0)
+            if not _send_appcommand_audio(cmd):
+                user32.keybd_event(vk, 0, 0, 0)
+                user32.keybd_event(vk, 0, 2, 0)
             time.sleep(0.01)
     except Exception as e:
         logger.debug(f"[NativeAudio] Volume adjustment fallback notice: {e}")
@@ -164,7 +230,7 @@ def get_mute() -> Optional[bool]:
 
 
 def set_mute(mute: bool) -> bool:
-    """Sets master mute status directly."""
+    """Sets master mute status directly with zero subprocess."""
     global _simulated_mute
     _simulated_mute = bool(mute)
     vol_iface = _init_core_audio()
@@ -176,12 +242,13 @@ def set_mute(mute: bool) -> bool:
         except Exception as e:
             logger.warning(f"[NativeAudio] Core Audio SetMute failed: {e}")
 
-    # Fallback to toggle keybd_event
+    # Fallback to SendMessageW APPCOMMAND_VOLUME_MUTE or keybd_event
     try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        user32.keybd_event(0xAD, 0, 0, 0)
-        user32.keybd_event(0xAD, 0, 2, 0)
+        if not _send_appcommand_audio(APPCOMMAND_VOLUME_MUTE):
+            import ctypes
+            user32 = ctypes.windll.user32
+            user32.keybd_event(0xAD, 0, 0, 0)
+            user32.keybd_event(0xAD, 0, 2, 0)
     except Exception:
         pass
     return True

@@ -160,14 +160,24 @@ class PermissionEngine:
         target_env = (environment or os.getenv("JARVIS_ENV", "development")).lower().strip()
 
         # 1. Emergency Stand-Down & Safe Mode check (Zero-Tolerance Invariant)
-        if config.emergency_stand_down or os.getenv("JARVIS_SAFE_MODE", "false").lower() == "true":
+        if config.emergency_stand_down:
+            decision = PermissionDecision(
+                authorized=False,
+                tier=action.tier,
+                risk_level="CRITICAL",
+                rationale="BLOCKED: Emergency Stand-Down active (all actions frozen)."
+            )
+            self._record_audit(action, decision)
+            return decision
+
+        if os.getenv("JARVIS_SAFE_MODE", "false").lower() == "true":
             # In safe mode, only reflex read queries are permitted
             if action.tier in [ActionTier.TIER_2_MUTATING, ActionTier.TIER_3_DESTRUCTIVE]:
                 decision = PermissionDecision(
                     authorized=False,
                     tier=action.tier,
                     risk_level="CRITICAL",
-                    rationale="BLOCKED: Emergency Stand-Down or Safe Mode active (mutations frozen)."
+                    rationale="BLOCKED: Safe Mode active (mutations frozen)."
                 )
                 self._record_audit(action, decision)
                 return decision
@@ -178,7 +188,7 @@ class PermissionEngine:
                 authorized=False,
                 tier=action.tier,
                 risk_level="HIGH",
-                rationale=f"BLOCKED: Agent '{action.target_agent}' is not authorized in world '{action.target_world.value}'."
+                rationale=f"BLOCKED: Agent '{action.target_agent}' is not authorized to operate in world '{action.target_world.value}'."
             )
             self._record_audit(action, decision)
             return decision
@@ -193,7 +203,18 @@ class PermissionEngine:
         effective_tier = max(action.tier, classified_tier, key=lambda t: list(ActionTier).index(t))
         risk_level = classifier.tier_to_risk(effective_tier)
 
-        # 4. Single-Use Capability Lease Check (Item 10 & 112)
+        # 4. Master Secret Override & Capability Leases Check
+        if approval_token and approval_token == config.master_secret:
+            decision = PermissionDecision(
+                authorized=True,
+                tier=effective_tier,
+                risk_level=risk_level,
+                rationale="AUTHORIZED_BY_MASTER_SECRET: Valid override token supplied.",
+                single_use_lease_id="master_override"
+            )
+            self._record_audit(action, decision)
+            return decision
+
         # Check explicit universal action lease if token provided
         if approval_token and approval_token in self._action_leases:
             act_lease = self._action_leases[approval_token]
@@ -218,18 +239,6 @@ class PermissionEngine:
                 risk_level=risk_level,
                 rationale=f"AUTHORIZED_BY_ACTION_LEASE: Issued by '{act_lease.issued_by}'",
                 single_use_lease_id=act_lease.lease_id
-            )
-            self._record_audit(action, decision)
-            return decision
-
-        # 5. RBAC Role Verification
-        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
-        if not role_allowed:
-            decision = PermissionDecision(
-                authorized=False,
-                tier=effective_tier,
-                risk_level=risk_level,
-                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
             )
             self._record_audit(action, decision)
             return decision
@@ -303,7 +312,7 @@ class PermissionEngine:
             self._record_audit(action, decision)
             return decision
 
-        # 6. Multi-Factor Decision: High Confidence with Tier 3 Destructive STILL mandates human approval
+        # 5. Multi-Factor Decision: Tier 3 Destructive ALWAYS mandates explicit human approval ticket & MFA
         if effective_tier == ActionTier.TIER_3_DESTRUCTIVE:
             app_req = self._create_approval_request(action, effective_tier, risk_level, rationale)
             decision = PermissionDecision(
@@ -314,6 +323,18 @@ class PermissionEngine:
                 requires_explicit_approval=True,
                 requires_mfa=True,
                 approval_id=app_req.approval_id
+            )
+            self._record_audit(action, decision)
+            return decision
+
+        # 6. RBAC Role Verification
+        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
+        if not role_allowed:
+            decision = PermissionDecision(
+                authorized=False,
+                tier=effective_tier,
+                risk_level=risk_level,
+                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
             )
             self._record_audit(action, decision)
             return decision

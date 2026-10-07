@@ -16,6 +16,21 @@ logger = get_logger("WindowsAgent")
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 
+import ctypes
+
+if sys.platform == "win32":
+    class SYSTEM_POWER_STATUS(ctypes.Structure):
+        _fields_ = [
+            ('ACLineStatus', ctypes.c_byte),
+            ('BatteryFlag', ctypes.c_byte),
+            ('BatteryLifePercent', ctypes.c_byte),
+            ('SystemStatusFlag', ctypes.c_byte),
+            ('BatteryLifeTime', ctypes.c_ulong),
+            ('BatteryFullLifeTime', ctypes.c_ulong),
+        ]
+else:
+    SYSTEM_POWER_STATUS = None
+
 
 
 def ensure_high_dpi_aware() -> bool:
@@ -643,9 +658,32 @@ class WindowsAgent:
     # Alias for API compatibility
     launch_application = launch_app
 
-    def execute_powershell(self, script: str) -> Dict[str, Any]:
-        """Executes a PowerShell scriptlet safely"""
-        logger.info(f"[WindowsAgent] Executing PowerShell: {script[:60]}...")
+    def execute_powershell(self, script: str, ticket_id: Optional[str] = None, operator_approved: bool = False) -> Dict[str, Any]:
+        """
+        Executes a PowerShell scriptlet safely.
+        Strictly guarded as TIER 3: Requires explicit operator approval ticket or authorization.
+        """
+        is_authorized = operator_approved
+        if not is_authorized and ticket_id:
+            try:
+                from agents.intelligence.safety_guard import safety_guard
+                ticket = safety_guard.get_ticket(ticket_id)
+                if ticket and ticket.status == "APPROVED":
+                    is_authorized = True
+            except Exception as te:
+                logger.debug(f"[WindowsAgent] Ticket check notice: {te}")
+
+        if not is_authorized:
+            logger.warning(f"[WindowsAgent] Tier 3 Guard: Blocked unapproved raw PowerShell execution: {script[:60]}...")
+            return {
+                "success": False,
+                "error": "TIER_3_GUARD: Raw PowerShell execution requires explicit Tier 3 operator approval.",
+                "tier": 3,
+                "status": "gatekeeper_blocked",
+                "channel_1_logical": False
+            }
+
+        logger.info(f"[WindowsAgent] Executing Tier 3 PowerShell: {script[:60]}...")
         try:
             result = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", script],
@@ -1039,34 +1077,206 @@ class WindowsAgent:
                             found.append({"name": f.replace('.lnk', '').replace('.url', ''), "path": os.path.join(root, f)})
         return {"success": True, "query": query, "matches": found, "count": len(found)}
 
-    def minimize_window(self, app_name: Optional[str] = None) -> Dict[str, Any]:
-        """Minimizes active window or specific application window."""
+    def find_window(self, title_query: str, class_name: Optional[str] = None) -> Optional[int]:
+        """
+        Locates a window HWND using native Win32 FindWindowW or EnumWindows with GetWindowTextW.
+        Zero subprocess.
+        """
+        if sys.platform != "win32":
+            return None
+        import ctypes
+        u32 = ctypes.windll.user32
+        hwnd = u32.FindWindowW(class_name, title_query)
+        if hwnd:
+            return hwnd
+
+        matched_hwnd = None
+        q = title_query.lower().strip()
+
+        def enum_cb(h, _):
+            nonlocal matched_hwnd
+            if u32.IsWindowVisible(h):
+                length = u32.GetWindowTextLengthW(h)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    u32.GetWindowTextW(h, buf, length + 1)
+                    if q in buf.value.lower():
+                        matched_hwnd = h
+                        return False
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        u32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+        return matched_hwnd
+
+    def list_windows(self, visible_only: bool = True) -> List[Dict[str, Any]]:
+        """
+        Lists desktop windows with HWND, title, visibility, and PID using native Win32 EnumWindows and GetWindowTextW.
+        Zero subprocess.
+        """
+        if sys.platform != "win32":
+            return []
+        import ctypes
+        u32 = ctypes.windll.user32
+        windows = []
+
+        def enum_cb(h, _):
+            is_vis = bool(u32.IsWindowVisible(h))
+            if visible_only and not is_vis:
+                return True
+            length = u32.GetWindowTextLengthW(h)
+            if length > 0:
+                buf = ctypes.create_unicode_buffer(length + 1)
+                u32.GetWindowTextW(h, buf, length + 1)
+                title = buf.value.strip()
+                if title:
+                    pid = ctypes.c_ulong()
+                    u32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+                    windows.append({
+                        "hwnd": h,
+                        "title": title,
+                        "visible": is_vis,
+                        "pid": pid.value
+                    })
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        u32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+        return windows
+
+    def focus_window(self, target: Any) -> bool:
+        """
+        Brings window to foreground using native Win32 SetForegroundWindow, ShowWindow, and AttachThreadInput.
+        Accepts HWND (int) or title query (str).
+        """
+        if sys.platform != "win32":
+            return False
+        import ctypes
+        u32 = ctypes.windll.user32
+        k32 = ctypes.windll.kernel32
+        ensure_interactive_desktop()
+        hwnd = target if isinstance(target, int) else self.find_window(str(target))
+        if not hwnd:
+            return False
+
+        fg_hwnd = u32.GetForegroundWindow()
+        fg_tid = u32.GetWindowThreadProcessId(fg_hwnd, None)
+        cur_tid = k32.GetCurrentThreadId()
+        attached = False
+        if fg_tid and fg_tid != cur_tid:
+            attached = bool(u32.AttachThreadInput(cur_tid, fg_tid, True))
+
+        try:
+            u32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            u32.SetForegroundWindow(hwnd)
+            u32.BringWindowToTop(hwnd)
+            return True
+        finally:
+            if attached:
+                u32.AttachThreadInput(cur_tid, fg_tid, False)
+
+    def minimize_window(self, app_name: Optional[Any] = None) -> Dict[str, Any]:
+        """Minimizes active window or specific application window using pure native Win32 user32.PostMessageW & ShowWindow."""
         logger.info(f"[WindowsAgent] Minimizing window: {app_name or 'active'}")
         if sys.platform == "win32":
             import ctypes
             u32 = ctypes.windll.user32
-            if app_name:
-                # Find by title
-                focus_window_by_name(app_name)
-                hwnd = u32.GetForegroundWindow()
+            if isinstance(app_name, int):
+                hwnd = app_name
+            elif app_name:
+                hwnd = self.find_window(str(app_name))
             else:
                 hwnd = u32.GetForegroundWindow()
             if hwnd:
+                WM_SYSCOMMAND = 0x0112
+                SC_MINIMIZE = 0xF020
+                u32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0)
                 u32.ShowWindow(hwnd, 6) # SW_MINIMIZE = 6
-                return {"success": True, "action": "minimize", "hwnd": hwnd}
-        return {"success": False, "error": "Unable to minimize window"}
+                return {"success": True, "action": "minimize", "hwnd": hwnd, "channel_1_logical": True}
+        return {"success": False, "error": f"Unable to minimize window: '{app_name}' not found"}
 
-    def maximize_window(self, app_name: Optional[str] = None) -> Dict[str, Any]:
-        """Maximizes active window or specific application window."""
+    def maximize_window(self, app_name: Optional[Any] = None) -> Dict[str, Any]:
+        """Maximizes active window or specific application window using pure native Win32 user32.PostMessageW & ShowWindow."""
         logger.info(f"[WindowsAgent] Maximizing window: {app_name or 'active'}")
         if sys.platform == "win32":
             import ctypes
             u32 = ctypes.windll.user32
-            if app_name:
-                focus_window_by_name(app_name)
-                hwnd = u32.GetForegroundWindow()
+            if isinstance(app_name, int):
+                hwnd = app_name
+            elif app_name:
+                hwnd = self.find_window(str(app_name))
             else:
                 hwnd = u32.GetForegroundWindow()
+            if hwnd:
+                WM_SYSCOMMAND = 0x0112
+                SC_MAXIMIZE = 0xF030
+                u32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0)
+                u32.ShowWindow(hwnd, 3) # SW_MAXIMIZE = 3
+                return {"success": True, "action": "maximize", "hwnd": hwnd, "channel_1_logical": True}
+        return {"success": False, "error": f"Unable to maximize window: '{app_name}' not found"}
+
+    def restore_window(self, app_name: Optional[Any] = None) -> Dict[str, Any]:
+        """Restores window to normal state using pure native Win32 user32.PostMessageW & ShowWindow."""
+        logger.info(f"[WindowsAgent] Restoring window: {app_name or 'active'}")
+        if sys.platform == "win32":
+            import ctypes
+            u32 = ctypes.windll.user32
+            if isinstance(app_name, int):
+                hwnd = app_name
+            elif app_name:
+                hwnd = self.find_window(str(app_name))
+            else:
+                hwnd = u32.GetForegroundWindow()
+            if hwnd:
+                WM_SYSCOMMAND = 0x0112
+                SC_RESTORE = 0xF120
+                u32.PostMessageW(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0)
+                u32.ShowWindow(hwnd, 9) # SW_RESTORE = 9
+                return {"success": True, "action": "restore", "hwnd": hwnd, "channel_1_logical": True}
+        return {"success": False, "error": f"Unable to restore window: '{app_name}' not found"}
+
+    def close_window(self, app_name: Optional[Any] = None) -> Dict[str, Any]:
+        """Closes window using pure native Win32 user32.PostMessageW (WM_CLOSE)."""
+        logger.info(f"[WindowsAgent] Closing window: {app_name or 'active'}")
+        if sys.platform == "win32":
+            import ctypes
+            u32 = ctypes.windll.user32
+            if isinstance(app_name, int):
+                hwnd = app_name
+            elif app_name:
+                hwnd = self.find_window(str(app_name))
+            else:
+                hwnd = u32.GetForegroundWindow()
+            if hwnd:
+                WM_CLOSE = 0x0010
+                u32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+                return {"success": True, "action": "close", "hwnd": hwnd, "channel_1_logical": True}
+        return {"success": False, "error": f"Unable to close window: '{app_name}' not found"}
+
+    def get_power_info(self) -> Dict[str, Any]:
+        """Retrieves system battery and power status using native Win32 kernel32.GetSystemPowerStatus with zero subprocess."""
+        if sys.platform != "win32" or SYSTEM_POWER_STATUS is None:
+            return {"success": False, "error": "Not running on Windows"}
+        try:
+            import ctypes
+            k32 = ctypes.windll.kernel32
+            sps = SYSTEM_POWER_STATUS()
+            if not k32.GetSystemPowerStatus(ctypes.byref(sps)):
+                return {"success": False, "error": "GetSystemPowerStatus failed"}
+            ac_map = {0: "unplugged", 1: "plugged_in", 255: "unknown"}
+            return {
+                "success": True,
+                "ac_line_status": ac_map.get(sps.ACLineStatus, "unknown"),
+                "power_plugged": sps.ACLineStatus == 1,
+                "battery_percent": None if sps.BatteryLifePercent == 255 else int(sps.BatteryLifePercent),
+                "is_charging": bool(sps.BatteryFlag & 8),
+                "has_battery": not bool(sps.BatteryFlag & 128),
+                "battery_life_remaining_seconds": None if sps.BatteryLifeTime == 0xFFFFFFFF else int(sps.BatteryLifeTime),
+                "battery_flag": sps.BatteryFlag,
+                "channel_1_logical": True
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
     def open_url(self, url: str) -> Dict[str, Any]:
         """Opens URL in default web browser or Opera GX"""
         import urllib.parse
@@ -1339,6 +1549,22 @@ windows_agent = WindowsAgent()
 def focus_window_by_name(name_query: str) -> bool:
     """Convenience top-level wrapper for focusing window by title."""
     return windows_agent.focus_window_by_name(name_query)
+
+
+def find_window(title_query: str, class_name: Optional[str] = None) -> Optional[int]:
+    """Convenience top-level wrapper for finding window HWND."""
+    return windows_agent.find_window(title_query, class_name)
+
+
+def list_windows(visible_only: bool = True) -> List[Dict[str, Any]]:
+    """Convenience top-level wrapper for listing desktop windows."""
+    return windows_agent.list_windows(visible_only)
+
+
+def focus_window(target: Any) -> bool:
+    """Convenience top-level wrapper for focusing a window."""
+    return windows_agent.focus_window(target)
+
 
 
 

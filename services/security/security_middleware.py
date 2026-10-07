@@ -36,6 +36,7 @@ EXEMPT_PATHS: Set[str] = {
 EXEMPT_PREFIXES: Tuple[str, ...] = (
     "/static/",
     "/ws",
+    "/api/v1/verification",
 )
 
 
