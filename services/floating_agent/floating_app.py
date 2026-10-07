@@ -5,9 +5,10 @@ Supports pywebview with Edge WebView2 runtime and direct backend bridging.
 """
 
 from __future__ import annotations
+
 import os
-import sys
 import subprocess
+import sys
 import time
 
 if sys.stdout is None:
@@ -20,18 +21,18 @@ if sys.stderr is None:
         sys.stderr = open(os.devnull, "w", encoding="utf-8")
     except Exception:
         pass
-import threading
-import ctypes
-import urllib.request
-import re
 import base64
+import ctypes
+import re
+import threading
+import urllib.request
 from typing import Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
 
-from shared.sdk_python.jarvis_sdk.logger import get_logger
 from shared.sdk_python.jarvis_sdk.config import config
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisFloatingApp")
 
@@ -76,7 +77,7 @@ def ensure_hud_server() -> str:
     """Ensures local HTTP server is active so WebView2 operates in a Secure Context with full Web Audio & Mic support."""
     try:
         req = urllib.request.Request(f"http://127.0.0.1:{config.port}/health", headers={"User-Agent": "JarvisLauncher"})
-        with urllib.request.urlopen(req, timeout=0.15) as resp:
+        with urllib.request.urlopen(req, timeout=0.15) as resp:  # nosec B310
             if resp.status == 200:
                 return SERVER_URL
     except Exception:
@@ -115,14 +116,15 @@ def ensure_interactive_desktop():
             pass
 
 
-def get_best_hardware_microphone() -> tuple[Optional[int], int]:
+def get_best_hardware_microphone() -> tuple[int | None, int]:
     """
     Scans system audio input devices, actively probes their real RMS audio signal,
     and returns (device_index, sample_rate) for the active physical hardware microphone.
     """
     try:
-        import pyaudio
         import audioop
+
+        import pyaudio
         p = pyaudio.PyAudio()
         candidates = []
         for i in range(p.get_device_count()):
@@ -183,7 +185,7 @@ def get_best_hardware_microphone() -> tuple[Optional[int], int]:
     return (None, 44100)
 
 
-def get_best_hardware_microphone_index() -> Optional[int]:
+def get_best_hardware_microphone_index() -> int | None:
     idx, _ = get_best_hardware_microphone()
     return idx
 
@@ -278,7 +280,7 @@ class FloatingAgentAPI:
             except Exception as e:
                 logger.error(f"[VoiceBridge] Microphone initialization notice: {e}")
 
-    def toggle_voice_capture(self, state: Optional[bool] = None) -> dict:
+    def toggle_voice_capture(self, state: bool | None = None) -> dict:
         """Toggles hardware microphone listening on or off."""
         if state is None:
             new_state = not self._is_listening
@@ -303,11 +305,13 @@ class FloatingAgentAPI:
         self._is_listening = True
 
         def _mic_worker():
-            import pyaudio
             import audioop
             import io
-            import wave
             import json
+            import wave
+
+            import pyaudio
+
             from services.voice.stt_engine import stt_engine
 
             best_idx, best_sr = get_best_hardware_microphone()
@@ -559,6 +563,7 @@ class FloatingAgentAPI:
         - Sub-second instantaneous UI text return with asynchronous speech synthesis
         """
         import asyncio
+
         from services.brain.conversation_engine import conversation_engine
         from services.sensory.soundboard import soundboard
         try:
@@ -603,8 +608,8 @@ class FloatingAgentAPI:
             logger.error(f"[FloatingApp] Brain execution error: {e}")
             return {
                 "success": False,
-                "message": f"Execution error: {str(e)}",
-                "response": f"Execution error: {str(e)}",
+                "message": f"Execution error: {e!s}",
+                "response": f"Execution error: {e!s}",
                 "actions_executed": [],
                 "audio_b64": ""
             }
@@ -612,6 +617,7 @@ class FloatingAgentAPI:
     def analyze_screen_vision(self, prompt: str = "Analyze what is on my screen") -> dict:
         """Multimodal Screen Vision bridge using real desktop capture + AI analysis."""
         import asyncio
+
         from services.sensory.screen_vision import screen_vision
         try:
             loop = asyncio.new_event_loop()
@@ -621,7 +627,7 @@ class FloatingAgentAPI:
             return res
         except Exception as e:
             logger.error(f"[FloatingApp] Screen vision bridge error: {e}")
-            return {"success": False, "analysis": f"Screen vision error: {str(e)}"}
+            return {"success": False, "analysis": f"Screen vision error: {e!s}"}
 
     def synthesize_speech(self, text: str) -> dict:
         """Synthesizes Paul Bettany British neural speech using Edge-TTS and returns base64 MP3."""
@@ -680,13 +686,15 @@ class FloatingAgentAPI:
                     "analysis": f"Binary asset '{filename}' ({len(raw_bytes)} bytes) ingested into Stark tactical cache, sir."
                 }
         except Exception as e:
-            return {"success": False, "filename": filename, "analysis": f"File ingestion notice: {str(e)}"}
+            return {"success": False, "filename": filename, "analysis": f"File ingestion notice: {e!s}"}
 
     def execute_device_action(self, action: str, params: dict = None) -> dict:
         """Native Windows UI automation bridge for clicks, scrolls, and typing."""
         params = params or {}
         try:
-            from services.device_agents.windows.windows_device_agent import windows_agent
+            from services.device_agents.windows.windows_device_agent import (
+                windows_agent,
+            )
             if action == "click":
                 return windows_agent.left_click(params.get("x", 0), params.get("y", 0))
             elif action == "type":
@@ -784,7 +792,7 @@ class FloatingAgentAPI:
             "status": "IDLE"
         }
 
-    def teleport_session(self, target_device: str = "mobile_node", pin: Optional[str] = None) -> dict:
+    def teleport_session(self, target_device: str = "mobile_node", pin: str | None = None) -> dict:
         """Serializes current AgentOS state into an AES-256 encrypted capsule for handoff."""
         try:
             from services.gateway.device_teleporter import device_teleporter

@@ -4,6 +4,7 @@ Provides structured JSON logging, correlation IDs, and unified stdout formatting
 """
 
 from __future__ import annotations
+
 import json
 import logging
 import os
@@ -56,10 +57,10 @@ class ObservabilityLogger:
         if len(self._log_history) > self._max_history:
             self._log_history.pop(0)
 
-    def get_recent_logs(self, limit: int = 100, level: Optional[str] = None):
+    def get_recent_logs(self, limit: int = 100, level: str | None = None):
         logs = self._log_history
         if level:
-            logs = [l for l in logs if l["level"] == level.upper()]
+            logs = [entry for entry in logs if entry["level"] == level.upper()]
         return logs[-limit:]
 
 

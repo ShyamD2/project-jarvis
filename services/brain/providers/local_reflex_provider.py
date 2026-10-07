@@ -5,15 +5,19 @@ tool argument preparation, and hardware routing without external network depende
 """
 
 from __future__ import annotations
-import time
-import re
-from typing import List, Dict, Any, Optional, AsyncGenerator
-import os
-import sys
+
 import datetime
+import os
+import re
 import socket
-import psutil
+import sys
+import time
 import urllib.parse
+from collections.abc import AsyncGenerator
+from typing import Any, Dict, List, Optional
+
+import psutil
+
 from services.brain.providers.base import BaseLLMProvider, LLMResponse, ToolCall
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
@@ -33,8 +37,8 @@ class LocalReflexProvider(BaseLLMProvider):
     async def generate(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        system_prompt: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
         temperature: float = 0.7
     ) -> LLMResponse:
         start_time = time.time()
@@ -45,7 +49,7 @@ class LocalReflexProvider(BaseLLMProvider):
         if not p_cmd:
             p_cmd = p_lower
 
-        tool_calls: List[ToolCall] = []
+        tool_calls: list[ToolCall] = []
         response_text = ""
 
         # 1. BROWSER TABS, WEB SITES & WEB SEARCH
@@ -283,7 +287,7 @@ class LocalReflexProvider(BaseLLMProvider):
             expr = m.group(2).strip()
             try:
                 clean_expr = expr.replace("^", "**")
-                res = eval(clean_expr, {"__builtins__": None}, {})
+                res = eval(clean_expr, {"__builtins__": None}, {})  # nosec B307
                 response_text = f"The calculated result of {expr} is {res}, sir."
             except Exception:
                 response_text = f"I was unable to compute '{expr}', sir. Please check the mathematical syntax."
@@ -320,7 +324,7 @@ class LocalReflexProvider(BaseLLMProvider):
     async def stream(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         temperature: float = 0.7
     ) -> AsyncGenerator[str, None]:
         res = await self.generate(prompt)

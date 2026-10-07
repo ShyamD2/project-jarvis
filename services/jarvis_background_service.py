@@ -9,12 +9,13 @@ Zero window clutter, <1% CPU footprint, runs silently via pythonw.exe or Windows
 """
 
 from __future__ import annotations
+
+import asyncio
+import ctypes
 import os
 import sys
-import time
-import ctypes
 import threading
-import asyncio
+import time
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
@@ -36,11 +37,13 @@ if sys.stdout is None or sys.stderr is None:
         pass
 
 import logging
+
 file_handler = logging.FileHandler(log_file, encoding="utf-8", mode="a")
 file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] [%(name)s]: %(message)s", datefmt="%H:%M:%S"))
 logging.getLogger().addHandler(file_handler)
 logging.getLogger().setLevel(logging.INFO)
 
+from typing import Optional
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisBackgroundService")

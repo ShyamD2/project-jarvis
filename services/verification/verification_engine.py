@@ -5,12 +5,14 @@ Ensures J.A.R.V.I.S. never claims an action is "Done" unless real OS/Cloud state
 """
 
 from __future__ import annotations
+
+import hashlib
 import os
 import sys
 import time
-import hashlib
+from typing import Any, Dict, List, Optional
+
 import psutil
-from typing import Dict, Any, Optional, List
 
 from shared.schemas.verification_contract import VerificationResult, VerificationStatus
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -20,7 +22,7 @@ logger = get_logger("JarvisVerificationEngine")
 
 class VerificationEngine:
     def __init__(self):
-        self._last_verification: Optional[VerificationResult] = None
+        self._last_verification: VerificationResult | None = None
 
     def verify_process_state(
         self,
@@ -92,10 +94,10 @@ class VerificationEngine:
 
                 def enum_cb(hwnd, lparam):
                     if u32.IsWindowVisible(hwnd):
-                        l = u32.GetWindowTextLengthW(hwnd)
-                        if l > 0:
-                            b = ctypes.create_unicode_buffer(l + 1)
-                            u32.GetWindowTextW(hwnd, b, l + 1)
+                        length = u32.GetWindowTextLengthW(hwnd)
+                        if length > 0:
+                            b = ctypes.create_unicode_buffer(length + 1)
+                            u32.GetWindowTextW(hwnd, b, length + 1)
                             if target in b.value.lower():
                                 matches.append(hwnd)
                                 return False
@@ -116,7 +118,7 @@ class VerificationEngine:
         path: str,
         must_exist: bool = True,
         expected_min_size: int = 0,
-        expected_hash: Optional[str] = None
+        expected_hash: str | None = None
     ) -> bool:
         """
         Inspects filesystem to verify file exists, matches minimum size,
@@ -152,8 +154,8 @@ class VerificationEngine:
     def verify_action_execution(
         self,
         tool_name: str,
-        parameters: Dict[str, Any],
-        tool_result: Dict[str, Any]
+        parameters: dict[str, Any],
+        tool_result: dict[str, Any]
     ) -> VerificationResult:
         """
         Universal verification dispatcher.
@@ -161,8 +163,8 @@ class VerificationEngine:
         """
         action_id = f"act_{tool_name}_{int(time.time()*1000)}"
         logical_ok = bool(tool_result.get("success", False))
-        sensory_ok: Optional[bool] = None
-        details: Dict[str, Any] = {"logical_success": logical_ok}
+        sensory_ok: bool | None = None
+        details: dict[str, Any] = {"logical_success": logical_ok}
         failure_reason = None
 
         if not logical_ok:
@@ -315,8 +317,8 @@ class VerificationEngine:
         self,
         action_id: str,
         logical_check: bool,
-        sensory_check: Optional[bool] = None,
-        details: Optional[Dict[str, Any]] = None
+        sensory_check: bool | None = None,
+        details: dict[str, Any] | None = None
     ) -> VerificationResult:
         """Legacy compatibility method"""
         details = details or {}

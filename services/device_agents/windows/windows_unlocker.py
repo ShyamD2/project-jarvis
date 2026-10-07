@@ -4,11 +4,12 @@ Enables remote lock-screen bypass via Telegram / mobile commands.
 """
 
 from __future__ import annotations
+
+import ctypes
 import os
 import sys
 import time
-import ctypes
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -96,20 +97,26 @@ class WindowsUnlocker:
         ctrl = bool((res >> 8) & 2)
         alt = bool((res >> 8) & 4)
 
-        if shift: self._send_key(0x10, True)
-        if ctrl: self._send_key(0x11, True)
-        if alt: self._send_key(0x12, True)
+        if shift:
+            self._send_key(0x10, True)
+        if ctrl:
+            self._send_key(0x11, True)
+        if alt:
+            self._send_key(0x12, True)
 
         self._send_key(vk, True)
         time.sleep(0.02)
         self._send_key(vk, False)
 
-        if alt: self._send_key(0x12, False)
-        if ctrl: self._send_key(0x11, False)
-        if shift: self._send_key(0x10, False)
+        if alt:
+            self._send_key(0x12, False)
+        if ctrl:
+            self._send_key(0x11, False)
+        if shift:
+            self._send_key(0x10, False)
         time.sleep(0.03)
 
-    async def unlock(self, pin_or_password: str) -> Dict[str, Any]:
+    async def unlock(self, pin_or_password: str) -> dict[str, Any]:
         if not self._user32:
             return {"success": False, "error": "Win32 subsystem unavailable."}
 

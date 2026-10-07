@@ -6,13 +6,15 @@ Runs in zero-overhead Eco-Mode (event-driven, sub-second execution, zero CPU pol
 """
 
 from __future__ import annotations
+
 import os
+import socket
+import subprocess
 import sys
 import time
-import socket
+from typing import Any, Dict, List, Optional, Tuple
+
 import psutil
-import subprocess
-from typing import Dict, Any, List, Optional, Tuple
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -24,12 +26,12 @@ logger = get_logger("JarvisWorkstationSRE")
 
 class WorkstationSRE:
     def __init__(self):
-        self._incident_history: List[Dict[str, Any]] = []
-        self._active_tickets: Dict[str, Dict[str, Any]] = {}
+        self._incident_history: list[dict[str, Any]] = []
+        self._active_tickets: dict[str, dict[str, Any]] = {}
         # Common dev ports to monitor
         self.dev_ports = [3000, 5000, 8000, 8080, 8085, 9000, 5888]
 
-    def diagnose_port(self, port: int) -> Dict[str, Any]:
+    def diagnose_port(self, port: int) -> dict[str, Any]:
         """
         Pinpoints what process is holding a network port.
         Returns PID, process name, command line, memory, and CPU metrics.
@@ -51,7 +53,7 @@ class WorkstationSRE:
             can_bind = True
             try:
                 s.bind(("127.0.0.1", port))
-            except (socket.error, OSError):
+            except OSError:
                 can_bind = False
 
         if can_bind:
@@ -96,7 +98,7 @@ class WorkstationSRE:
 
         return result
 
-    def free_port(self, port: int, force: bool = True) -> Dict[str, Any]:
+    def free_port(self, port: int, force: bool = True) -> dict[str, Any]:
         """
         Safely or forcefully terminates the process occupying a port and verifies liberation.
         """
@@ -145,7 +147,7 @@ class WorkstationSRE:
         except Exception as e:
             return {"success": False, "port": port, "error": str(e)}
 
-    def scan_lockfiles(self, search_roots: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    def scan_lockfiles(self, search_roots: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Scans repositories and workspaces for stale lockfiles that freeze git, terraform, or npm.
         """
@@ -184,7 +186,7 @@ class WorkstationSRE:
 
         return found_locks
 
-    def clear_lockfile(self, lock_path: str) -> Dict[str, Any]:
+    def clear_lockfile(self, lock_path: str) -> dict[str, Any]:
         """Safely removes a stale lockfile to restore normal dev workflow."""
         if not os.path.exists(lock_path):
             return {"success": True, "message": f"Lockfile {lock_path} does not exist."}
@@ -200,7 +202,7 @@ class WorkstationSRE:
         self,
         cpu_threshold: float = 75.0,
         mem_threshold_mb: float = 1200.0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Identifies runaway processes consuming excessive CPU or memory on this low-end host."""
         runaways = []
         for proc in psutil.process_iter(['pid', 'name', 'memory_info']):
@@ -222,7 +224,7 @@ class WorkstationSRE:
                 continue
         return runaways
 
-    def run_sre_health_scan(self) -> Dict[str, Any]:
+    def run_sre_health_scan(self) -> dict[str, Any]:
         """
         Executes an instant holistic SRE audit of the workstation.
         Detects collisions, stale locks, runaway tasks, and provides auto-fix tickets.
@@ -241,7 +243,7 @@ class WorkstationSRE:
         # 3. High-load processes
         runaways = self.scan_runaway_processes()
 
-        has_incidents = bool(stale_locks or any(l["is_stale"] for l in stale_locks) or runaways)
+        has_incidents = bool(stale_locks or any(lock["is_stale"] for lock in stale_locks) or runaways)
         incident_id = f"sre_{int(time.time())}"
 
         scan_result = {
@@ -258,7 +260,7 @@ class WorkstationSRE:
         self._active_tickets[incident_id] = scan_result
         return scan_result
 
-    def apply_sre_healing(self, target_type: str, target_value: Any) -> Dict[str, Any]:
+    def apply_sre_healing(self, target_type: str, target_value: Any) -> dict[str, Any]:
         """
         1-Tap self-healing execution:
         - target_type="port", target_value=5000 -> frees port
@@ -274,10 +276,10 @@ class WorkstationSRE:
         elif target_type == "all_locks":
             locks = self.scan_lockfiles()
             cleared = []
-            for l in locks:
-                res = self.clear_lockfile(l["file_path"])
+            for lock in locks:
+                res = self.clear_lockfile(lock["file_path"])
                 if res["success"]:
-                    cleared.append(l["file_path"])
+                    cleared.append(lock["file_path"])
             return {"success": True, "cleared_count": len(cleared), "cleared_locks": cleared}
         elif target_type == "pid":
             try:
@@ -289,7 +291,7 @@ class WorkstationSRE:
                 return {"success": False, "error": str(e)}
         return {"success": False, "error": f"Unknown SRE target type: {target_type}"}
 
-    def format_telegram_report(self, scan_result: Dict[str, Any]) -> str:
+    def format_telegram_report(self, scan_result: dict[str, Any]) -> str:
         """Formats SRE health scan into an elegant Telegram Markdown alert."""
         lines = [
             "🛡️ *J.A.R.V.I.S. Workstation SRE Report*",
@@ -311,9 +313,9 @@ class WorkstationSRE:
         locks = scan_result.get("stale_locks", [])
         if locks:
             lines.append("\n🔒 *Detected Lockfiles:*")
-            for l in locks:
-                status_icon = "⚠️ STALE" if l["is_stale"] else "ℹ️ ACTIVE"
-                lines.append(f"  • `{l['relative_path']}`: {status_icon} ({l['age_seconds']}s old)")
+            for lock in locks:
+                status_icon = "⚠️ STALE" if lock["is_stale"] else "ℹ️ ACTIVE"
+                lines.append(f"  • `{lock['relative_path']}`: {status_icon} ({lock['age_seconds']}s old)")
         else:
             lines.append("\n🔒 *Lockfiles:* None (Git & Terraform clean)")
 

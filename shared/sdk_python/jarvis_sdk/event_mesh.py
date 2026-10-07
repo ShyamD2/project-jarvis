@@ -4,9 +4,12 @@ Publishes and routes events between Local Fast-Path (MQTT) and Cloud Heavy-Path 
 """
 
 from __future__ import annotations
+
 import json
 import threading
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any, Dict, List, Optional
+
 try:
     import boto3
     from botocore.exceptions import ClientError
@@ -30,9 +33,9 @@ except ImportError:
 
 class EventMesh:
     def __init__(self):
-        self._mqtt_client: Optional[Any] = None
+        self._mqtt_client: Any | None = None
         self._eventbridge_client = None
-        self._subscribers: Dict[str, List[Callable[[JarvisEvent], None]]] = {}
+        self._subscribers: dict[str, list[Callable[[JarvisEvent], None]]] = {}
         self._is_connected_mqtt = False
         self._offline_buffer = None
 
@@ -104,7 +107,7 @@ class EventMesh:
         if not self._offline_buffer or not self._is_connected_mqtt or not self._mqtt_client:
             return
 
-        def send_item(topic: str, payload: Dict[str, Any]) -> bool:
+        def send_item(topic: str, payload: dict[str, Any]) -> bool:
             try:
                 res = self._mqtt_client.publish(topic, json.dumps(payload))
                 return getattr(res, "rc", 0) == 0

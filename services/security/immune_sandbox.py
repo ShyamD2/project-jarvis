@@ -6,13 +6,14 @@ credential theft attempts, and destructive payloads.
 """
 
 from __future__ import annotations
-import os
-import sys
-import re
+
 import ast
-import time
+import os
+import re
 import subprocess
-from typing import Dict, Any, List, Optional, Tuple
+import sys
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -27,7 +28,7 @@ os.makedirs(QUARANTINE_DIR, exist_ok=True)
 
 class ImmuneSandbox:
     def __init__(self):
-        self._quarantined_threats: List[Dict[str, Any]] = []
+        self._quarantined_threats: list[dict[str, Any]] = []
 
         # Taint patterns for credential leakage & supply-chain theft
         self.credential_patterns = [
@@ -57,7 +58,7 @@ class ImmuneSandbox:
             r"curl.*\|.*(bash|sh|cmd|powershell)"          # Pipe-to-shell dropper
         ]
 
-    def scan_command_taint(self, cmd_string: str) -> Dict[str, Any]:
+    def scan_command_taint(self, cmd_string: str) -> dict[str, Any]:
         """Statically inspects command string for supply chain risks and credential exfiltration."""
         t0 = time.time()
         findings = []
@@ -95,7 +96,7 @@ class ImmuneSandbox:
             "scan_ms": round((time.time() - t0) * 1000, 2)
         }
 
-    def scan_python_code_taint(self, code_str: str) -> Dict[str, Any]:
+    def scan_python_code_taint(self, code_str: str) -> dict[str, Any]:
         """Performs static AST inspection on Python script or package install hook."""
         t0 = time.time()
         findings = []
@@ -109,11 +110,13 @@ class ImmuneSandbox:
                     for alias in node.names:
                         if alias.name in ["socket", "urllib.request", "http.client"]:
                             findings.append(f"Network egress module imported: '{alias.name}'")
-                            if severity == "CLEAN": severity = "MEDIUM"
+                            if severity == "CLEAN":
+                                severity = "MEDIUM"
                 elif isinstance(node, ast.ImportFrom):
                     if node.module in ["socket", "urllib.request"]:
                         findings.append(f"Network egress module imported from: '{node.module}'")
-                        if severity == "CLEAN": severity = "MEDIUM"
+                        if severity == "CLEAN":
+                            severity = "MEDIUM"
 
                 # Check string literals for credential paths
                 if isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -155,7 +158,7 @@ class ImmuneSandbox:
         logger.warning(f"🛡️ [ImmuneSandbox] Threat QUARANTINED: [{t_id}] - {reason}")
         return t_id
 
-    def execute_safely(self, cmd: str, cwd: Optional[str] = None, timeout: int = 15) -> Dict[str, Any]:
+    def execute_safely(self, cmd: str, cwd: str | None = None, timeout: int = 15) -> dict[str, Any]:
         """
         DevSecOps Gated Execution:
         Inspects command taint -> Quarantines if malicious -> Executes only if verified safe.

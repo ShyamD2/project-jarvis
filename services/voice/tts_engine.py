@@ -5,13 +5,15 @@ seamless soundboard clip playback, and sub-5ms barge-in interruption.
 """
 
 from __future__ import annotations
+
 import asyncio
 import os
 import re
 import sys
-import time
 import threading
-from typing import Optional, List, Callable
+import time
+from collections.abc import Callable
+from typing import Any, List, Optional
 
 try:
     import pygame
@@ -21,9 +23,9 @@ except (ImportError, Exception):
     PYGAME_AVAILABLE = False
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-from shared.sdk_python.jarvis_sdk.logger import get_logger
-from shared.sdk_python.jarvis_sdk.config import config
 from services.sensory.soundboard import soundboard
+from shared.sdk_python.jarvis_sdk.config import config
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisTTSEngine")
 
@@ -37,10 +39,10 @@ except ImportError:
 class TTSEngine:
     def __init__(
         self,
-        voice: Optional[str] = None,
-        pitch: Optional[str] = None,
-        rate: Optional[str] = None,
-        output_dir: Optional[str] = None
+        voice: str | None = None,
+        pitch: str | None = None,
+        rate: str | None = None,
+        output_dir: str | None = None
     ):
         self.voice = voice or getattr(config, "voice_id", "en-GB-RyanNeural")
         self.pitch = pitch or getattr(config, "tts_pitch", "-2Hz")
@@ -51,8 +53,8 @@ class TTSEngine:
         self._is_speaking = False
         self._playback_lock = threading.Lock()
         self._interrupt_event = threading.Event()
-        self._current_audio_file: Optional[str] = None
-        self._speech_done_callbacks: List[Callable[[], None]] = []
+        self._current_audio_file: str | None = None
+        self._speech_done_callbacks: list[Callable[[], None]] = []
 
     @property
     def is_speaking(self) -> bool:
@@ -75,7 +77,7 @@ class TTSEngine:
         t = re.sub(r'\s+', ' ', t).strip()
         return t
 
-    def split_into_clauses(self, text: str) -> List[str]:
+    def split_into_clauses(self, text: str) -> list[str]:
         """
         Splits text into speakable clauses and sentences for low-latency incremental streaming.
         Splits on sentence terminators (.!?) and major clause boundaries (; , -) when sufficiently long.
@@ -132,7 +134,7 @@ class TTSEngine:
             logger.error(f"[TTS Engine] Failed to initialize pygame mixer: {e}")
             return False
 
-    async def synthesize_bytes(self, text: str) -> Optional[bytes]:
+    async def synthesize_bytes(self, text: str) -> bytes | None:
         """
         Synthesizes text directly into MP3 bytes in-memory for ultra-low latency.
         """
@@ -151,7 +153,7 @@ class TTSEngine:
             logger.warning(f"[TTS Engine] In-memory byte synthesis error: {e}")
         return None
 
-    async def synthesize(self, text: str) -> Optional[str]:
+    async def synthesize(self, text: str) -> str | None:
         """
         Synthesizes given text into a British neural speech MP3 file.
         Returns file path or None.
@@ -178,9 +180,9 @@ class TTSEngine:
     async def speak_stream(
         self,
         text: str,
-        on_chunk: Optional[Callable[[int, str, bytes, bool], Any]] = None,
+        on_chunk: Callable[[int, str, bytes, bool], Any] | None = None,
         play_audio: bool = True
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Progressive sub-second streaming audio synthesizer:
         Synthesizes sentence-by-sentence/clause-by-clause so the user hears audio in <600ms,
@@ -271,7 +273,7 @@ class TTSEngine:
 
         return last_audio_file
 
-    async def speak(self, text: str, play_audio: bool = True) -> Optional[str]:
+    async def speak(self, text: str, play_audio: bool = True) -> str | None:
         """
         Standard synthesis + playback routine (delegates to progressive streaming).
         Guarantees single-channel execution and honors barge-in interrupts.

@@ -6,11 +6,12 @@ Provides 0ms instant responses for anticipated developer instructions.
 """
 
 from __future__ import annotations
+
 import os
+import subprocess
 import sys
 import time
-import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -24,9 +25,9 @@ class SpeculativePreComputationEngine:
     def __init__(self, cache_ttl_seconds: int = 300):
         self.cache_ttl = cache_ttl_seconds
         # Key: topic/intent hash -> Value: {payload, timestamp, confidence, category}
-        self._speculative_cache: Dict[str, Dict[str, Any]] = {}
-        self._last_git_status: Optional[str] = None
-        self._last_error_context: Optional[str] = None
+        self._speculative_cache: dict[str, dict[str, Any]] = {}
+        self._last_git_status: str | None = None
+        self._last_error_context: str | None = None
 
     def cache_size(self) -> int:
         self._prune_expired()
@@ -45,8 +46,8 @@ class SpeculativePreComputationEngine:
         title: str,
         content: str,
         confidence: float = 0.95,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Stages an anticipatory result in the zero-latency memory cache."""
         self._prune_expired()
         record = {
@@ -62,7 +63,7 @@ class SpeculativePreComputationEngine:
         logger.info(f"⚡ [SpeculativeEngine] Staged 0ms response for '{record['key']}' ({category})")
         return record
 
-    def get_speculative_answer(self, query: str) -> Optional[Dict[str, Any]]:
+    def get_speculative_answer(self, query: str) -> dict[str, Any] | None:
         """
         Retrieves a pre-computed answer in <1ms if the query matches an anticipated intent.
         """
@@ -90,7 +91,7 @@ class SpeculativePreComputationEngine:
 
         return None
 
-    def observe_git_state(self, workspace_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def observe_git_state(self, workspace_path: str | None = None) -> dict[str, Any] | None:
         """
         Scans git diff/status in the workspace and pre-computes candidate commit messages.
         Safe, non-blocking, eco-mode.
@@ -112,9 +113,9 @@ class SpeculativePreComputationEngine:
                 return None  # No changes since last scan
 
             self._last_git_status = status_output
-            lines = [l.strip() for l in status_output.splitlines() if l.strip()]
-            modified = [l.split()[-1] for l in lines if l.startswith("M") or " M " in l]
-            added = [l.split()[-1] for l in lines if l.startswith("A") or l.startswith("??")]
+            lines = [line.strip() for line in status_output.splitlines() if line.strip()]
+            modified = [line.split()[-1] for line in lines if line.startswith("M") or " M " in line]
+            added = [line.split()[-1] for line in lines if line.startswith("A") or line.startswith("??")]
 
             summary_parts = []
             if modified:
@@ -142,7 +143,7 @@ class SpeculativePreComputationEngine:
             logger.debug(f"[SpeculativeEngine] Git scan skipped: {e}")
             return None
 
-    def observe_terminal_error(self, command: str, returncode: int, stderr: str) -> Optional[Dict[str, Any]]:
+    def observe_terminal_error(self, command: str, returncode: int, stderr: str) -> dict[str, Any] | None:
         """
         Proactively intercepts terminal failures and pre-synthesizes immediate fixes.
         """
@@ -150,7 +151,7 @@ class SpeculativePreComputationEngine:
             return None
 
         self._last_error_context = stderr.strip()
-        first_error_line = [l for l in stderr.splitlines() if "error" in l.lower() or "exception" in l.lower()]
+        first_error_line = [line for line in stderr.splitlines() if "error" in line.lower() or "exception" in line.lower()]
         summary = first_error_line[0] if first_error_line else stderr.splitlines()[-1]
 
         # Heuristic fix generation
@@ -177,7 +178,7 @@ class SpeculativePreComputationEngine:
             metadata={"command": command, "returncode": returncode}
         )
 
-    def get_status_report(self) -> Dict[str, Any]:
+    def get_status_report(self) -> dict[str, Any]:
         """Returns diagnostic metrics on cached speculative assets."""
         self._prune_expired()
         return {

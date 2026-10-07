@@ -3,15 +3,16 @@ System Diagnostics & Real-Time Probing Router for Project J.A.R.V.I.S.
 Performs live health checks across MQTT Fast-Path, Ollama Local LLM, AWS Cloud, and Host Hardware.
 """
 
+import json
 import os
+import socket
 import sys
 import time
-import socket
-import urllib.request
 import urllib.error
-import json
+import urllib.request
+from typing import Any, Dict
+
 from fastapi import APIRouter
-from typing import Dict, Any
 
 try:
     import psutil
@@ -35,7 +36,7 @@ logger = get_logger("JarvisDiagnosticsAPI")
 router = APIRouter(prefix="/api/v1/diagnostics", tags=["Diagnostics & System Health"])
 
 
-def probe_mqtt(host: str, port: int, timeout: float = 0.5) -> Dict[str, Any]:
+def probe_mqtt(host: str, port: int, timeout: float = 0.5) -> dict[str, Any]:
     """Probes local MQTT broker with a raw TCP socket"""
     t0 = time.perf_counter()
     try:
@@ -60,12 +61,12 @@ def probe_mqtt(host: str, port: int, timeout: float = 0.5) -> Dict[str, Any]:
         }
 
 
-def probe_ollama(endpoint: str = "http://127.0.0.1:11434/api/tags", timeout: float = 1.0) -> Dict[str, Any]:
+def probe_ollama(endpoint: str = "http://127.0.0.1:11434/api/tags", timeout: float = 1.0) -> dict[str, Any]:
     """Probes local Ollama instance for installed models"""
     t0 = time.perf_counter()
     req = urllib.request.Request(endpoint, headers={"User-Agent": "JARVIS-Diagnostics/1.0"})
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
             latency_ms = round((time.perf_counter() - t0) * 1000, 2)
             if resp.status == 200:
                 body = json.loads(resp.read().decode("utf-8"))
@@ -97,7 +98,7 @@ def probe_ollama(endpoint: str = "http://127.0.0.1:11434/api/tags", timeout: flo
         }
 
 
-def probe_host_vitals() -> Dict[str, Any]:
+def probe_host_vitals() -> dict[str, Any]:
     """Queries live host OS metrics via psutil"""
     if not PSUTIL_AVAILABLE:
         return {"status": "unavailable", "error": "psutil not installed"}

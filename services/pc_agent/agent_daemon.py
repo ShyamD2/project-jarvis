@@ -4,20 +4,21 @@ Runs continuously on the Windows host, streaming vitals and executing local comm
 """
 
 from __future__ import annotations
+
 import asyncio
 import time
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 try:
+    from .screen_vision import screen_vision
+    from .system_control import system_control
     from .system_monitor import system_monitor
     from .window_manager import window_manager
-    from .system_control import system_control
-    from .screen_vision import screen_vision
 except ImportError:
+    from screen_vision import screen_vision
+    from system_control import system_control
     from system_monitor import system_monitor
     from window_manager import window_manager
-    from system_control import system_control
-    from screen_vision import screen_vision
 from shared.schemas.event_envelope import JarvisEvent
 from shared.sdk_python.jarvis_sdk.event_mesh import mesh
 from shared.sdk_python.jarvis_sdk.logger import get_logger
@@ -32,7 +33,7 @@ class PCDaemon:
 
         # Sentry Mode Settings
         self.sentry_mode_enabled = True
-        self._alert_cooldowns: Dict[str, float] = {}
+        self._alert_cooldowns: dict[str, float] = {}
         self._cooldown_seconds = 900.0  # 15 minutes between identical warnings
 
         # Proximity Presence Settings
@@ -43,24 +44,24 @@ class PCDaemon:
         self._device_present = True
         self._last_proximity_check = 0.0
 
-    def enable_sentry_mode(self) -> Dict[str, Any]:
+    def enable_sentry_mode(self) -> dict[str, Any]:
         self.sentry_mode_enabled = True
         logger.info("🛡️ [PCDaemon] Sentry Mode armed.")
         return {"status": "armed", "message": "Sentry Mode activated, sir. Hardware telemetry and proactive monitoring engaged."}
 
-    def disable_sentry_mode(self) -> Dict[str, Any]:
+    def disable_sentry_mode(self) -> dict[str, Any]:
         self.sentry_mode_enabled = False
         logger.info("🛡️ [PCDaemon] Sentry Mode disarmed.")
         return {"status": "disarmed", "message": "Sentry Mode standing down, sir."}
 
-    def get_sentry_status(self) -> Dict[str, Any]:
+    def get_sentry_status(self) -> dict[str, Any]:
         return {
             "sentry_mode": "ARMED" if self.sentry_mode_enabled else "STANDBY",
             "cooldown_seconds": self._cooldown_seconds,
             "active_alerts_in_cooldown": list(self._alert_cooldowns.keys())
         }
 
-    def enable_proximity_lock(self, target_ip: Optional[str] = None) -> Dict[str, Any]:
+    def enable_proximity_lock(self, target_ip: Optional[str] = None) -> dict[str, Any]:
         if target_ip:
             self.proximity_target = target_ip.strip()
         if not self.proximity_target:
@@ -71,12 +72,12 @@ class PCDaemon:
         logger.info(f"🔒 [PCDaemon] Proximity Watchdog armed targeting {self.proximity_target}")
         return {"success": True, "target": self.proximity_target, "message": f"Proximity watchdog armed for {self.proximity_target}. Auto-lock enabled."}
 
-    def disable_proximity_lock(self) -> Dict[str, Any]:
+    def disable_proximity_lock(self) -> dict[str, Any]:
         self.proximity_enabled = False
         logger.info("🔒 [PCDaemon] Proximity Watchdog disabled.")
         return {"success": True, "message": "Proximity auto-lock standing down, sir."}
 
-    def get_proximity_status(self) -> Dict[str, Any]:
+    def get_proximity_status(self) -> dict[str, Any]:
         return {
             "enabled": self.proximity_enabled,
             "target": self.proximity_target or "Not configured",
@@ -84,7 +85,7 @@ class PCDaemon:
             "unreachable_streak": self._proximity_unreachable_count
         }
 
-    async def _check_sentry_alerts(self, vitals: Dict[str, Any]):
+    async def _check_sentry_alerts(self, vitals: dict[str, Any]):
         """Evaluates system vitals and fires proactive notifications if thresholds are breached"""
         if not self.sentry_mode_enabled:
             return

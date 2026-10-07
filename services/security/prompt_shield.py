@@ -6,11 +6,13 @@ Phase 36: Adds DNS-Rebinding Defense & SSRF Protection (Item 62 & Critical Corre
 """
 
 from __future__ import annotations
+
+import ipaddress
 import re
 import socket
-import ipaddress
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-from typing import Dict, Any, List, Optional, Tuple
+
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisPromptShield")
@@ -35,7 +37,7 @@ class PromptShield:
             re.compile(pat, re.IGNORECASE) for pat in INJECTION_PATTERNS
         ]
 
-    def detect_prompt_injection(self, text: str) -> Dict[str, Any]:
+    def detect_prompt_injection(self, text: str) -> dict[str, Any]:
         """Scans arbitrary text for adversarial prompt injection patterns."""
         if not text:
             return {"is_suspicious": False, "risk_level": "CLEAN", "matched_patterns": []}
@@ -100,7 +102,7 @@ class PromptShield:
         )
         return envelope
 
-    def validate_url_ssrf(self, target_url: str) -> Tuple[bool, Optional[str]]:
+    def validate_url_ssrf(self, target_url: str) -> tuple[bool, str | None]:
         """
         SSRF Protection with DNS Rebinding Defense (Critical Correction #8 & Item 62).
         Resolves hostname and verifies that NONE of the resolved IP addresses point to:
@@ -119,7 +121,7 @@ class PromptShield:
                 return False, "BLOCKED_SSRF: Target URL has no valid hostname."
 
             # Literal localhost strings
-            if hostname.lower() in ["localhost", "127.0.0.1", "0.0.0.0", "::1"]:
+            if hostname.lower() in ["localhost", "127.0.0.1", "0.0.0.0", "::1"]:  # nosec B104
                 return False, f"BLOCKED_SSRF: Direct access to local host target '{hostname}' is prohibited."
 
             # Resolve all DNS IPs for the hostname to defeat DNS rebinding attacks
@@ -154,7 +156,7 @@ class PromptShield:
         except Exception as e:
             return False, f"BLOCKED_SSRF: Validation error: {e}"
 
-    def validate_command_safety(self, cmd: str) -> Tuple[bool, Optional[str]]:
+    def validate_command_safety(self, cmd: str) -> tuple[bool, str | None]:
         """Validates command line string against common command injection, PowerShell escapes, and subshell escalation patterns."""
         if not cmd:
             return True, None
@@ -205,7 +207,7 @@ class PromptShield:
 
         return True, None
 
-    def validate_input(self, text: str) -> Tuple[bool, Optional[str]]:
+    def validate_input(self, text: str) -> tuple[bool, str | None]:
         """Alias for validate_command_safety for CLI / command inputs."""
         return self.validate_command_safety(text)
 

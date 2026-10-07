@@ -5,11 +5,12 @@ the Windows session active, enabling 100% crystal-clear mobile live streaming an
 """
 
 from __future__ import annotations
+
 import os
+import subprocess
 import sys
 import time
-import subprocess
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -89,7 +90,7 @@ class CyberLockManager:
         except Exception:
             return False
 
-    def lock(self, custom_pin: Optional[str] = None) -> Dict[str, Any]:
+    def lock(self, custom_pin: str | None = None) -> dict[str, Any]:
         """Activates full-screen Cyber Lock on physical monitors."""
         if custom_pin:
             self.set_pin(custom_pin)
@@ -117,7 +118,7 @@ class CyberLockManager:
             logger.error(f"[CyberLock] Failed to activate lock: {e}")
             return {"success": False, "error": str(e)}
 
-    def unlock(self, pin: str) -> Dict[str, Any]:
+    def unlock(self, pin: str) -> dict[str, Any]:
         """Validates PIN and dismisses Cyber Lock."""
         stored = self.get_pin()
         if str(pin).strip() != stored:
@@ -126,7 +127,7 @@ class CyberLockManager:
 
         return self.force_unlock()
 
-    def force_unlock(self) -> Dict[str, Any]:
+    def force_unlock(self) -> dict[str, Any]:
         """Directly terminates Cyber Lock GUI process without PIN check (for authorized internal flows)."""
         pid = None
         if os.path.exists(PID_FILE):
@@ -280,7 +281,9 @@ def run_lock_gui():
             cmd = attempt_unlock
             fg_col = "#00ff88"
         else:
-            cmd = lambda n=text: btn_press(n)
+            def make_cmd(n=text):
+                return lambda: btn_press(n)
+            cmd = make_cmd(text)
             fg_col = "#ffffff"
 
         b = tk.Button(grid_frame, text=text, font=("Segoe UI", 12, "bold"), width=4, height=1, bg="#111d33", fg=fg_col, activebackground="#00f0ff", activeforeground="#000", relief="flat", bd=0, command=cmd)

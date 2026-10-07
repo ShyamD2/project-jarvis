@@ -244,7 +244,7 @@ class TestNativeWin32Controls(unittest.TestCase):
 
         # 7. ActionDispatcher dispatch without approval must fail closed
         dispatcher = ActionDispatcher()
-        res_dispatched = asyncio.run(dispatcher.dispatch(action))
+        res_dispatched = asyncio.run(dispatcher.dispatch(action, user_role="OWNER"))
         self.assertFalse(res_dispatched["success"])
         self.assertEqual(res_dispatched["status"], "denied")
         self.assertTrue(res_dispatched["requires_approval"])

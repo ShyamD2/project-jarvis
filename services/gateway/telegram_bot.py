@@ -16,15 +16,17 @@ Comprehensive mobile command center with full system access and simple, plain-En
 """
 
 from __future__ import annotations
+
+import asyncio
+import io
 import os
+import subprocess
 import sys
 import time
-import io
-import asyncio
-import subprocess
-import httpx
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
+import httpx
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
@@ -43,8 +45,8 @@ if sys.stdout is None or sys.stderr is None:
     except Exception:
         pass
 
-from shared.sdk_python.jarvis_sdk.logger import get_logger
 from shared.sdk_python.jarvis_sdk.config import config
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisTelegramGateway")
 
@@ -88,8 +90,8 @@ class JarvisTelegramGateway:
         self._offset = 0
         self._base_url = f"https://api.telegram.org/bot{self.token}" if self.token else ""
         self._file_url = f"https://api.telegram.org/file/bot{self.token}" if self.token else ""
-        self._pending_confirmations: Dict[str, Dict[str, Any]] = {}
-        self._writing_mode: Dict[str, bool] = {}
+        self._pending_confirmations: dict[str, dict[str, Any]] = {}
+        self._writing_mode: dict[str, bool] = {}
 
     @property
     def is_configured(self) -> bool:
@@ -104,8 +106,8 @@ class JarvisTelegramGateway:
         self,
         chat_id: int | str,
         text: str,
-        parse_mode: Optional[str] = None,
-        reply_markup: Optional[Dict[str, Any]] = None
+        parse_mode: str | None = None,
+        reply_markup: dict[str, Any] | None = None
     ) -> bool:
         """Sends a text message to a Telegram chat with optional interactive keyboard"""
         if not self.token:
@@ -124,7 +126,7 @@ class JarvisTelegramGateway:
             logger.warning(f"[TelegramGateway] Failed to send message to {chat_id}: {e}")
             return False
 
-    async def broadcast_to_authorized(self, text: str, parse_mode: Optional[str] = None) -> int:
+    async def broadcast_to_authorized(self, text: str, parse_mode: str | None = None) -> int:
         """Broadcasts a notification message to all authorized Telegram user IDs"""
         if not self.token or not self.allowed_users:
             return 0
@@ -142,8 +144,8 @@ class JarvisTelegramGateway:
         self,
         chat_id: int | str,
         photo_path: str,
-        caption: Optional[str] = None,
-        parse_mode: Optional[str] = None
+        caption: str | None = None,
+        parse_mode: str | None = None
     ) -> bool:
         """Sends a photo/screenshot to a Telegram chat"""
         if not self.token or not os.path.exists(photo_path):
@@ -177,7 +179,7 @@ class JarvisTelegramGateway:
         except Exception:
             return False
 
-    async def answer_callback_query(self, callback_query_id: str, text: Optional[str] = None) -> bool:
+    async def answer_callback_query(self, callback_query_id: str, text: str | None = None) -> bool:
         """Acknowledges an interactive Telegram inline callback query"""
         if not self.token or not callback_query_id:
             return False
@@ -192,7 +194,7 @@ class JarvisTelegramGateway:
         except Exception:
             return False
 
-    async def download_file(self, file_id: str) -> Optional[bytes]:
+    async def download_file(self, file_id: str) -> bytes | None:
         """Downloads a file or voice note from Telegram servers"""
         if not self.token:
             return None
@@ -209,7 +211,7 @@ class JarvisTelegramGateway:
             logger.warning(f"[TelegramGateway] File download error: {e}")
         return None
 
-    async def transcribe_audio_bytes(self, audio_bytes: bytes) -> Optional[str]:
+    async def transcribe_audio_bytes(self, audio_bytes: bytes) -> str | None:
         """Transcribes incoming voice note via Groq Whisper or Gemini"""
         groq_key = os.getenv("GROQ_API_KEY", "").strip()
         if groq_key:
@@ -252,7 +254,7 @@ class JarvisTelegramGateway:
 
         return None
 
-    async def handle_callback_query(self, cb: Dict[str, Any]):
+    async def handle_callback_query(self, cb: dict[str, Any]):
         """Handles interactive inline keyboard trackpad clicks and mouse controls"""
         cb_id = cb.get("id")
         from_user = cb.get("from", {}).get("id")
@@ -294,7 +296,7 @@ class JarvisTelegramGateway:
         except Exception as e:
             logger.debug(f"[TelegramGateway] Callback query handling error: {e}")
 
-    async def handle_update(self, update: Dict[str, Any]):
+    async def handle_update(self, update: dict[str, Any]):
         """Processes an incoming Telegram message update with full system control and simple words"""
         callback_query = update.get("callback_query")
         if callback_query:
@@ -398,7 +400,11 @@ class JarvisTelegramGateway:
             "/trackpad", "/mouse", "/stream", "/live", "/remote",
             "trackpad", "mouse", "remote", "live", "stream", "video", "live stream"
         ]:
-            from services.gateway.remote_trackpad_server import get_local_ip, get_public_url, get_operator_token
+            from services.gateway.remote_trackpad_server import (
+                get_local_ip,
+                get_operator_token,
+                get_public_url,
+            )
             from services.security.cyber_lock import get_stored_pin
             local_ip = get_local_ip()
             public_url = get_public_url()
@@ -555,7 +561,7 @@ class JarvisTelegramGateway:
         # Automatically launch live screen stream & touch trackpad server on LAN (port 8085)
         try:
             from services.gateway.remote_trackpad_server import start_trackpad_server
-            start_trackpad_server(host="0.0.0.0", port=8085)
+            start_trackpad_server(host="0.0.0.0", port=8085)  # nosec B104
         except Exception as e:
             logger.warning(f"[TelegramGateway] Could not auto-start trackpad server: {e}")
 

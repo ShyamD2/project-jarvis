@@ -15,18 +15,18 @@ Provides end-to-end disaster preparedness validation:
 
 from __future__ import annotations
 
+import argparse
+import hashlib
+import hmac
+import json
 import os
+import shutil
+import sqlite3
 import sys
 import time
-import json
-import hmac
 import uuid
-import shutil
-import hashlib
 import zipfile
-import sqlite3
-import argparse
-from typing import Dict, Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 DEFAULT_BACKUP_DIR = os.path.join(PROJECT_ROOT, "backups", "drills")
@@ -66,10 +66,10 @@ class DisasterRecoveryDrill:
 
     def __init__(
         self,
-        root_dir: Optional[str] = None,
-        backup_dir: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        targets: Optional[List[str]] = None,
+        root_dir: str | None = None,
+        backup_dir: str | None = None,
+        secret_key: str | None = None,
+        targets: list[str] | None = None,
     ):
         self.root_dir = os.path.abspath(root_dir or PROJECT_ROOT)
         self.backup_dir = os.path.abspath(backup_dir or DEFAULT_BACKUP_DIR)
@@ -77,13 +77,13 @@ class DisasterRecoveryDrill:
         self.critical_targets = list(targets if targets is not None else DEFAULT_CRITICAL_TARGETS)
         os.makedirs(self.backup_dir, exist_ok=True)
 
-    def _sign_manifest(self, manifest_data: Dict[str, Any]) -> str:
+    def _sign_manifest(self, manifest_data: dict[str, Any]) -> str:
         """Generates HMAC-SHA256 signature for canonical manifest files mapping."""
         # Sign canonical serialization of files dictionary
         canonical = json.dumps(manifest_data.get("files", {}), sort_keys=True, separators=(",", ":"))
         return hmac.new(self.secret_key.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
 
-    def _verify_manifest_signature(self, manifest_data: Dict[str, Any]) -> bool:
+    def _verify_manifest_signature(self, manifest_data: dict[str, Any]) -> bool:
         """Verifies HMAC-SHA256 signature against the manifest files mapping."""
         expected_sig = manifest_data.get("signature", "")
         if not expected_sig:
@@ -91,7 +91,7 @@ class DisasterRecoveryDrill:
         calculated = self._sign_manifest(manifest_data)
         return hmac.compare_digest(expected_sig, calculated)
 
-    def get_existing_targets(self, source_dir: Optional[str] = None) -> List[str]:
+    def get_existing_targets(self, source_dir: str | None = None) -> list[str]:
         """Resolves critical target files that currently exist on disk."""
         src = os.path.abspath(source_dir or self.root_dir)
         existing = []
@@ -103,10 +103,10 @@ class DisasterRecoveryDrill:
 
     def backup_all_state(
         self,
-        backup_dir: Optional[str] = None,
-        source_dir: Optional[str] = None,
+        backup_dir: str | None = None,
+        source_dir: str | None = None,
         label: str = "drill",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Collects all critical state DBs, audit logs, and config files.
         Computes SHA-256 hashes and generates a signed manifest.json,
@@ -122,7 +122,7 @@ class DisasterRecoveryDrill:
         archive_name = f"{backup_id}.zip"
         archive_path = os.path.join(dest_backup_dir, archive_name)
 
-        manifest: Dict[str, Any] = {
+        manifest: dict[str, Any] = {
             "manifest_version": "2.0",
             "backup_id": backup_id,
             "created_at": time.time(),
@@ -172,9 +172,9 @@ class DisasterRecoveryDrill:
 
     def simulate_disaster(
         self,
-        target_paths: Union[str, List[str]],
+        target_paths: str | list[str],
         mode: str = "corrupt",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Safely simulates catastrophic loss or byte-corruption of SQLite DBs or configs
         in an isolated scratch/test directory.
@@ -184,7 +184,7 @@ class DisasterRecoveryDrill:
           - 'truncate': Empties file to 0 bytes.
           - 'mixed': Corrupts headers on half, deletes the remainder.
         """
-        resolved_files: List[str] = []
+        resolved_files: list[str] = []
 
         if isinstance(target_paths, str):
             if os.path.isdir(target_paths):
@@ -202,9 +202,9 @@ class DisasterRecoveryDrill:
                 elif os.path.isfile(p):
                     resolved_files.append(p)
 
-        corrupted: List[str] = []
-        deleted: List[str] = []
-        truncated: List[str] = []
+        corrupted: list[str] = []
+        deleted: list[str] = []
+        truncated: list[str] = []
 
         for idx, file_path in enumerate(resolved_files):
             current_mode = mode
@@ -247,7 +247,7 @@ class DisasterRecoveryDrill:
         self,
         backup_id_or_path: str,
         destination_dir: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Restores files from backup archive/manifest.
         Verifies SHA-256 hashes against the signed manifest during restore,
@@ -297,9 +297,9 @@ class DisasterRecoveryDrill:
                     }
 
                 files_manifest = manifest.get("files", {})
-                restored_files: List[str] = []
-                corrupted_files: List[str] = []
-                verified_hashes: Dict[str, bool] = {}
+                restored_files: list[str] = []
+                corrupted_files: list[str] = []
+                verified_hashes: dict[str, bool] = {}
 
                 # 3. Verify member integrity and extract
                 for rel_path, meta in files_manifest.items():
@@ -364,7 +364,7 @@ class DisasterRecoveryDrill:
                 "restored_files": [],
             }
 
-    def verify_post_restore_health(self, target_dir: Optional[str] = None) -> Dict[str, Any]:
+    def verify_post_restore_health(self, target_dir: str | None = None) -> dict[str, Any]:
         """
         Probes restored databases:
           - Runs SELECT queries, verifies schema integrity, PRAGMA integrity_check.
@@ -372,9 +372,9 @@ class DisasterRecoveryDrill:
           - Confirms system status is 100% ONLINE with zero data loss.
         """
         base_dir = os.path.abspath(target_dir or self.root_dir)
-        checks: Dict[str, Any] = {}
+        checks: dict[str, Any] = {}
         all_healthy = True
-        failed_checks: List[str] = []
+        failed_checks: list[str] = []
 
         # 1. Probe SQLite databases
         sqlite_reports = {}
@@ -409,7 +409,7 @@ class DisasterRecoveryDrill:
 
                 for t in tables:
                     try:
-                        cur.execute(f"SELECT COUNT(*) as cnt FROM {t};")
+                        cur.execute(f"SELECT COUNT(*) as cnt FROM {t};")  # nosec B608
                         cnt = cur.fetchone()["cnt"]
                         db_status["tables"][t] = {"row_count": cnt, "readable": True}
                     except Exception as ex:
@@ -597,7 +597,7 @@ class DisasterRecoveryDrill:
         with open(pyproj, "w", encoding="utf-8") as f:
             f.write("[project]\nname = 'jarvis-agentos'\nversion = '2.0.0'\n")
 
-    def run_full_drill(self, isolated_dir: Optional[str] = None) -> Dict[str, Any]:
+    def run_full_drill(self, isolated_dir: str | None = None) -> dict[str, Any]:
         """
         Executes the entire drill cycle:
           1. Backup state & compute SHA-256 manifest.

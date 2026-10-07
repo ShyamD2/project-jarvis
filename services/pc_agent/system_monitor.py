@@ -4,10 +4,12 @@ Monitors CPU, RAM, active foreground window, and meeting presence state.
 """
 
 from __future__ import annotations
-import psutil
-import time
+
 import sys
-from typing import Dict, Any, Optional
+import time
+from typing import Any, Dict, List, Optional
+
+import psutil
 
 try:
     import ctypes
@@ -54,7 +56,7 @@ class SystemMonitor:
             logger.debug(f"Could not iterate processes for meeting presence: {e}")
         return False
 
-    def collect_telemetry(self) -> Dict[str, Any]:
+    def collect_telemetry(self) -> dict[str, Any]:
         """Collects full system vitals snapshot"""
         cpu_pct = psutil.cpu_percent(interval=None)
         mem = psutil.virtual_memory()
@@ -113,7 +115,7 @@ class SystemMonitor:
             "timestamp": now
         }
 
-    def evaluate_health_thresholds(self, telemetry: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def evaluate_health_thresholds(self, telemetry: dict[str, Any]) -> List[dict[str, Any]]:
         """
         Analyzes vitals against safety thresholds:
         - Battery < 20% when unplugged
@@ -121,7 +123,7 @@ class SystemMonitor:
         - CPU > 95%
         - Disk Free < 10 GB
         """
-        alerts: List[Dict[str, Any]] = []
+        alerts: List[dict[str, Any]] = []
 
         # Battery warning
         battery = telemetry.get("battery")

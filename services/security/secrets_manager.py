@@ -8,9 +8,11 @@ Guarantees secrets never leak into LLM contexts, logs, or audit records.
 """
 
 from __future__ import annotations
+
 import os
 import sys
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisSecretsManager")
@@ -18,16 +20,15 @@ logger = get_logger("JarvisSecretsManager")
 
 class SecurityError(Exception):
     """Raised when a security policy or fail-closed secret requirement is violated."""
-    pass
 
 
 class SecretsManager:
     def __init__(self):
         self.env_mode = os.getenv("JARVIS_ENV", "development").lower().strip()
-        self._memory_cache: Dict[str, str] = {}
+        self._memory_cache: dict[str, str] = {}
         self._dpapi_available = sys.platform == "win32"
 
-    def get_secret(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get_secret(self, key: str, default: str | None = None) -> str | None:
         """
         Retrieves a secret following the strict environment hierarchy.
         In PRODUCTION mode, missing secrets FAIL CLOSED and never silently fall back to .env.
@@ -69,7 +70,7 @@ class SecretsManager:
 
         return default
 
-    def _get_production_secret(self, key: str) -> Optional[str]:
+    def _get_production_secret(self, key: str) -> str | None:
         """Attempts to retrieve secret from AWS Secrets Manager if configured."""
         try:
             import boto3
@@ -81,7 +82,7 @@ class SecretsManager:
             pass
         return None
 
-    def _get_windows_credential(self, key: str) -> Optional[str]:
+    def _get_windows_credential(self, key: str) -> str | None:
         """Attempts retrieval via Windows Credential Manager or DPAPI."""
         try:
             import win32cred
@@ -112,11 +113,6 @@ class SecretsManager:
             except Exception as e:
                 logger.debug(f"[SecretsManager] Windows Credential write notice: {e}")
         return True
-
-
-class SecurityError(Exception):
-    """Raised when security boundaries or fail-closed invariants are breached."""
-    pass
 
 
 secrets_manager = SecretsManager()

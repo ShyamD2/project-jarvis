@@ -5,20 +5,22 @@ system reboots, and network disconnects.
 """
 
 from __future__ import annotations
+
+import json
 import os
 import sqlite3
-import json
 import time
 import uuid
-from typing import Dict, Any, List, Optional
-from shared.sdk_python.jarvis_sdk.logger import get_logger
+from typing import Any, Dict, List, Optional
+
 from shared.database import get_sqlite_connection
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisMissionPersistence")
 
 
 class MissionPersistenceManager:
-    def __init__(self, db_path: Optional[str] = None):
+    def __init__(self, db_path: str | None = None):
         if not db_path:
             storage_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "storage"))
             os.makedirs(storage_dir, exist_ok=True)
@@ -59,7 +61,7 @@ class MissionPersistenceManager:
         except Exception as e:
             logger.error(f"[MissionPersistence] SQLite init failed: {e}")
 
-    def save_mission(self, mission_data: Dict[str, Any]) -> str:
+    def save_mission(self, mission_data: dict[str, Any]) -> str:
         """Upserts a mission record into SQLite."""
         m_id = mission_data.get("mission_id") or mission_data.get("id")
         if not m_id:
@@ -96,7 +98,7 @@ class MissionPersistenceManager:
             conn.commit()
         return m_id
 
-    def get_mission(self, mission_id: str) -> Optional[Dict[str, Any]]:
+    def get_mission(self, mission_id: str) -> dict[str, Any] | None:
         with get_sqlite_connection(self.db_path) as conn:
             row = conn.execute("SELECT * FROM missions WHERE mission_id = ?", (mission_id,)).fetchone()
             if not row:
@@ -105,7 +107,7 @@ class MissionPersistenceManager:
             d["live_actions"] = json.loads(d.get("dag_json") or "[]")
             return d
 
-    def list_missions(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_missions(self, limit: int = 50) -> list[dict[str, Any]]:
         with get_sqlite_connection(self.db_path) as conn:
             rows = conn.execute("SELECT * FROM missions ORDER BY updated_at DESC LIMIT ?", (limit,)).fetchall()
             missions = []
@@ -115,7 +117,7 @@ class MissionPersistenceManager:
                 missions.append(d)
             return missions
 
-    def save_checkpoint(self, mission_id: str, step_index: int, snapshot: Dict[str, Any]) -> str:
+    def save_checkpoint(self, mission_id: str, step_index: int, snapshot: dict[str, Any]) -> str:
         """Saves an execution checkpoint snapshot for crash recovery."""
         cp_id = f"cp_{uuid.uuid4().hex[:8]}"
         now = time.time()
@@ -130,7 +132,7 @@ class MissionPersistenceManager:
             conn.commit()
         return cp_id
 
-    def get_latest_checkpoint(self, mission_id: str) -> Optional[Dict[str, Any]]:
+    def get_latest_checkpoint(self, mission_id: str) -> dict[str, Any] | None:
         with get_sqlite_connection(self.db_path) as conn:
             row = conn.execute(
                 "SELECT * FROM checkpoints WHERE mission_id = ? ORDER BY step_index DESC LIMIT 1",
@@ -142,12 +144,12 @@ class MissionPersistenceManager:
             d["snapshot"] = json.loads(d.get("snapshot_json") or "{}")
             return d
 
-    def get_interrupted_missions(self) -> List[Dict[str, Any]]:
+    def get_interrupted_missions(self) -> list[dict[str, Any]]:
         """Returns all missions in non-terminal active phases that survived a crash."""
         terminal_phases = ("complete", "aborted", "failed")
         with get_sqlite_connection(self.db_path) as conn:
             rows = conn.execute(
-                f"SELECT * FROM missions WHERE current_phase NOT IN ({','.join(['?']*len(terminal_phases))})",
+                f"SELECT * FROM missions WHERE current_phase NOT IN ({','.join(['?']*len(terminal_phases))})",  # nosec B608
                 terminal_phases
             ).fetchall()
             return [dict(r) for r in rows]

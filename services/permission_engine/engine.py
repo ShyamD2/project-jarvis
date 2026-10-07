@@ -5,21 +5,24 @@ Single-Use Capability Leases, Replay Protection, and Policy Simulation.
 """
 
 from __future__ import annotations
+
+import hashlib
 import os
 import time
 import uuid
-import yaml
-import hashlib
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
 
 from shared.schemas.action_envelope import ActionEnvelope, ActionTier, TargetWorld
+
 try:
-    from .risk_classifier import classifier
     from .policy import policy
+    from .risk_classifier import classifier
 except ImportError:
-    from risk_classifier import classifier
     from policy import policy
+    from risk_classifier import classifier
 from shared.sdk_python.jarvis_sdk.config import config
 from shared.sdk_python.jarvis_sdk.logger import get_logger
 
@@ -42,12 +45,12 @@ class PermissionDecision:
     rationale: str
     requires_explicit_approval: bool = False
     requires_mfa: bool = False
-    approval_id: Optional[str] = None
+    approval_id: str | None = None
     audit_id: str = field(default_factory=lambda: f"audit_{uuid.uuid4().hex[:8]}")
     timestamp: float = field(default_factory=time.time)
-    single_use_lease_id: Optional[str] = None
+    single_use_lease_id: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "authorized": self.authorized,
             "tier": self.tier.value if hasattr(self.tier, "value") else str(self.tier),
@@ -74,7 +77,7 @@ class ActionLease:
     consumed: bool = False
     issued_by: str = "operator"
 
-    def is_valid(self, action_name: str, parameters_hash: str, device_id: Optional[str] = None) -> Tuple[bool, str]:
+    def is_valid(self, action_name: str, parameters_hash: str, device_id: str | None = None) -> tuple[bool, str]:
         if self.consumed:
             return False, "BLOCKED_REPLAY: Action lease has already been consumed (replay detected)."
         if time.time() > self.expires_at:
@@ -108,26 +111,26 @@ class PendingApproval:
     risk_level: str
     tier: str
     rationale: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     status: str = "PENDING"  # PENDING, APPROVED, REJECTED, CONSUMED, EXPIRED
     created_at: float = field(default_factory=time.time)
-    approved_by: Optional[str] = None
-    approved_at: Optional[float] = None
+    approved_by: str | None = None
+    approved_at: float | None = None
     nonce: str = field(default_factory=lambda: uuid.uuid4().hex)
     lease_ttl_seconds: float = 300.0  # 5 minutes validity
 
 
 class PermissionEngine:
     def __init__(self):
-        self.audit_log: List[Dict[str, Any]] = []
-        self._pending_approvals: Dict[str, PendingApproval] = {}
+        self.audit_log: list[dict[str, Any]] = []
+        self._pending_approvals: dict[str, PendingApproval] = {}
         # Single-use active capability leases: action_id -> PendingApproval
-        self._active_leases: Dict[str, PendingApproval] = {}
-        self._action_leases: Dict[str, ActionLease] = {}
+        self._active_leases: dict[str, PendingApproval] = {}
+        self._action_leases: dict[str, ActionLease] = {}
         self._consumed_nonces: set[str] = set()
         self.policies = self._load_policies()
 
-    def _load_policies(self) -> Dict[str, Any]:
+    def _load_policies(self) -> dict[str, Any]:
         """Loads declarative policies from policies/security_policies.yaml."""
         if os.path.exists(POLICY_FILE_PATH):
             try:
@@ -145,10 +148,10 @@ class PermissionEngine:
     def evaluate(
         self,
         action: ActionEnvelope,
-        approval_token: Optional[str] = None,
+        approval_token: str | None = None,
         confidence: float = 1.0,
         user_role: str = "OPERATOR",
-        environment: Optional[str] = None
+        environment: str | None = None
     ) -> PermissionDecision:
         """
         Multi-Factor Decision Function (Phase 36 Item 4 & Invariant):
@@ -312,7 +315,19 @@ class PermissionEngine:
             self._record_audit(action, decision)
             return decision
 
-        # 5. Multi-Factor Decision: Tier 3 Destructive ALWAYS mandates explicit human approval ticket & MFA
+        # 5. RBAC Role Verification
+        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
+        if not role_allowed:
+            decision = PermissionDecision(
+                authorized=False,
+                tier=effective_tier,
+                risk_level=risk_level,
+                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
+            )
+            self._record_audit(action, decision)
+            return decision
+
+        # 6. Multi-Factor Decision: Tier 3 Destructive ALWAYS mandates explicit human approval ticket & MFA
         if effective_tier == ActionTier.TIER_3_DESTRUCTIVE:
             app_req = self._create_approval_request(action, effective_tier, risk_level, rationale)
             decision = PermissionDecision(
@@ -323,18 +338,6 @@ class PermissionEngine:
                 requires_explicit_approval=True,
                 requires_mfa=True,
                 approval_id=app_req.approval_id
-            )
-            self._record_audit(action, decision)
-            return decision
-
-        # 6. RBAC Role Verification
-        role_allowed = self._check_rbac_role(user_role, effective_tier, action.name)
-        if not role_allowed:
-            decision = PermissionDecision(
-                authorized=False,
-                tier=effective_tier,
-                risk_level=risk_level,
-                rationale=f"BLOCKED_RBAC: Role '{user_role}' is not authorized to execute tier '{effective_tier.value}' for tool '{action.name}'."
             )
             self._record_audit(action, decision)
             return decision
@@ -400,7 +403,7 @@ class PermissionEngine:
         self._pending_approvals[app_id] = req
         return req
 
-    def get_pending_approvals(self) -> List[Dict[str, Any]]:
+    def get_pending_approvals(self) -> list[dict[str, Any]]:
         """Returns list of all active pending approval requests."""
         return [
             {
@@ -420,7 +423,7 @@ class PermissionEngine:
             if req.status == "PENDING"
         ]
 
-    def approve_request(self, approval_id: str, approver: str = "operator", token: Optional[str] = None) -> bool:
+    def approve_request(self, approval_id: str, approver: str = "operator", token: str | None = None) -> bool:
         """Approves a pending ticket and creates an active single-use capability lease."""
         req = self._pending_approvals.get(approval_id)
         if not req or req.status != "PENDING":
@@ -450,9 +453,9 @@ class PermissionEngine:
         self,
         user_role: str,
         tool_name: str,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
         environment: str = "development"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Dry-run policy evaluation (Phase 36 Item 45)."""
         params = parameters or {}
         tool_cfg = self.policies.get("tools", {}).get(tool_name, {})
@@ -505,7 +508,7 @@ class PermissionEngine:
     def issue_action_lease(
         self,
         tool_name: str,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
         device_id: str = "local_node",
         ttl_seconds: float = 300.0,
         issued_by: str = "operator"
@@ -538,19 +541,19 @@ class PermissionEngine:
             return True
         return False
 
-    def get_action_lease(self, lease_id: str) -> Optional[ActionLease]:
+    def get_action_lease(self, lease_id: str) -> ActionLease | None:
         return self._action_leases.get(lease_id)
 
     def evaluate_action(
         self,
         action_name: str,
-        parameters: Optional[Dict[str, Any]] = None,
-        approval_token: Optional[str] = None,
+        parameters: dict[str, Any] | None = None,
+        approval_token: str | None = None,
         target_world: TargetWorld = TargetWorld.COMPUTER,
         target_agent: str = "primary_agent",
         tier: ActionTier = ActionTier.TIER_2_MUTATING,
         user_role: str = "OPERATOR",
-        environment: Optional[str] = None
+        environment: str | None = None
     ) -> PermissionDecision:
         """High-level action evaluation with automatic ActionEnvelope wrapping."""
         action = ActionEnvelope(

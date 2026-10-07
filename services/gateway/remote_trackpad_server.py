@@ -9,32 +9,34 @@ Features:
 6. Sub-millisecond WebSocket connection with HTTP fallback
 """
 from __future__ import annotations
-import os
-import sys
-import io
-import re
-import time
-import socket
+
 import asyncio
-import threading
-import subprocess
 import ctypes
+import io
+import os
+import re
 import secrets
-from typing import Optional, Dict, Any
-from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+import socket
+import subprocess
+import sys
+import threading
+import time
+from typing import Any, Dict, Optional
+
 import uvicorn
+from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, StreamingResponse
 from PIL import ImageGrab
+from pydantic import BaseModel
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, PROJECT_ROOT)
 
-from shared.sdk_python.jarvis_sdk.logger import get_logger
-from agents.computer.mouse_agent import mouse_agent
 from agents.computer.keyboard_agent import keyboard_agent
+from agents.computer.mouse_agent import mouse_agent
 from agents.computer.windows_agent import windows_agent
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisTrackpadServer")
 
@@ -49,7 +51,7 @@ app.add_middleware(
 )
 
 _public_url: str = ""
-_tunnel_process: Optional[subprocess.Popen] = None
+_tunnel_process: subprocess.Popen | None = None
 
 _OPERATOR_TOKEN_FILE = os.path.join(PROJECT_ROOT, "services", "gateway", "operator_token.txt")
 
@@ -324,7 +326,7 @@ async def generate_mjpeg_frames():
             await asyncio.sleep(0.3)
 
 
-def launch_floating_hud() -> Dict[str, Any]:
+def launch_floating_hud() -> dict[str, Any]:
     """Ensures the 3D floating HUD window is launched on Default desktop, restored, and brought to foreground."""
     try:
         from agents.computer.power_agent import power_agent
@@ -337,7 +339,7 @@ def launch_floating_hud() -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def close_floating_hud() -> Dict[str, Any]:
+def close_floating_hud() -> dict[str, Any]:
     """Closes the floating HUD window."""
     try:
         import ctypes
@@ -360,13 +362,13 @@ def close_floating_hud() -> Dict[str, Any]:
         return {"success": False, "error": str(e)}
 
 
-def verify_token(token: Optional[str]) -> bool:
+def verify_token(token: str | None) -> bool:
     """Verifies that request originates from authenticated operator phone."""
     return bool(token and token == get_operator_token())
 
 
 @app.get("/stream")
-async def stream_screen(token: Optional[str] = None):
+async def stream_screen(token: str | None = None):
     """Live MJPEG video stream of the Windows desktop (Token Authenticated)."""
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
@@ -386,7 +388,7 @@ _last_snapshot_time = 0.0
 
 
 @app.get("/api/screen/snapshot")
-async def get_screen_snapshot(token: Optional[str] = None):
+async def get_screen_snapshot(token: str | None = None):
     """Returns an instantaneous single JPEG frame of the active desktop (Token Authenticated, Low-CPU Cached)."""
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
@@ -422,7 +424,7 @@ async def get_screen_snapshot(token: Optional[str] = None):
 
 
 @app.get("/api/screen/info")
-def get_screen_info(token: Optional[str] = None):
+def get_screen_info(token: str | None = None):
     """Returns the primary screen width and height (Token Authenticated)."""
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
@@ -501,28 +503,28 @@ async def trackpad_websocket(websocket: WebSocket):
 
 
 @app.post("/api/hud/launch")
-def api_launch_hud(token: Optional[str] = None):
+def api_launch_hud(token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return launch_floating_hud()
 
 
 @app.post("/api/hud/close")
-def api_close_hud(token: Optional[str] = None):
+def api_close_hud(token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return close_floating_hud()
 
 
 @app.post("/api/mouse/move")
-def move_mouse(req: MoveRequest, token: Optional[str] = None):
+def move_mouse(req: MoveRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return mouse_agent.move_relative(req.dx, req.dy)
 
 
 @app.post("/api/mouse/abs_click")
-def abs_click_mouse(req: AbsClickRequest, token: Optional[str] = None):
+def abs_click_mouse(req: AbsClickRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     mouse_agent.move_cursor(int(req.x), int(req.y), smooth=False)
@@ -530,14 +532,14 @@ def abs_click_mouse(req: AbsClickRequest, token: Optional[str] = None):
 
 
 @app.post("/api/mouse/click")
-def click_mouse(req: ClickRequest, token: Optional[str] = None):
+def click_mouse(req: ClickRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return mouse_agent.click(button=req.button.lower())
 
 
 @app.post("/api/mouse/scroll")
-def scroll_mouse(req: ScrollRequest, token: Optional[str] = None):
+def scroll_mouse(req: ScrollRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     direction = "down" if req.delta < 0 else "up"
@@ -545,14 +547,14 @@ def scroll_mouse(req: ScrollRequest, token: Optional[str] = None):
 
 
 @app.post("/api/keyboard/type")
-def type_text(req: TypeRequest, token: Optional[str] = None):
+def type_text(req: TypeRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return keyboard_agent.type_text(req.text)
 
 
 @app.post("/api/keyboard/key")
-def press_key(req: KeyRequest, token: Optional[str] = None):
+def press_key(req: KeyRequest, token: str | None = None):
     if not verify_token(token):
         return Response(content=b"Unauthorized", status_code=403)
     return keyboard_agent.press_key(req.key)
@@ -573,7 +575,7 @@ def api_verify_pin(req: PinVerifyRequest):
 
 
 @app.get("/live", response_class=HTMLResponse)
-def live_screen_page(token: Optional[str] = None):
+def live_screen_page(token: str | None = None):
     """Full-screen live desktop video stream viewer with zero-blackout architecture."""
     html_content = """<!DOCTYPE html>
 <html lang="en">
@@ -1878,10 +1880,10 @@ def remote_trackpad_page():
     return HTMLResponse(content=html_content)
 
 
-_server_thread: Optional[threading.Thread] = None
+_server_thread: threading.Thread | None = None
 
 
-def start_trackpad_server(host: str = "0.0.0.0", port: int = 8085):
+def start_trackpad_server(host: str = "0.0.0.0", port: int = 8085):  # nosec B104
     """Starts the remote trackpad, live stream server, and Cloudflare tunnel in background."""
     global _server_thread
     if _server_thread and _server_thread.is_alive():

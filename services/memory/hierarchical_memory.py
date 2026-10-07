@@ -11,21 +11,26 @@ Coordinates all 7 cognitive memory tiers:
 """
 
 from __future__ import annotations
-import os
+
 import json
+import os
 import time
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 try:
-    from .short_term import short_term_memory
     from .feedback_learning import learner
     from .knowledge_rag import knowledge_rag
     from .long_term import long_term_memory
+    from .short_term import short_term_memory
 except ImportError:
-    from short_term import short_term_memory
     from feedback_learning import learner
     from knowledge_rag import knowledge_rag
     from long_term import long_term_memory
+    from short_term import short_term_memory
+
+from shared.sdk_python.jarvis_sdk.logger import get_logger
+
+logger = get_logger("HierarchicalMemory")
 
 STORAGE_DIR = os.path.join(os.path.dirname(__file__), "storage")
 os.makedirs(STORAGE_DIR, exist_ok=True)
@@ -36,7 +41,7 @@ EPISODIC_FILE = os.path.join(STORAGE_DIR, "episodic_memory.json")
 
 class HierarchicalMemory:
     def __init__(self):
-        self.procedural: Dict[str, Any] = self._load_json(PROCEDURAL_FILE, {
+        self.procedural: dict[str, Any] = self._load_json(PROCEDURAL_FILE, {
             "deploy_docker": {
                 "steps": ["build_image", "run_container", "verify_healthcheck"],
                 "last_success": time.time(),
@@ -58,7 +63,7 @@ class HierarchicalMemory:
             os.path.expandvars(r"%LOCALAPPDATA%\Programs\Opera GX\opera.exe")
             if os.name == "nt" else "/usr/bin/google-chrome"
         )
-        self.semantic: Dict[str, Any] = self._load_json(SEMANTIC_FILE, {
+        self.semantic: dict[str, Any] = self._load_json(SEMANTIC_FILE, {
             "entities": {
                 "opera_gx": {"type": "browser", "path": default_browser_path},
                 "esp32_lab_01": {"type": "iot_node", "ip": "192.168.1.105", "sensors": ["lux", "temp"]},
@@ -66,10 +71,10 @@ class HierarchicalMemory:
             }
         })
 
-        self.episodic: List[Dict[str, Any]] = self._load_json(EPISODIC_FILE, [])
+        self.episodic: list[dict[str, Any]] = self._load_json(EPISODIC_FILE, [])
         short_term_memory.register_archive_callback(self._on_turns_archived)
 
-    def _on_turns_archived(self, turns: List[Any], summary: str):
+    def _on_turns_archived(self, turns: list[Any], summary: str):
         self.remember_episode(
             event_name="conversation_distillation",
             outcome="ARCHIVED",
@@ -98,10 +103,10 @@ class HierarchicalMemory:
             logger.error(f"Failed to save memory file '{path}': {e}")
 
     # Tier 1 & 2: Working & Conversation
-    def add_conversation_turn(self, role: str, content: str, intent: Optional[str] = None):
+    def add_conversation_turn(self, role: str, content: str, intent: str | None = None):
         short_term_memory.add_turn(role, content, intent)
 
-    def get_conversation_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_conversation_history(self, limit: int = 10) -> list[dict[str, Any]]:
         return short_term_memory.get_recent_history(limit)
 
     def set_working_context(self, key: str, value: Any):
@@ -111,7 +116,7 @@ class HierarchicalMemory:
         return short_term_memory.context_scratchpad.get(key)
 
     # Tier 3: Episodic
-    def remember_episode(self, event_name: str, outcome: str, details: Dict[str, Any]):
+    def remember_episode(self, event_name: str, outcome: str, details: dict[str, Any]):
         episode = {
             "timestamp": time.time(),
             "event": event_name,
@@ -124,17 +129,17 @@ class HierarchicalMemory:
         self._save_json(EPISODIC_FILE, self.episodic)
 
     # Tier 4: Semantic
-    def get_entity(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_entity(self, name: str) -> dict[str, Any] | None:
         return self.semantic.get("entities", {}).get(name.lower())
 
-    def update_entity(self, name: str, data: Dict[str, Any]):
+    def update_entity(self, name: str, data: dict[str, Any]):
         if "entities" not in self.semantic:
             self.semantic["entities"] = {}
         self.semantic["entities"][name.lower()] = data
         self._save_json(SEMANTIC_FILE, self.semantic)
 
     # Tier 5: Procedural
-    def remember_procedural(self, task_name: str, steps: List[str]):
+    def remember_procedural(self, task_name: str, steps: list[str]):
         self.procedural[task_name] = {
             "steps": steps,
             "last_updated": time.time(),
@@ -142,12 +147,12 @@ class HierarchicalMemory:
         }
         self._save_json(PROCEDURAL_FILE, self.procedural)
 
-    def get_procedure(self, task_name: str) -> Optional[List[str]]:
+    def get_procedure(self, task_name: str) -> list[str] | None:
         proc = self.procedural.get(task_name)
         return proc["steps"] if proc else None
 
     # Tier 6: Preferences & Feedback
-    def get_preferences(self) -> Dict[str, Any]:
+    def get_preferences(self) -> dict[str, Any]:
         prefs = dict(long_term_memory.preferences)
         prefs.update(learner.memory.get("preferences", {}))
         return prefs
@@ -157,25 +162,25 @@ class HierarchicalMemory:
         learner._save_memory()
         long_term_memory.set_preference(key, value)
 
-    def record_experience(self, incident_id: str, learnings: Dict[str, Any]):
+    def record_experience(self, incident_id: str, learnings: dict[str, Any]):
         long_term_memory.record_experience(incident_id, learnings)
 
-    def get_experiences(self) -> Dict[str, Any]:
+    def get_experiences(self) -> dict[str, Any]:
         return long_term_memory.experiences
 
     # Tier 1 & 2: Summary methods
-    def get_condensed_summary(self) -> Optional[str]:
+    def get_condensed_summary(self) -> str | None:
         return short_term_memory.condensed_summary
 
     def compress_working_memory(self) -> str:
         return short_term_memory.compress_history()
 
     # Tier 7: Knowledge & RAG
-    def search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
+    def search_knowledge(self, query: str, limit: int = 3) -> list[dict[str, Any]]:
         return knowledge_rag.search(query, limit)
 
     # Unified Cognitive Recall across all 7 tiers
-    def recall(self, query: str) -> Dict[str, Any]:
+    def recall(self, query: str) -> dict[str, Any]:
         q_lower = query.lower()
         matched_proc = None
         for k, v in self.procedural.items():

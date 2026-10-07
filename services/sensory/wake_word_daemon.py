@@ -5,12 +5,12 @@ and executes commands hands-free without requiring physical mouse or keyboard cl
 Supports single-channel authentic soundboard playback, neural TTS, and instant barge-in.
 """
 
-import os
-import sys
-import time
-import re
-import threading
 import asyncio
+import os
+import re
+import sys
+import threading
+import time
 from typing import Optional
 
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -18,10 +18,10 @@ sys.path.insert(0, PROJECT_ROOT)
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/brain"))
 sys.path.insert(0, os.path.join(PROJECT_ROOT, "services/sensory"))
 
-from shared.sdk_python.jarvis_sdk.logger import get_logger
+from services.brain.agent_runtime import runtime as brain_runtime
 from services.sensory.soundboard import soundboard
 from services.sensory.voice_synthesizer import voice_synthesizer
-from services.brain.agent_runtime import runtime as brain_runtime
+from shared.sdk_python.jarvis_sdk.logger import get_logger
 
 logger = get_logger("JarvisWakeWordDaemon")
 
@@ -33,12 +33,12 @@ except ImportError:
 
 
 class WakeWordDaemon:
-    def __init__(self, wake_words: Optional[list[str]] = None):
+    def __init__(self, wake_words: list[str] | None = None):
         self.wake_words = wake_words or ["jarvis", "hey jarvis"]
         self.is_running = False
-        self._thread: Optional[threading.Thread] = None
-        self.recognizer: Optional[sr.Recognizer] = None
-        self.microphone: Optional[sr.Microphone] = None
+        self._thread: threading.Thread | None = None
+        self.recognizer: sr.Recognizer | None = None
+        self.microphone: sr.Microphone | None = None
 
     def start(self):
         """Starts the continuous hands-free background listener thread"""
@@ -85,10 +85,14 @@ class WakeWordDaemon:
                     if any(bad in name_low for bad in ["droidcam", "virtual", "stereo mix", "steam", "cable", "mapper", "hands-free"]):
                         continue
                     score = 0
-                    if "array" in name_low: score += 100
-                    if "intel" in name_low: score += 50
-                    if "realtek" in name_low: score += 30
-                    if info.get("hostApi") == 0: score += 40  # MME HostAPI is most reliable on Windows
+                    if "array" in name_low:
+                        score += 100
+                    if "intel" in name_low:
+                        score += 50
+                    if "realtek" in name_low:
+                        score += 30
+                    if info.get("hostApi") == 0:
+                        score += 40  # MME HostAPI is most reliable on Windows
                     candidates.append((score, i, name))
             p.terminate()
             candidates.sort(key=lambda x: x[0], reverse=True)
