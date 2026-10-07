@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use Project J.A.R.V.I.S. in your research or project, please cite it as below."
+authors:
+  - family-names: "D"
+    given-names: "Shyam"
+    orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "Project J.A.R.V.I.S.: Autonomous Cyber-Physical AgentOS with 0% False-Success Invariant"
+version: 2.0.0
+date-released: 2026-10-07
+url: "https://github.com/ShyamD2/project-jarvis"
+repository-code: "https://github.com/ShyamD2/project-jarvis"
+license: MIT
+keywords:
+  - "autonomous-agents"
+  - "cyber-physical-systems"
+  - "ai-agent"
+  - "windows-automation"
+  - "iot-esp32"
+  - "zero-trust"
+  - "verification"
