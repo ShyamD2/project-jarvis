@@ -378,6 +378,41 @@ Project J.A.R.V.I.S. treats local autonomy as an industrial safety problem. For 
 
 ---
 
+## 🌟 Star History
+
+If you find Project J.A.R.V.I.S. inspiring or useful for your AI agent and home automation work, please consider starring the repository! Every star directly motivates continuous development and helps more developers discover the project.
+
+<p align="center">
+  <a href="https://star-history.com/#ShyamD2/project-jarvis&Date">
+    <img src="https://api.star-history.com/svg?repos=ShyamD2/project-jarvis&type=Date" alt="Star History Chart" width="85%">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ShyamD2/project-jarvis/stargazers">
+    <img src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" alt="Star this repo">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://twitter.com/intent/tweet?text=Check%20out%20Project%20J.A.R.V.I.S.%20%E2%80%94%20the%20world's%20first%20Cyber-Physical%20Autonomous%20AgentOS%20with%20a%20mathematical%200%25%20false-success%20invariant!%20%F0%9F%A4%96%20https://github.com/ShyamD2/project-jarvis">
+    <img src="https://img.shields.io/badge/Share_on_X/Twitter-000000?style=for-the-badge&logo=x&logoColor=white" alt="Share on X">
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://www.linkedin.com/sharing/share-offsite/?url=https://github.com/ShyamD2/project-jarvis">
+    <img src="https://img.shields.io/badge/Share_on_LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Share on LinkedIn">
+  </a>
+</p>
+
+---
+
+## 🤝 Community & Contributing
+
+We actively welcome contributions, ideas, bug reports, and hardware integrations!
+- Check out our **[Contributing Guide](CONTRIBUTING.md)** to get started with local development.
+- Join our **[GitHub Discussions](https://github.com/ShyamD2/project-jarvis/discussions)** to share your smart home setups or suggest new tools.
+- Please review our **[Code of Conduct](CODE_OF_CONDUCT.md)** before participating.
+
+---
+
 ## 📜 License
 Distributed under the **MIT License**. See `LICENSE` for more information.
 

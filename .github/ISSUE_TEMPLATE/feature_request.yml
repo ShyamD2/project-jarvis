@@ -1,0 +1,46 @@
+name: 🚀 Feature Request & Tool Proposal
+description: Suggest an idea or propose a new cyber-physical tool for Project J.A.R.V.I.S.
+title: "[Feature]: "
+labels: ["enhancement", "feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We are always excited to expand J.A.R.V.I.S.'s reach across Physical, Computer, and Digital worlds!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement or Missing Capability
+      description: Is your feature request related to a problem or a new workflow?
+      placeholder: "I'm always frustrated when I want J.A.R.V.I.S. to control..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution or Tool Specification
+      description: Describe how the new tool or capability should behave.
+      placeholder: "Add a new tool `computer.screen_brightness` that controls monitor backlight via Win32 DDC/CI..."
+    validations:
+      required: true
+  - type: dropdown
+    id: world
+    attributes:
+      label: Target World
+      options:
+        - "Physical World (Sensors / Microcontrollers / Smart Home)"
+        - "Computer World (Windows Desktop / Browser / Win32 APIs)"
+        - "Digital World (Cloud / DevOps / APIs)"
+    validations:
+      required: true
+  - type: dropdown
+    id: proposed_tier
+    attributes:
+      label: Proposed Safety Blast Radius Tier
+      options:
+        - "TIER_0_REFLEX (Read-only observation, telemetry)"
+        - "TIER_1_SOFT (Safe, easily reversible mutation)"
+        - "TIER_2_MUTATING (State mutation requiring operator lease)"
+        - "TIER_3_DESTRUCTIVE (Destructive operation requiring Owner MFA)"
+    validations:
+      required: true
