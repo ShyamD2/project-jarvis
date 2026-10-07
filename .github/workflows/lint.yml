@@ -30,4 +30,4 @@ jobs:
 
       - name: Ruff Check
         run: |
-          ruff check services/ shared/ devices/ benchmarks/ --ignore E501,E402,F401,F841
+          ruff check services/ shared/ devices/ benchmarks/ --select E,F --ignore E501,E402,F401,F841

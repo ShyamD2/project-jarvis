@@ -61,8 +61,8 @@ jobs:
       - name: Execute Empirical Reliability Benchmark Runner
         id: bench_step
         run: |
-          python benchmarks/run_benchmark.py --profile local 2>&1 | Tee-Object -FilePath benchmark.log
-        continue-on-error: true
+          python benchmarks/run_benchmark.py --profile unit 2>&1 | Tee-Object -FilePath benchmark.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Test and Benchmark Logs
         if: always()
