@@ -1,10 +1,10 @@
 # Project J.A.R.V.I.S. Release Evidence & 100/100 Certification Matrix
 
 - **Release Version**: `2.0.0`
-- **Certification Date**: `2026-10-07T14:02:36Z`
+- **Certification Date**: `2026-10-09T13:53:04Z`
 - **Overall Quality & Reliability Score**: **100 / 100 (GRADE: A+ / PRODUCTION READY)**
-- **Merkle Proof Root**: `16b60c6f1a5e41922b423f87d9910f424ff6ee59b0599d6e7b9f1a7fa1bd71e4`
-- **HMAC Receipt Signature**: `5ccdf1d7cf53b52a6519b6b8ec8f5d82c96a2292922c2a612068cd911715866f`
+- **Merkle Proof Root**: `0291687792292b743bf118e95fc139a54e37dc2cc1ce1116a28b1ebc4b3f302b`
+- **HMAC Receipt Signature**: `0ce282033aaa681dbe9581a6d17f1432569fe9a3b67047a785b8184f068a1da1`
 
 ---
 
@@ -42,19 +42,19 @@ The integrity of Project J.A.R.V.I.S. release artifacts is anchored in cryptogra
 | Architectural Component | SHA-256 Digest | Status |
 | :--- | :--- | :---: |
 | `services/brain/canonical_pipeline.py` | `2d2d52b866b061d6b9f4084b6913b0eb680bd749324c9b887fd6e1abc5fff4bd` | VERIFIED_IMMUTABLE |
-| `services/permission_engine/engine.py` | `74f4008ec000076e32e0e60f7ad51b5bdcbf739e104b8807fd10b6cab30c4913` | VERIFIED_IMMUTABLE |
-| `services/verification/verification_engine.py` | `c2a5a2a85593ed64260b33c65bbaa107e9a36711256515130f4b2d0fbe432097` | VERIFIED_IMMUTABLE |
-| `benchmarks/benchmark_engine.py` | `ade9d847d057f420d0a200a430256c3f2cc71799d11f7a632f3d3e0b6e157fb7` | VERIFIED_IMMUTABLE |
-| `benchmarks/run_benchmark.py` | `286eb3ce69d1fa699dcc5c7ee4684bee5e9eb7eea424a849b0ba1f2ce5a75bf4` | VERIFIED_IMMUTABLE |
-| `services/security/prompt_shield.py` | `3aae6e1d6e2ae01e6df7280c876435196bf48f26e2f034d51cccdfe7c5f45259` | VERIFIED_IMMUTABLE |
+| `services/permission_engine/engine.py` | `c2e82fd671fbe5494e8af41b45278437b321583654b606665cb6b1f5a8529da3` | VERIFIED_IMMUTABLE |
+| `services/verification/verification_engine.py` | `691bc318b226e9c944ee37cc576040e30fa857f8686bf39132e1e0e0843d6c04` | VERIFIED_IMMUTABLE |
+| `benchmarks/benchmark_engine.py` | `8cedab93f98f9f6474116ea358cffddb43b73bac7f1a670ff3848c87279dd06d` | VERIFIED_IMMUTABLE |
+| `benchmarks/run_benchmark.py` | `2bc28538508cb30d74de1532589e69993372c4fc9da0b65d29c02ae8c8a18146` | VERIFIED_IMMUTABLE |
+| `services/security/prompt_shield.py` | `9294269628b3238e65319fe9bfc0f8154c48eae3a5395eef5b3d7982578e1cdb` | VERIFIED_IMMUTABLE |
 | `services/security/secret_redactor.py` | `fcef67816c821b630f8a90f8df2e06c06f255414ee97daee06e80573d45974de` | VERIFIED_IMMUTABLE |
 
 ### Merkle Tree Proof Receipt
 ```
-Merkle Root:        16b60c6f1a5e41922b423f87d9910f424ff6ee59b0599d6e7b9f1a7fa1bd71e4
-HMAC Receipt Token: 5ccdf1d7cf53b52a6519b6b8ec8f5d82c96a2292922c2a612068cd911715866f
+Merkle Root:        0291687792292b743bf118e95fc139a54e37dc2cc1ce1116a28b1ebc4b3f302b
+HMAC Receipt Token: 0ce282033aaa681dbe9581a6d17f1432569fe9a3b67047a785b8184f068a1da1
 Algorithm:          HMAC-SHA256 (MerkleRoot || Timestamp, MasterSecret)
-Timestamp:          2026-10-07T14:02:36Z
+Timestamp:          2026-10-09T13:53:04Z
 ```
 
 ---

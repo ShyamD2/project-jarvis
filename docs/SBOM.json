@@ -4,7 +4,7 @@
   "serialNumber": "urn:uuid:ff18f3d1-2bd1-582d-a410-e8041574c1c8",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-07T14:02:36Z",
+    "timestamp": "2026-10-09T13:53:04Z",
     "tools": [
       {
         "vendor": "Project J.A.R.V.I.S. DevOps",
@@ -993,6 +993,29 @@
       ],
       "description": "A robust email address syntax and deliverability validation library.",
       "author": "Joshua Tauberer"
+    },
+    {
+      "type": "library",
+      "name": "et_xmlfile",
+      "version": "2.0.0",
+      "purl": "pkg:pypi/et_xmlfile@2.0.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6de642d7c7916a2e0f0f3928ff9f8b5ddfa27fea113d078914cb2d93cf0904ca"
+        }
+      ],
+      "description": "An implementation of lxml.xmlfile for the standard library",
+      "author": "See AUTHORS.txt"
     },
     {
       "type": "library",
@@ -2307,6 +2330,29 @@
     },
     {
       "type": "library",
+      "name": "openpyxl",
+      "version": "3.1.5",
+      "purl": "pkg:pypi/openpyxl@3.1.5",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "37069e6aec7b0be41895cf7db4ff672ae88fd251d429220372a860c8065105d4"
+        }
+      ],
+      "description": "A Python library to read/write Excel 2010 xlsx/xlsm files",
+      "author": "See AUTHORS"
+    },
+    {
+      "type": "library",
       "name": "openwakeword",
       "version": "0.6.0",
       "purl": "pkg:pypi/openwakeword@0.6.0",
@@ -3043,6 +3089,29 @@
     },
     {
       "type": "library",
+      "name": "pymupdf",
+      "version": "1.28.2",
+      "purl": "pkg:pypi/pymupdf@1.28.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License",
+            "name": "Dual Licensed - GNU AFFERO GPL 3.0 or Artifex Commercial License"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "202cc9e1f2634dc3178ebbeb5ae5ab166bed11cf49bd98b31acb05113443eeac"
+        }
+      ],
+      "description": "A high performance Python library for data extraction, analysis, conversion & manipulation of PDF (and other) documents.",
+      "author": "Artifex"
+    },
+    {
+      "type": "library",
       "name": "pyparsing",
       "version": "3.3.2",
       "purl": "pkg:pypi/pyparsing@3.3.2",
@@ -3592,6 +3661,29 @@
       ],
       "description": "Pure-Python RSA implementation",
       "author": "Sybren A. St\u00fcvel"
+    },
+    {
+      "type": "library",
+      "name": "ruff",
+      "version": "0.16.10",
+      "purl": "pkg:pypi/ruff@0.16.10",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "name": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7ca0441ac6388cafb9b53f4619842fc00e656963440238bfbf24ddb7cf2b3cac"
+        }
+      ],
+      "description": "An extremely fast Python linter and code formatter, written in Rust.",
+      "author": "Python Packaging"
     },
     {
       "type": "library",

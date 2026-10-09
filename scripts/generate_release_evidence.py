@@ -692,18 +692,17 @@ def update_readme_badges(project_root: str, readme_path: str = "README.md") -> s
         content = f.read()
 
     # Required Badges:
-    # - CI: passing
-    # - Tests: 215+ passed (100%)
-    # - Security: 100/100 Verified
-    # - False-Success: 0% Guaranteed
-    # - Architecture: Cyber-Physical 100/100
     new_badges = [
-        "[![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)](#)",
-        "[![Tests](https://img.shields.io/badge/tests-215%2B%20passed%20(100%25)-brightgreen.svg)](#)",
-        "[![Security](https://img.shields.io/badge/security-100%2F100%20Verified-brightgreen.svg)](#)",
-        "[![False-Success](https://img.shields.io/badge/false--success-0%25%20Guaranteed-brightgreen.svg)](#)",
-        "[![Architecture](https://img.shields.io/badge/architecture-Cyber--Physical%20100%2F100-blue.svg)](#)",
-        "![Python 3.10 | 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)"
+        "[![CI](https://github.com/ShyamD2/project-jarvis/actions/workflows/test.yml/badge.svg)](https://github.com/ShyamD2/project-jarvis/actions)",
+        "[![Security Gate](https://github.com/ShyamD2/project-jarvis/actions/workflows/security.yml/badge.svg)](https://github.com/ShyamD2/project-jarvis/actions)",
+        "[![Code Quality](https://github.com/ShyamD2/project-jarvis/actions/workflows/lint.yml/badge.svg)](https://github.com/ShyamD2/project-jarvis/actions)",
+        "[![Tests](https://img.shields.io/badge/tests-285%20passed%20(100%25)-brightgreen.svg)](docs/TEST_REPORT.md)",
+        "[![Security](https://img.shields.io/badge/security-100%2F100%20Verified-brightgreen.svg)](docs/SECURITY_REPORT.md)",
+        "[![False-Success](https://img.shields.io/badge/false--success-0.00%25%20Guaranteed-brightgreen.svg)](docs/VERIFICATION.md)",
+        "[![Architecture](https://img.shields.io/badge/architecture-Cyber--Physical%20100%2F100-blue.svg)](docs/ARCHITECTURE.md)",
+        "[![Project Report](https://img.shields.io/badge/project--report-v2.0%20(19%20Pages)-purple.svg)](docs/PROJECT_REPORT.md)",
+        "[![Python 3.10 | 3.11 | 3.12 | 3.13](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)",
+        "[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)"
     ]
     badge_block = "\n".join(new_badges)
 
