@@ -67,7 +67,10 @@ def acquire_singleton_mutex(mutex_name: str = "Global\\JarvisMasterBackgroundSer
 
 
 def start_wake_word():
-    """Starts continuous acoustic wake-word listener thread."""
+    """Starts continuous acoustic wake-word listener thread only if explicitly enabled."""
+    if os.getenv("JARVIS_ENABLE_BACKGROUND_WAKE", "false").lower() != "true":
+        logger.info("🎙️ [BackgroundService] Hands-Free Wake-Word is disabled by default to prevent ambient noise triggers.")
+        return
     try:
         from services.sensory.wake_word_daemon import wake_word_daemon
         logger.info("🎙️ [BackgroundService] Starting Hands-Free Wake-Word Daemon ('Hey Jarvis')...")

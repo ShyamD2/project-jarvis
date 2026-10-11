@@ -33,11 +33,11 @@ class NeuralWakeWordDetector:
     def __init__(
         self,
         wake_words: Optional[list[str]] = None,
-        threshold: float = 0.35,
+        threshold: float = 0.70,
         hold_timeout: float = 8.0,
         sample_rate: int = 16000
     ):
-        self.threshold = threshold
+        self.threshold = float(os.getenv("JARVIS_WAKE_THRESHOLD", str(threshold)))
         self.hold_timeout = hold_timeout
         self.sample_rate = sample_rate
         self.model: Optional[Model] = None

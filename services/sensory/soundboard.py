@@ -73,6 +73,10 @@ class AudioSoundboard:
         Plays an authentic soundboard clip locally on the host machine.
         Single-channel guarantee: cancels any running audio prior to starting.
         """
+        if os.getenv("JARVIS_MUTE_SOUNDBOARD", "false").lower() == "true":
+            logger.info(f"🔇 [Soundboard] Soundboard muted (JARVIS_MUTE_SOUNDBOARD=true): skipping '{clip_name}'")
+            return False
+
         clip_path = self.clips.get(clip_name)
         if not clip_path or not os.path.exists(clip_path):
             logger.warning(f"Clip '{clip_name}' not found on disk: {clip_path}")

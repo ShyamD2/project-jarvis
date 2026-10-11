@@ -156,7 +156,7 @@ class WakeWordDaemon:
 
                 # Check wake word match
                 if not wake_match:
-                    if any(w in t_lower for w in ["jarvis", "service", "travis", "javis", "harvis"]):
+                    if any(w in t_lower for w in ["jarvis", "hey jarvis"]):
                         wake_match = True
                     else:
                         continue
@@ -165,9 +165,6 @@ class WakeWordDaemon:
                 command = t_lower.strip()
                 wake_prefixes = [
                     r"^(?:hey|hi|hello|ok)?\s*jarvis[\s,:]*",
-                    r"^(?:hey|hi|hello|ok)?\s*service[\s,:]*",
-                    r"^(?:hey|hi|hello|ok)?\s*travis[\s,:]*",
-                    r"^(?:hey|hi|hello|ok)?\s*javis[\s,:]*",
                 ]
                 for pat in wake_prefixes:
                     if re.search(pat, command, re.IGNORECASE):
@@ -176,16 +173,17 @@ class WakeWordDaemon:
 
                 # If user just said 'Jarvis' or 'Hey Jarvis' with no trailing command:
                 if not command or len(command) < 2:
-                    logger.info("🎤 Wake word confirmed. Playing activation chime and awaiting prompt...")
-                    soundboard.play_clip("wake_chime")
+                    logger.info("🎤 Wake word confirmed. Awaiting follow-up prompt...")
+                    # Only play activation chime if explicitly enabled
+                    if os.getenv("JARVIS_ENABLE_WAKE_CHIME", "false").lower() == "true":
+                        soundboard.play_clip("wake_chime")
                     try:
                         with self.microphone as source:
                             cmd_audio = self.recognizer.listen(source, timeout=6.0, phrase_time_limit=8.0)
                             command = self.recognizer.recognize_google(cmd_audio, language="en-US").strip()
                     except Exception:
-                        # If no follow-up within timeout, play greeting
+                        # Silently resume listening without playing unsolicited audio
                         logger.info("No follow-up voice prompt received within timeout.")
-                        soundboard.play_clip("welcome_back")
                         continue
 
                 if command:
