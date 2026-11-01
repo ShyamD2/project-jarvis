@@ -233,6 +233,102 @@ J.A.R.V.I.S. is continuously evaluated against a scientific 100-task empirical t
 
 ---
 
+## 🛠️ Technology Stack & Architecture Ecosystem
+
+Project J.A.R.V.I.S. is built on an enterprise-grade, cyber-physical engineering stack spanning edge microcontrollers, real-time acoustic neural networks, native OS kernel APIs, high-concurrency event fabrics, and multi-model LLM cognition.
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Three.js-WebGL_3D-000000?style=for-the-badge&logo=three.js&logoColor=white" alt="Three.js">
+  <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini">
+  <img src="https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F05032?style=for-the-badge&logo=meta&logoColor=white" alt="Groq">
+  <br>
+  <img src="https://img.shields.io/badge/ONNX_Runtime-CPU_Inference-005CED?style=for-the-badge&logo=onnx&logoColor=white" alt="ONNX">
+  <img src="https://img.shields.io/badge/AWS-Boto3_SDK-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white" alt="AWS">
+  <img src="https://img.shields.io/badge/Terraform-IaC_Automation-844FBA?style=for-the-badge&logo=terraform&logoColor=white" alt="Terraform">
+  <img src="https://img.shields.io/badge/Docker-Containers-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/SQLite-WAL_+_FTS5-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
+  <img src="https://img.shields.io/badge/ESP32-Tensilica_LX6-E7352C?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP32">
+  <img src="https://img.shields.io/badge/MQTT-v5.0_Broker-660066?style=for-the-badge&logo=eclipsemosquitto&logoColor=white" alt="MQTT">
+</p>
+
+### Technology Matrix by Operational Domain
+
+| Layer & Domain | Core Technologies & Frameworks | Architectural Responsibilities |
+| :--- | :--- | :--- |
+| **🧠 AI Cognition & Brain** | • Google Gemini 2.5<br>• Groq API (LLaMA 3.3 70B / Qwen 2.5)<br>• ReAct Cognitive Loop<br>• DAG Master Planner | • Tiered multi-model intent routing (Reflex ➔ Groq ➔ Gemini)<br>• Topological multi-step DAG plan compilation<br>• Epistemic ambiguity evaluation<br>• FinOps cost & rate limits with automatic reflex degrade |
+| **🎙️ Perception & Sensory** | • openWakeWord (ONNX Runtime)<br>• Silero VAD (Voice Activity Detection)<br>• PyAudio & Windows MME<br>• British Neural Speech Synthesis<br>• Waveform Double-Clap Engine | • Continuous on-device CPU neural wake-word detection ($<15\text{ ms}$)<br>• Sub-10ms vocal & keyboard barge-in cancellation<br>• Real-time peak acoustic double-clap reflex ($<30\text{ ms}$)<br>• Streaming clause-by-clause audio synthesis |
+| **🖥️ Computer Realm (OS)** | • Win32 API (`ctypes` bindings)<br>• COM Core Audio (`IAudioEndpointVolume`)<br>• `psutil` System Diagnostics<br>• Chromium DevTools Protocol (CDP)<br>• Playwright & Desktop Vision | • Zero-subprocess native master volume mixer ($<2\text{ ms}$)<br>• Direct window focus, minimization, and state inspection via `user32`/`kernel32`<br>• Headless/headful browser DOM grounding and navigation<br>• Screen capture with coordinate normalization |
+| **🔌 Physical Realm (IoT)** | • ESP32 Dual-Core (Tensilica LX6)<br>• Embedded Arduino / C++ Firmware<br>• Dual 5V Optocoupler Relays<br>• Ambient Lux Sensors (BH1750 / LDR)<br>• Raspberry Pi Edge Gateway | • Physical home appliance & lighting power switching<br>• Closed-loop sensory verification (lux sensor matches relay state)<br>• Hardware watchdog timers & fail-safe offline state<br>• Edge node discovery & mesh synchronization |
+| **☁️ Digital Realm (Cloud)** | • AWS SDK (`boto3`)<br>• AWS IoT Core Device Shadows<br>• Terraform / OpenTofu<br>• Docker Engine & Docker Compose<br>• Kubernetes (`kubectl` JSON)<br>• LocalStack | • Cloud infrastructure inspection (STS, S3, EC2, SQS, EventBridge)<br>• Automated IaC validation and drift inspection<br>• Container lifecycle management & auto-remediation<br>• Zero-cost offline cloud emulation via LocalStack |
+| **⚡ Event Mesh & Bus** | • FastAPI (Asynchronous REST)<br>• Uvicorn (ASGI Engine)<br>• WebSockets (RFC 6455)<br>• MQTT (`paho-mqtt` :1883)<br>• Async In-Memory Spooler | • Sub-millisecond event dispatch across all subsystems<br>• Bi-directional real-time telemetry streaming to HUD<br>• Resilient fallback queue preserving messages when broker is offline<br>• W3C `traceparent` distributed context propagation |
+| **🔒 Security & Zero-Trust** | • HMAC-SHA256 Signatures<br>• Python AST Sandboxing<br>• PromptShield Sanitizer<br>• Bandit Static AST Scanner<br>• CycloneDX 1.5 SBOM | • 4-Tier blast radius enforcement (`REFLEX` ➔ `DESTRUCTIVE`)<br>• Single-use capability leases (`ActionLease`) with 300s TTL<br>• Non-replayable parameter-hash-bound approval tickets<br>• Unicode normalization & prompt injection mitigation |
+| **💾 State & Memory** | • SQLite 3 (WAL concurrency)<br>• SQLite FTS5 Full-Text Search<br>• Append-Only JSONL Event Log<br>• Merkle Tree Chained Hashes | • 7-Tier cognitive memory architecture (Working, Sensory, Short-term, Episodic, Semantic, Procedural, Digital Twin)<br>• Temporal confidence decay & provenance tracking<br>• Zero-data-loss disaster recovery with SHA-256 validation |
+| **🌐 Frontend & Remote UI** | • Three.js & WebGL 3D<br>• HTML5 Canvas & Web Audio API<br>• Telegram Bot Gateway<br>• Cloudflare Zero-Trust Tunnel<br>• Touch Trackpad WebApp | • 3D Holographic Arc Reactor running at 60 FPS on port 8000<br>• 32-bar real-time audio frequency visualizer<br>• Encrypted mobile remote console & low-latency desktop video stream<br>• Master-PIN-guarded precision touch trackpad and Cyber Lock |
+| **🧪 Testing & Reliability** | • Pytest & Pytest-Asyncio<br>• Pytest-Cov (Coverage Engine)<br>• Chaos Fault-Injection Suite<br>• GitHub Actions (3 Workflows) | • 285 automated tests passing with 100% green CI<br>• 100-task empirical benchmark evaluating SLA percentiles (P50/P95)<br>• Automated disaster recovery backup/corruption/restore drill<br>• Automated release evidence matrix generation |
+
+### Detailed Layer Breakdown
+
+#### 1. AI Cognition, Reasoning & Orchestration
+- **Google Gemini 2.5**: Large-scale planning, complex multimodal instruction grounding, and dynamic DAG mission graph generation.
+- **Groq API (LLaMA 3.3 70B / Qwen 2.5)**: Ultra-fast conversational inference (<350ms token generation) for real-time natural language dialogue.
+- **Deterministic Local Reflex Engine**: Rule-based zero-LLM fast-path evaluating system status, window switching, and audio controls in $<15\text{ ms}$.
+- **Epistemic Evaluator**: Disambiguation engine identifying incomplete or ambiguous human intents before capability lease issuance.
+- **FinOps Guard**: Token consumption tracking with strict daily/monthly USD limits and automatic downgrade to local models.
+
+#### 2. Perception, Voice & Acoustic Sensory Layer
+- **openWakeWord (ONNX Runtime)**: Local neural acoustic wake-word detection running directly on host CPU cores with zero cloud telemetry.
+- **PyAudio & Hardware Array Binding**: Direct stream capture bound to hardware beamforming microphone arrays via Windows Multimedia Extension (`MME`).
+- **Acoustic Waveform Double-Clap Detector**: Sub-30ms real-time peak waveform analyzer for immediate hardware toggling.
+- **British Neural TTS**: Natural conversational speech synthesis with clause-by-clause audio streaming.
+- **Sub-10ms Vocal & Keyboard Barge-In**: Real-time interrupt service terminating speech playback upon voice onset or hotkey triggers.
+
+#### 3. Native Windows OS & Desktop Control (Computer Realm)
+- **Native Win32 COM & `ctypes`**: Direct bindings to `user32.dll`, `kernel32.dll`, and `ole32.dll` replacing high-latency, unsecure PowerShell subprocesses.
+- **Windows Core Audio API (`IAudioEndpointVolume`)**: Hardware-level volume mixer control executing in $<2\text{ ms}$.
+- **Process Inspection & Telemetry**: `psutil` integration monitoring process tables, active socket listeners, and memory allocation.
+- **Chromium DevTools Protocol (CDP) & Playwright**: Direct browser DOM grounding, element inspection, and headless/headful web automation.
+- **Computer Vision Grounding**: Screen capture via `Pillow` with coordinate mapping for visual GUI element verification.
+
+#### 4. Physical Realm & Embedded IoT
+- **ESP32 Dual-Core Microcontrollers**: Embedded C++ firmware running on Tensilica LX6 processors with FreeRTOS.
+- **Dual-Channel Relay Modules**: Optocoupler-isolated relays for high-voltage light and appliance switching.
+- **Ambient Lux Sensors (BH1750 / Photoresistors)**: Real-time sensory feedback confirming physical room luminescence matches relay actuation.
+- **MQTT Protocol (`paho-mqtt`)**: Lightweight publish/subscribe messaging over port 1883 with automatic in-memory queue fallback during network partitioning.
+- **AWS IoT Core Device Shadows**: Cloud-synchronized device state reporting and desired/reported state reconciliation.
+
+#### 5. Cloud Infrastructure & DevOps (Digital Realm)
+- **AWS Boto3 SDK**: Automated programmatic interaction with AWS STS (Caller Identity), S3, EC2, SQS, and EventBridge.
+- **Terraform / OpenTofu**: Infrastructure as Code automation with plan inspection, resource drift detection, and state locking.
+- **Docker & Docker Compose**: Automated container inspection, health monitoring, and graceful restarts.
+- **Kubernetes Agent**: Cluster topology queries and namespace inspection with graceful simulated fallback when offline.
+- **LocalStack**: Local emulation of cloud APIs for offline development and deterministic integration test suites.
+
+#### 6. Zero-Trust Security, Blast Radius & Cryptography
+- **4-Tier Blast Radius Matrix**: Immutable tool categorization (`REFLEX`, `SOFT`, `MUTATING`, `DESTRUCTIVE`).
+- **Cryptographic Capability Leases (`ActionLease`)**: Single-use tokens bound to caller identity, action name, parameter SHA-256 hash, and 300s TTL.
+- **HMAC-SHA256 Approval Tickets**: In-flight tampering defense for voice, Telegram, and HUD approval tickets.
+- **Python AST Sandbox**: Static Abstract Syntax Tree inspection verifying generated scripts against forbidden imports and syscalls.
+- **PromptShield**: Protection against indirect prompt injection, instruction overrides, and Unicode homoglyph evasion.
+- **Bandit AST Security Scanner**: Zero-defect static security analyzer scanning 25,480+ lines of Python code.
+
+#### 7. State Persistence, Memory & Event Bus
+- **FastAPI & Uvicorn**: High-concurrency asynchronous ASGI server hosting 18+ OpenAPI endpoints and WebSocket hubs.
+- **SQLite 3 with Write-Ahead Logging (WAL)**: Concurrent multi-threaded reads and writes with zero lock contention.
+- **SQLite FTS5**: Full-text search engine powering semantic message retrieval and historical command search.
+- **7-Tier Cognitive Memory Architecture**: Working memory, sensory buffer, short-term conversational context, episodic log, semantic memory, procedural skills, and the Digital Twin world model.
+- **SHA-256 Chained Audit Ledger**: Cryptographically chained JSONL event log guaranteeing retroactive audit immutability.
+
+#### 8. Frontend Command Center & Remote Gateway
+- **WebGL & Three.js 3D Holographic Arc Reactor**: Real-time interactive browser HUD running at 60 FPS on port 8000.
+- **HTML5 Canvas & Web Audio API**: 32-bar real-time audio spectrum visualizer with dynamic frequency analysis.
+- **Telegram Mobile Gateway**: Asynchronous bot interface allowing natural voice note input, screen vision requests, and system diagnostics.
+- **Cloudflare Tunnel (`cloudflared`)**: Zero-open-port encrypted ingress mapping mobile devices to the workstation trackpad.
+- **Mobile Touch Trackpad**: Responsive web interface delivering a real-time desktop video stream with low-latency touch mouse and keyboard input.
+
+---
+
 ## 🚀 Quick Start Guide
 
 ### Prerequisites
