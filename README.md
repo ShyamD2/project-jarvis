@@ -1,6 +1,6 @@
-# PROJECT J.A.R.V.I.S. (v2.0)
+# ⚡ PROJECT J.A.R.V.I.S. (v2.0)
 > **Just A Rather Very Intelligent System**  
-> An autonomous, cyber-physical operating system and AI agent platform uniting the **Physical** (IoT/Sensors/Relays), **Computer** (Windows OS/Desktop/Accessibility/Browser), and **Digital** (AWS Cloud/IaC/DevOps) operational domains with a mathematical **0% false-success invariant**.
+> An autonomous, cyber-physical operating system and AI agent platform uniting the **Physical** (IoT relays, ambient sensors), **Computer** (Windows OS internals, browser automation), and **Digital** (AWS cloud, Terraform IaC) operational domains with a mathematically enforced **0% false-success invariant**.
 
 [![CI](https://github.com/ShyamD2/project-jarvis/actions/workflows/test.yml/badge.svg)](https://github.com/ShyamD2/project-jarvis/actions)
 [![Security Gate](https://github.com/ShyamD2/project-jarvis/actions/workflows/security.yml/badge.svg)](https://github.com/ShyamD2/project-jarvis/actions)
@@ -15,382 +15,253 @@
 
 ---
 
-## 🌟 Visual Showcase & Command Centers
+## 👨‍💻 A Note from the Creator
 
+> *"I didn't want another chatbot that calls a tool, assumes return code 0 means success, and hallucinates that my task is done. I wanted an actual autonomous operating system for my workstation and room—one that verifies physical reality before reporting completion, protects my machine with strict blast radius controls, and feels like Tony Stark's J.A.R.V.I.S. on my desk."*  
+> — **Shyam Kumar D** (Creator & Lead Architect)
+
+Hi, I'm **Shyam Kumar D**, a Cloud & DevOps / SRE engineer based in Madurai, India. I built **Project J.A.R.V.I.S.** from the ground up as a production-grade, cyber-physical AgentOS.
+
+Most AI agent frameworks today operate as simple LLM prompt wrappers: they give an LLM bash or python access, trust whatever code runs, and blindly report "Done!" without checking whether the real-world state actually changed. If an agent tries to turn off a desk lamp or modify an AWS security group, checking if the command exited with 0 is not enough. The hardware could be disconnected, the network partitioned, or the file locked.
+
+I architected J.A.R.V.I.S. around a strict **0% False-Success Invariant**: every single action must be corroborated through dual-channel ground-truth telemetry (logical state + physical/sensory validation) before a cryptographic proof receipt is issued.
+
+---
+
+## 📸 Visual Showcase & Command Centers
+
+I designed multiple rich interfaces to interact with J.A.R.V.I.S. whether I am sitting at my desk, multitasking on my PC, or away from home with only my phone.
+
+### 1. The Holographic 3D Arc Reactor HUD
 <p align="center">
   <img src="ScreenShots/01_holographic_arc_reactor_hud.png" alt="J.A.R.V.I.S. Holographic Arc Reactor HUD Dashboard" width="100%" style="border-radius: 12px; border: 1px solid #00f0ff; box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);">
   <br>
-  <em>Figure 1: Real-time Holographic Arc Reactor WebGL HUD (Port 8000) with 32-bar audio spectrum visualizer, cognitive telemetry drawer, and sub-10ms voice command status.</em>
+  <em>Figure 1: My real-time Holographic Arc Reactor WebGL HUD (Port 8000/8088). Features a 7-layer procedural WebGL reactor core in Three.js, 32-bar audio spectrum visualizer, cognitive telemetry drawer, and sub-10ms voice command status.</em>
 </p>
 
-### 📱 Mobile Remote Command Center & Live Stream Trackpad
+- **7 Concentric WebGL Layers:** Procedural Energy Core, Computational Structure, Neural Particle Field, Network Nodes, Outer Shell Segments, Orbital Rings, and Radial Energy Streams.
+- **Suit Holographic Themes:** Switchable on the fly between **Mark VII** (Cyan & Gold Glow), **Mark 50** (Stark Gold & Crimson), and **F.R.I.D.A.Y.** (Emerald Green).
+- **Floating Desktop Agent (`floating_app.py`):** Frameless, always-on-top desktop widget with drag-and-drop file/code ingestion and click-to-interrupt recitation.
 
+---
+
+### 2. Mobile Remote Command Center & Live Desktop Trackpad
 <p align="center">
   <img src="ScreenShots/13_telegram_mobile_one_tap_dashboard.jpeg" width="31%" style="border-radius: 8px; margin: 1%;">
   <img src="ScreenShots/12_telegram_mobile_live_stream_trackpad.jpeg" width="31%" style="border-radius: 8px; margin: 1%;">
   <img src="ScreenShots/11_telegram_mobile_command_menu.jpeg" width="31%" style="border-radius: 8px; margin: 1%;">
   <br>
-  <em>Figure 2: Mobile Telegram Remote Interface featuring 1-Tap Dashboard controls, zero-latency WebRTC/MJPEG desktop screen stream with precision touch trackpad, and instant voice/text gateway over encrypted Cloudflare tunnels.</em>
+  <em>Figure 2: My Mobile Remote Interface. (Left) 1-Tap Dashboard for IoT & PC macros. (Center) Zero-latency desktop screen stream with precision touch trackpad and tap-to-click. (Right) Telegram 2.0 command menu over encrypted Cloudflare tunnels.</em>
 </p>
+
+- **Global Remote Access:** Secured over encrypted Cloudflare Tunnels (`cloudflared`) with zero port forwarding required on my home router.
+- **Interactive Live Stream:** Low-latency desktop screen capture with direct tap-to-click on the phone screen.
+- **Fluid Touch Trackpad:** Virtual trackpad with smooth two-finger scrolling, navigation hotkeys (`Ctrl+T`, `Ctrl+W`, `Alt+Tab`), and a micro-step nudge D-pad.
+- **Telegram 2.0 ReAct Bot:** Asynchronous bot handling natural voice notes, `/live` screen captures, system diagnostics, and emergency kill switches.
 
 ---
 
-## 📑 Official Project Report & Architecture Whitepaper (October 2026)
+## ⚡ How I Actually Use J.A.R.V.I.S. (My Daily Workflow)
 
-> [!IMPORTANT]
-> The comprehensive **19-page formal architecture report, empirical benchmarks, and security audits** have been published:
-> - 📄 **[Read Online (Markdown)](docs/PROJECT_REPORT.md)**
-> - 📥 **[Download Official PDF (3.8 MB)](docs/PROJECT_REPORT.pdf)**
+Here is how J.A.R.V.I.S. integrates into my daily life across 3 distinct operational realms:
+
+### 🏠 The Physical Realm (IoT & Desk Hardware)
+- **Hands-Free Acoustic Clapping:** If I clap twice, the real-time acoustic waveform detector (`clap_detector.py`) intercepts the double-peak impulse in under 30ms and triggers the ESP32 optocoupler relay to toggle my desk lamp.
+- **Sensory Reality Checking:** When J.A.R.V.I.S. switches a room light, it doesn't just trust the MQTT publish packet—it reads the ambient lux sensor (BH1750 / LDR) to verify that the room's physical luminescence actually increased.
+
+### 💻 The Computer Realm (Native Windows OS Internals)
+- **Zero-Subprocess Audio Control:** Instead of launching slow PowerShell scripts that spike CPU, I wrote pure Python `ctypes` bindings to the Windows Core Audio COM interface (`IAudioEndpointVolume`) for instant, sub-2ms volume adjustments.
+- **Native Windowing:** Direct Win32 API calls (`user32.dll` and `kernel32.dll`) manage window focus, minimization, and state inspection with zero UI latency.
+- **Voice Interruption & Barge-In:** When J.A.R.V.I.S. is reading a long response and I say *"Wait"*, *"Stop"*, or start speaking a new instruction, my centralized **Sub-10ms Recitation Interrupt Service** cuts audio playback immediately.
+
+### ☁️ The Digital Realm (Cloud Infrastructure & DevOps)
+- **AWS Cloud Operations:** Programmatic interaction via Boto3 with AWS STS caller verification, S3 bucket audits, and EC2 health monitoring.
+- **IaC Drift & Container Health:** Automated Terraform plan validation, state drift inspection, and Docker container lifecycle management.
+- **Workstation SRE Daemon:** Self-healing background watcher that clears rogue lockfiles (`.git/index.lock`), frees busy ports (8000, 8088), and reaps zombie processes.
+
+---
+
+## 🏆 Verified Benchmarks & Engineering Metrics
+
+I subjected J.A.R.V.I.S. to a rigorous 100-task empirical benchmark suite across all operational domains:
 
 <div align="center">
 
-| Metric | Measured Host Value | Target SLA / Standard | Certification Status |
-| :--- | :---: | :--- | :---: |
-| **False-Success Rate** | **0.00%** | Dual-channel ground-truth corroboration | ✅ **ZERO DEFECT** |
+| Metric | Measured Value | Standard / SLA | Status |
+| :--- | :---: | :---: | :---: |
+| **False-Success Rate** | **0.00%** | Dual-channel ground-truth corroboration | 🛡️ **ZERO DEFECT** |
 | **Automated Test Suite** | **285 Passing** | 8 architectural pillars, 0 regressions | ✅ **100% GREEN** |
-| **Domain Latency SLAs** | **5 / 5 Met** | REFLEX (<15ms), LOCAL_OS (<30ms), VOICE, VISION, CLOUD | ✅ **ALL PASSED** |
-| **AST Security Vulnerabilities** | **0 Issues** | Bandit Static AST scan across 25,480 LOC | ✅ **VERIFIED CLEAN** |
-| **Disaster Recovery Health** | **100.0%** | Automated wipe, checksum verification & SQLite restore | ✅ **ZERO DATA LOSS** |
-| **Composite Quality Score** | **100 / 100** | Release-evidence verified across 5 dimensions | ✅ **S-TIER CERTIFIED** |
+| **Domain Latency SLAs** | **5 / 5 Met** | REFLEX (<15ms), LOCAL_OS (<30ms), VOICE, VISION, CLOUD | ⚡ **ALL PASSED** |
+| **Bandit AST Vulnerabilities** | **0 Issues** | Static AST scan across 25,480 LOC | 🔒 **VERIFIED CLEAN** |
+| **Disaster Recovery Health** | **100.0%** | Automated wipe, checksum verification & restore | 🔄 **ZERO DATA LOSS** |
+| **Composite Quality Score** | **100 / 100** | Evaluated across 5 operational dimensions | 🏆 **S-TIER CERTIFIED** |
 
 </div>
-
----
-
-## 📑 Core Documentation Index
-
-Comprehensive technical specifications, formal proofs, and architecture blueprints are maintained in modular documentation:
-
-| Document | Focus & Coverage |
-| :--- | :--- |
-| 📄 **[Official Project Report](docs/PROJECT_REPORT.md)** ([PDF](docs/PROJECT_REPORT.pdf)) | Complete 19-page v2.0 architectural whitepaper, proof-of-work captures, SLA matrix, and 35-subsystem maturity audit. |
-| 🏛 **[Architecture & Authorities](docs/ARCHITECTURE.md)** | System topology, the 5 Single Authorities, 6-stage canonical pipeline lifecycle, and hybrid event mesh. |
-| 🛡 **[Security & Blast Radius](docs/SECURITY.md)** | 4-tier blast radius, universal `ActionLease`, HMAC-SHA256 ticket tampering defense, and AST immune sandboxing. |
-| 🔍 **[Verification & Ground Truth](docs/VERIFICATION.md)** | Dual-channel reality corroboration, sensory checking, and strict 0% false-success invariant. |
-| 🔬 **[Benchmark Suite & SLAs](docs/BENCHMARKS.md)** | 100-task empirical benchmark engine, domain latency SLAs (P50/P95), and hardware telemetry. |
-| 📋 **[Release Evidence Matrix](docs/EVIDENCE_MATRIX.md)** | Cryptographic Merkle tree roots, HMAC proof-of-execution receipts, and 100/100 scorecard. |
-| 🛡 **[Security Audit Report](docs/SECURITY_REPORT.md)** | Bandit AST security audit results, 67 security regression tests, and Zero-Trust policy invariants. |
-| 🧪 **[Test Execution Report](docs/TEST_REPORT.md)** | Detailed breakdown of all 285 passing tests across 8 architectural pillars with zero regressions. |
-| 📦 **[CycloneDX SBOM](docs/SBOM.json)** | Machine-readable Software Bill of Materials cataloging all dependencies, licenses, and SHA hashes. |
-| 📡 **[Node Mesh & Device Protocol](docs/DEVICE_PROTOCOL.md)** | Multi-node discovery, capability negotiation, and 4-tier geolocation privacy controls. |
-| 🧠 **[Hierarchical Memory & Twin](docs/MEMORY.md)** | 7-tier cognitive memory architecture, world model temporal decay, and GDPR provenance metadata. |
-| 💾 **[Disaster Recovery & Drills](docs/DISASTER_RECOVERY.md)** | Automated disaster recovery drill, SQLite WAL integrity validation, and zero-data-loss rollback. |
-| 📅 **[Engineering Development Log](docs/DEVELOPMENT_LOG.md)** | Chronological engineering log documenting daily milestones from Day 1 to S-Tier Hardening. |
-
----
-
-## 🏆 What Makes J.A.R.V.I.S. World-Class?
-
-Most AI agents operate as simple prompt wrappers that blindly execute tools and trust return codes. **Project J.A.R.V.I.S. is an industrial-grade Cyber-Physical AgentOS** built upon mathematical invariants and defense-in-depth principles:
-
-```
-                                  ┌──────────────────────────────┐
-                                  │      HUMAN / OPERATOR        │
-                                  │ Voice • Text • HUD • Mobile  │
-                                  └──────────────┬───────────────┘
-                                                 │
-                                                 ▼
-               ┌─────────────────────────────────────────────────────────────────┐
-               │              PERCEPTION & REFLEX SENSORY LAYER                  │
-               │  • Local openWakeWord ONNX Inference (<15ms)                    │
-               │  • Real-time Acoustic Waveform Double-Clap Detector             │
-               │  • Zero-Subprocess Win32 Core Audio COM & ctypes Volume Mixer   │
-               │  • Sub-10ms Vocal & Keyboard Barge-In Interruption Service      │
-               └─────────────────────────────────┬───────────────────────────────┘
-                                                 │
-                                                 ▼
-               ┌─────────────────────────────────────────────────────────────────┐
-               │            SINGLE ROUTING AUTHORITY: IntentRouter               │
-               │  • Tiered Model Routing (Local Reflex ➔ Groq LLaMA ➔ Gemini)   │
-               │  • Epistemic Evaluator & Ambiguity Classifier                   │
-               │  • FinOps Cost & Rate Limiting Guard                            │
-               └─────────────────────────────────┬───────────────────────────────┘
-                                                 │
-                                                 ▼
-               ┌─────────────────────────────────────────────────────────────────┐
-               │           SINGLE PERMISSION AUTHORITY: PermissionEngine         │
-               │  • 4-Tier Blast Radius: REFLEX ➔ SOFT ➔ MUTATING ➔ DESTRUCTIVE │
-               │  • Mandatory Single-Use HMAC Cryptographic ActionLeases         │
-               │  • Dynamic Risk Escalation & Strict Role-Based Access Control   │
-               └─────────────────────────────────┬───────────────────────────────┘
-                                                 │
-                                                 ▼
-               ╔═════════════════════════════════════════════════════════════════╗
-               ║               CANONICAL EXECUTION PIPELINE                      ║
-               ║   Stage 1: Intent  ➔ Stage 2: Authorize ➔ Stage 3: Pre-Check    ║
-               ║   Stage 4: Execute ➔ Stage 5: Verify    ➔ Stage 6: Settle       ║
-               ╚═════════════════════════════════╤═══════════════════════════════╝
-                                                 │
-                 ┌───────────────────────────────┼───────────────────────────────┐
-                 ▼                               ▼                               ▼
-       ┌───────────────────┐           ┌───────────────────┐           ┌───────────────────┐
-       │   PHYSICAL REALM  │           │   COMPUTER REALM  │           │   DIGITAL REALM   │
-       │ ESP32 Nodes       │           │ Native Windows OS │           │ AWS Cloud APIs    │
-       │ Relays & Lamps    │           │ Win32 Windowing   │           │ Terraform IaC     │
-       │ Ambient Sensors   │           │ Browser CDP DOM   │           │ Docker Containers │
-       └─────────┬─────────┘           └─────────┬─────────┘           └─────────┬─────────┘
-                 │                               │                               │
-                 └───────────────────────────────┼───────────────────────────────┘
-                                                 │
-                                                 ▼
-               ┌─────────────────────────────────────────────────────────────────┐
-               │       SINGLE GROUND-TRUTH AUTHORITY: VerificationEngine         │
-               │  • 0% False-Success Invariant (Dual-Channel Corroboration)      │
-               │  • Channel 1 (Logical State) + Channel 2 (Sensory Proof)        │
-               │  • Cryptographic Proof-of-Execution HMAC Receipts Ledger        │
-               │  • Automatic Closed-Loop Rollback on Reality Discrepancy        │
-               └─────────────────────────────────────────────────────────────────┘
-```
-
-### 1. The 0% False-Success Invariant
-In traditional agents, when a tool execution fails silently or an unsupported action is dispatched, the LLM hallucinates success. In J.A.R.V.I.S.:
-- **Tools Never Declare Success**: Tools only return raw execution facts (exit codes, standard output, sensor telemetry).
-- **Dual-Channel Corroboration**: Every action requires **Channel 1 (Logical State Transition)** and **Channel 2 (Sensory Reality Proof)**.
-- **Fail-Closed Guarantee**: Any unsupported command, unverified mutation, or reality discrepancy unconditionally resolves to `FAILED` with an alert logged to the chained audit ledger.
-
-### 2. 4-Tier Blast Radius & Universal Capability Leases
-Every action is dynamically evaluated against the formal Blast Radius Safety Matrix:
-- `TIER_0_REFLEX`: Non-mutating reads, system telemetry, volume queries (Autonomous, SLA < 15ms).
-- `TIER_1_SOFT`: Reversible mutations, launching whitelisted applications, tab navigation.
-- `TIER_2_MUTATING`: State-altering mutations (file edits, network configuration changes) requiring single-use `ActionLease` tokens.
-- `TIER_3_DESTRUCTIVE`: High-consequence commands (Terraform destroy, system wipe, raw scripts) mandating explicit Owner confirmation, MFA token verification, and non-replayable lease tickets.
-
-### 3. Zero-Subprocess Native Win32 Subsystem Control
-Eliminates high-overhead, vulnerable PowerShell subprocesses for everyday OS interactions:
-- **Audio Control**: Native Windows Core Audio API via COM `IAudioEndpointVolume` (< 2ms zero-focus execution).
-- **Window Management**: Pure Python `ctypes` bindings to `user32.dll` and `kernel32.dll` for instant minimization, restoration, and foreground activation.
-- **Microphone Array Binding**: Automatic discovery of hardware beamforming arrays via Windows Multimedia Extension (`MME`) APIs.
-
-### 4. Cryptographic Proof-of-Execution Receipts
-Every executed action generates an immutable cryptographic receipt stored in SQLite WAL and JSONL:
-- Captures `pre_execution` and `post_execution` state snapshots.
-- Computes SHA-256 hashes of all parameters and verified deltas.
-- Signs receipts with HMAC-SHA256 anchored to the local master secret.
-- Tamper-evident verification queryable in real time via `/api/v1/verification/receipts`.
-
-### 5. Self-Healing Workstation SRE Daemon
-Runs continuously in the background to monitor workstation health and provide 1-tap remediation:
-- **Port Conflict Buster**: Identifies rogue processes occupying ports 8000, 8085, or 1883 and clears them.
-- **Stale Lock Purger**: Automatically locates and safely removes abandoned `.git/index.lock` or Terraform lockfiles.
-- **Zombie PID Reaper**: Identifies unkillable or runaway processes consuming excessive CPU/RAM.
-
----
-
-## 🔬 Empirical Reliability Benchmark & Domain SLAs
-
-J.A.R.V.I.S. is continuously evaluated against a scientific 100-task empirical test suite measuring latency percentiles, error rates, and verification accuracy across heterogeneous domains.
 
 <p align="center">
   <img src="ScreenShots/02_benchmark_runner_tasks_001_040.png" width="49%" style="border-radius: 8px;">
   <img src="ScreenShots/03_benchmark_sla_matrix_results.png" width="49%" style="border-radius: 8px;">
   <br>
-  <em>Figure 3: (Left) 100-Task Empirical Benchmark runner executing live tasks across all domains. (Right) Measured Subsystem Latency SLA Matrix achieving 5/5 domain SLA targets with 0.00% False-Success rate.</em>
+  <em>Figure 3: (Left) My 100-Task Empirical Benchmark runner executing live tasks across domains. (Right) Subsystem Latency SLA Matrix achieving 5/5 domain SLA targets with 0.00% False-Success rate.</em>
 </p>
 
-### Subsystem Latency SLA Matrix (Live Results)
-
-| Domain | Operational Scope | Measured P50 | Target P50 | Measured P95 | Target P95 | Status |
+### Live Latency SLA Matrix
+| Domain | Operational Scope | Measured P50 | Target P50 | Measured P95 | Target P95 | Result |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | ⚡ **REFLEX** | Volume, mute, hotkey, telemetry | **6.7 ms** | $< 15\text{ ms}$ | **7.3 ms** | $< 30\text{ ms}$ | **PASS** |
-| 🖥 **LOCAL_OS** | Process tables, files, window focus | **13.5 ms** | $< 30\text{ ms}$ | **14.5 ms** | $< 60\text{ ms}$ | **PASS** |
-| 🎙 **VOICE_TTS** | Wake-word inference, clause synthesis | **48.2 ms** | $< 100\text{ ms}$ | **48.2 ms** | $< 200\text{ ms}$ | **PASS** |
-| 🌐 **VISION_BROWSER** | Screenshot capture, CDP navigation | **173.7 ms** | $< 400\text{ ms}$ | **189.2 ms** | $< 800\text{ ms}$ | **PASS** |
-| ☁ **CLOUD_IAC** | Terraform, AWS S3/EC2, Docker | **653.4 ms** | $< 1500\text{ ms}$ | **741.6 ms** | $< 3000\text{ ms}$ | **PASS** |
-
-- **Overall Benchmark Result**: **100 / 100 Tasks Passed (100.0%)**
-- **False-Success Count**: **0 detected (0.00%)**
-- **Domain SLA Adherence**: **5 / 5 Domains Meeting Strict Latency SLAs (100.0%)**
-
----
-
-## 🛡️ Automated Verification & Security Certification
+| 💻 **LOCAL_OS** | Process tables, files, window focus | **13.5 ms** | $< 30\text{ ms}$ | **14.5 ms** | $< 60\text{ ms}$ | **PASS** |
+| 🎙️ **VOICE_TTS** | Wake-word inference, clause synthesis | **48.2 ms** | $< 100\text{ ms}$ | **48.2 ms** | $< 200\text{ ms}$ | **PASS** |
+| 👁️ **VISION_BROWSER** | Screenshot capture, CDP navigation | **173.7 ms** | $< 400\text{ ms}$ | **189.2 ms** | $< 800\text{ ms}$ | **PASS** |
+| ☁️ **CLOUD_IAC** | Terraform, AWS S3/EC2, Docker | **653.4 ms** | $< 1500\text{ ms}$ | **741.6 ms** | $< 3000\text{ ms}$ | **PASS** |
 
 <p align="center">
   <img src="ScreenShots/06_pytest_test_suite_summary.png" width="49%" style="border-radius: 8px;">
   <img src="ScreenShots/08_security_report_bandit_ast.png" width="49%" style="border-radius: 8px;">
   <br>
-  <em>Figure 4: (Left) Pytest test suite summary confirming 285 passing tests with 0 failures. (Right) Bandit AST security scan certifying 0 High and 0 Medium security vulnerabilities across 25,000+ lines of code.</em>
+  <em>Figure 4: (Left) Pytest summary showing 285 passing tests with 0 failures. (Right) Bandit AST security audit certifying 0 High and 0 Medium vulnerabilities across 25,480 LOC.</em>
 </p>
 
 <p align="center">
   <img src="ScreenShots/04_disaster_recovery_drill_verification.png" width="49%" style="border-radius: 8px;">
   <img src="ScreenShots/10_master_100_evaluation_score_matrix.png" width="49%" style="border-radius: 8px;">
   <br>
-  <em>Figure 5: (Left) Automated Disaster Recovery Drill proving full SHA-256 backup, corruption simulation, restore, and 100% database health check. (Right) Master 100/100 Evaluation Scorecard.</em>
+  <em>Figure 5: (Left) Automated Disaster Recovery Drill proving full SHA-256 backup, corruption simulation, restore, and 100% database health. (Right) Master 100/100 Evaluation Scorecard.</em>
 </p>
-
-### Automated Test Coverage (285 Passed / 100% Green)
-
-| Suite Pillar | Test Count | Scope & Invariants Tested |
-| :--- | :---: | :--- |
-| **Unit & Core Routes** | **114** | Canonical pipeline lifecycle, tool schemas, 18 API routes, and memory tiers. |
-| **Security Invariants** | **67** | RBAC enforcement, replay attacks, Zip-Slip, prompt injection, SSRF, and token nonces. |
-| **Ground-Truth Verification** | **31** | Dual-channel logical/sensory reality check, ghost-write detection, and zero false-success. |
-| **Fault Injection & Chaos** | **11** | SQLite WAL concurrency, circuit breakers, timeout recovery, and thread interruption. |
-| **Real-Machine E2E** | **7** | Real AWS STS identity, live browser automation, desktop apps, and Telegram commands. |
-| **Integration & Offline** | **55** | Offline survivability, MQTT buffer spooling, and cross-subsystem orchestration. |
-| **Total Automated Tests** | **285** | **100% PASS (0 Regressions across all CI workflows)** |
 
 ---
 
-## 🛠️ Technology Stack & Architecture Ecosystem
+## 🏛️ My System Architecture
 
-Project J.A.R.V.I.S. is built on an enterprise-grade, cyber-physical engineering stack spanning edge microcontrollers, real-time acoustic neural networks, native OS kernel APIs, high-concurrency event fabrics, and multi-model LLM cognition.
+I designed J.A.R.V.I.S. around **5 Single Authorities** to eliminate race conditions, tool spoofing, and privilege escalation:
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/FastAPI-0.110+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
-  <img src="https://img.shields.io/badge/Three.js-WebGL_3D-000000?style=for-the-badge&logo=three.js&logoColor=white" alt="Three.js">
-  <img src="https://img.shields.io/badge/Google_Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white" alt="Gemini">
-  <img src="https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F05032?style=for-the-badge&logo=meta&logoColor=white" alt="Groq">
-  <br>
-  <img src="https://img.shields.io/badge/ONNX_Runtime-CPU_Inference-005CED?style=for-the-badge&logo=onnx&logoColor=white" alt="ONNX">
-  <img src="https://img.shields.io/badge/AWS-Boto3_SDK-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white" alt="AWS">
-  <img src="https://img.shields.io/badge/Terraform-IaC_Automation-844FBA?style=for-the-badge&logo=terraform&logoColor=white" alt="Terraform">
-  <img src="https://img.shields.io/badge/Docker-Containers-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/SQLite-WAL_+_FTS5-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
-  <img src="https://img.shields.io/badge/ESP32-Tensilica_LX6-E7352C?style=for-the-badge&logo=espressif&logoColor=white" alt="ESP32">
-  <img src="https://img.shields.io/badge/MQTT-v5.0_Broker-660066?style=for-the-badge&logo=eclipsemosquitto&logoColor=white" alt="MQTT">
-</p>
+```
+                                  ┌────────────────────────────────────────┐
+                                  │            OPERATOR INTENT             │
+                                  │   Voice • Keyboard • HUD • Telegram    │
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                                      ▼
+                                  ┌────────────────────────────────────────┐
+                                  │      1. IntentRouter (Routing)         │
+                                  │  Local Reflex (<15ms) → Groq → Gemini  │
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                                      ▼
+                                  ┌────────────────────────────────────────┐
+                                  │   2. PermissionEngine (Authorization)  │
+                                  │   4-Tier Blast Radius + HMAC ActionLease│
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                                      ▼
+                                  ┌────────────────────────────────────────┐
+                                  │    3. ActionDispatcher (Execution)     │
+                                  │  Physical (IoT) | OS (Win32) | Cloud   │
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                                      ▼
+                                  ┌────────────────────────────────────────┐
+                                  │  4. VerificationEngine (Ground-Truth)  │
+                                  │   Dual-Channel Reality Corroboration   │
+                                  └───────────────────┬────────────────────┘
+                                                      │
+                                                      ▼
+                                  ┌────────────────────────────────────────┐
+                                  │    5. StateEngine & Hierarchical DB    │
+                                  │   SQLite WAL + HMAC Audit Receipts     │
+                                  └────────────────────────────────────────┘
+```
 
-### Technology Matrix by Operational Domain
-
-| Layer & Domain | Core Technologies & Frameworks | Architectural Responsibilities |
-| :--- | :--- | :--- |
-| **🧠 AI Cognition & Brain** | • Google Gemini 2.5<br>• Groq API (LLaMA 3.3 70B / Qwen 2.5)<br>• ReAct Cognitive Loop<br>• DAG Master Planner | • Tiered multi-model intent routing (Reflex ➔ Groq ➔ Gemini)<br>• Topological multi-step DAG plan compilation<br>• Epistemic ambiguity evaluation<br>• FinOps cost & rate limits with automatic reflex degrade |
-| **🎙️ Perception & Sensory** | • openWakeWord (ONNX Runtime)<br>• Silero VAD (Voice Activity Detection)<br>• PyAudio & Windows MME<br>• British Neural Speech Synthesis<br>• Waveform Double-Clap Engine | • Continuous on-device CPU neural wake-word detection ($<15\text{ ms}$)<br>• Sub-10ms vocal & keyboard barge-in cancellation<br>• Real-time peak acoustic double-clap reflex ($<30\text{ ms}$)<br>• Streaming clause-by-clause audio synthesis |
-| **🖥️ Computer Realm (OS)** | • Win32 API (`ctypes` bindings)<br>• COM Core Audio (`IAudioEndpointVolume`)<br>• `psutil` System Diagnostics<br>• Chromium DevTools Protocol (CDP)<br>• Playwright & Desktop Vision | • Zero-subprocess native master volume mixer ($<2\text{ ms}$)<br>• Direct window focus, minimization, and state inspection via `user32`/`kernel32`<br>• Headless/headful browser DOM grounding and navigation<br>• Screen capture with coordinate normalization |
-| **🔌 Physical Realm (IoT)** | • ESP32 Dual-Core (Tensilica LX6)<br>• Embedded Arduino / C++ Firmware<br>• Dual 5V Optocoupler Relays<br>• Ambient Lux Sensors (BH1750 / LDR)<br>• Raspberry Pi Edge Gateway | • Physical home appliance & lighting power switching<br>• Closed-loop sensory verification (lux sensor matches relay state)<br>• Hardware watchdog timers & fail-safe offline state<br>• Edge node discovery & mesh synchronization |
-| **☁️ Digital Realm (Cloud)** | • AWS SDK (`boto3`)<br>• AWS IoT Core Device Shadows<br>• Terraform / OpenTofu<br>• Docker Engine & Docker Compose<br>• Kubernetes (`kubectl` JSON)<br>• LocalStack | • Cloud infrastructure inspection (STS, S3, EC2, SQS, EventBridge)<br>• Automated IaC validation and drift inspection<br>• Container lifecycle management & auto-remediation<br>• Zero-cost offline cloud emulation via LocalStack |
-| **⚡ Event Mesh & Bus** | • FastAPI (Asynchronous REST)<br>• Uvicorn (ASGI Engine)<br>• WebSockets (RFC 6455)<br>• MQTT (`paho-mqtt` :1883)<br>• Async In-Memory Spooler | • Sub-millisecond event dispatch across all subsystems<br>• Bi-directional real-time telemetry streaming to HUD<br>• Resilient fallback queue preserving messages when broker is offline<br>• W3C `traceparent` distributed context propagation |
-| **🔒 Security & Zero-Trust** | • HMAC-SHA256 Signatures<br>• Python AST Sandboxing<br>• PromptShield Sanitizer<br>• Bandit Static AST Scanner<br>• CycloneDX 1.5 SBOM | • 4-Tier blast radius enforcement (`REFLEX` ➔ `DESTRUCTIVE`)<br>• Single-use capability leases (`ActionLease`) with 300s TTL<br>• Non-replayable parameter-hash-bound approval tickets<br>• Unicode normalization & prompt injection mitigation |
-| **💾 State & Memory** | • SQLite 3 (WAL concurrency)<br>• SQLite FTS5 Full-Text Search<br>• Append-Only JSONL Event Log<br>• Merkle Tree Chained Hashes | • 7-Tier cognitive memory architecture (Working, Sensory, Short-term, Episodic, Semantic, Procedural, Digital Twin)<br>• Temporal confidence decay & provenance tracking<br>• Zero-data-loss disaster recovery with SHA-256 validation |
-| **🌐 Frontend & Remote UI** | • Three.js & WebGL 3D<br>• HTML5 Canvas & Web Audio API<br>• Telegram Bot Gateway<br>• Cloudflare Zero-Trust Tunnel<br>• Touch Trackpad WebApp | • 3D Holographic Arc Reactor running at 60 FPS on port 8000<br>• 32-bar real-time audio frequency visualizer<br>• Encrypted mobile remote console & low-latency desktop video stream<br>• Master-PIN-guarded precision touch trackpad and Cyber Lock |
-| **🧪 Testing & Reliability** | • Pytest & Pytest-Asyncio<br>• Pytest-Cov (Coverage Engine)<br>• Chaos Fault-Injection Suite<br>• GitHub Actions (3 Workflows) | • 285 automated tests passing with 100% green CI<br>• 100-task empirical benchmark evaluating SLA percentiles (P50/P95)<br>• Automated disaster recovery backup/corruption/restore drill<br>• Automated release evidence matrix generation |
-
-### Detailed Layer Breakdown
-
-#### 1. AI Cognition, Reasoning & Orchestration
-- **Google Gemini 2.5**: Large-scale planning, complex multimodal instruction grounding, and dynamic DAG mission graph generation.
-- **Groq API (LLaMA 3.3 70B / Qwen 2.5)**: Ultra-fast conversational inference (<350ms token generation) for real-time natural language dialogue.
-- **Deterministic Local Reflex Engine**: Rule-based zero-LLM fast-path evaluating system status, window switching, and audio controls in $<15\text{ ms}$.
-- **Epistemic Evaluator**: Disambiguation engine identifying incomplete or ambiguous human intents before capability lease issuance.
-- **FinOps Guard**: Token consumption tracking with strict daily/monthly USD limits and automatic downgrade to local models.
-
-#### 2. Perception, Voice & Acoustic Sensory Layer
-- **openWakeWord (ONNX Runtime)**: Local neural acoustic wake-word detection running directly on host CPU cores with zero cloud telemetry.
-- **PyAudio & Hardware Array Binding**: Direct stream capture bound to hardware beamforming microphone arrays via Windows Multimedia Extension (`MME`).
-- **Acoustic Waveform Double-Clap Detector**: Sub-30ms real-time peak waveform analyzer for immediate hardware toggling.
-- **British Neural TTS**: Natural conversational speech synthesis with clause-by-clause audio streaming.
-- **Sub-10ms Vocal & Keyboard Barge-In**: Real-time interrupt service terminating speech playback upon voice onset or hotkey triggers.
-
-#### 3. Native Windows OS & Desktop Control (Computer Realm)
-- **Native Win32 COM & `ctypes`**: Direct bindings to `user32.dll`, `kernel32.dll`, and `ole32.dll` replacing high-latency, unsecure PowerShell subprocesses.
-- **Windows Core Audio API (`IAudioEndpointVolume`)**: Hardware-level volume mixer control executing in $<2\text{ ms}$.
-- **Process Inspection & Telemetry**: `psutil` integration monitoring process tables, active socket listeners, and memory allocation.
-- **Chromium DevTools Protocol (CDP) & Playwright**: Direct browser DOM grounding, element inspection, and headless/headful web automation.
-- **Computer Vision Grounding**: Screen capture via `Pillow` with coordinate mapping for visual GUI element verification.
-
-#### 4. Physical Realm & Embedded IoT
-- **ESP32 Dual-Core Microcontrollers**: Embedded C++ firmware running on Tensilica LX6 processors with FreeRTOS.
-- **Dual-Channel Relay Modules**: Optocoupler-isolated relays for high-voltage light and appliance switching.
-- **Ambient Lux Sensors (BH1750 / Photoresistors)**: Real-time sensory feedback confirming physical room luminescence matches relay actuation.
-- **MQTT Protocol (`paho-mqtt`)**: Lightweight publish/subscribe messaging over port 1883 with automatic in-memory queue fallback during network partitioning.
-- **AWS IoT Core Device Shadows**: Cloud-synchronized device state reporting and desired/reported state reconciliation.
-
-#### 5. Cloud Infrastructure & DevOps (Digital Realm)
-- **AWS Boto3 SDK**: Automated programmatic interaction with AWS STS (Caller Identity), S3, EC2, SQS, and EventBridge.
-- **Terraform / OpenTofu**: Infrastructure as Code automation with plan inspection, resource drift detection, and state locking.
-- **Docker & Docker Compose**: Automated container inspection, health monitoring, and graceful restarts.
-- **Kubernetes Agent**: Cluster topology queries and namespace inspection with graceful simulated fallback when offline.
-- **LocalStack**: Local emulation of cloud APIs for offline development and deterministic integration test suites.
-
-#### 6. Zero-Trust Security, Blast Radius & Cryptography
-- **4-Tier Blast Radius Matrix**: Immutable tool categorization (`REFLEX`, `SOFT`, `MUTATING`, `DESTRUCTIVE`).
-- **Cryptographic Capability Leases (`ActionLease`)**: Single-use tokens bound to caller identity, action name, parameter SHA-256 hash, and 300s TTL.
-- **HMAC-SHA256 Approval Tickets**: In-flight tampering defense for voice, Telegram, and HUD approval tickets.
-- **Python AST Sandbox**: Static Abstract Syntax Tree inspection verifying generated scripts against forbidden imports and syscalls.
-- **PromptShield**: Protection against indirect prompt injection, instruction overrides, and Unicode homoglyph evasion.
-- **Bandit AST Security Scanner**: Zero-defect static security analyzer scanning 25,480+ lines of Python code.
-
-#### 7. State Persistence, Memory & Event Bus
-- **FastAPI & Uvicorn**: High-concurrency asynchronous ASGI server hosting 18+ OpenAPI endpoints and WebSocket hubs.
-- **SQLite 3 with Write-Ahead Logging (WAL)**: Concurrent multi-threaded reads and writes with zero lock contention.
-- **SQLite FTS5**: Full-text search engine powering semantic message retrieval and historical command search.
-- **7-Tier Cognitive Memory Architecture**: Working memory, sensory buffer, short-term conversational context, episodic log, semantic memory, procedural skills, and the Digital Twin world model.
-- **SHA-256 Chained Audit Ledger**: Cryptographically chained JSONL event log guaranteeing retroactive audit immutability.
-
-#### 8. Frontend Command Center & Remote Gateway
-- **WebGL & Three.js 3D Holographic Arc Reactor**: Real-time interactive browser HUD running at 60 FPS on port 8000.
-- **HTML5 Canvas & Web Audio API**: 32-bar real-time audio spectrum visualizer with dynamic frequency analysis.
-- **Telegram Mobile Gateway**: Asynchronous bot interface allowing natural voice note input, screen vision requests, and system diagnostics.
-- **Cloudflare Tunnel (`cloudflared`)**: Zero-open-port encrypted ingress mapping mobile devices to the workstation trackpad.
-- **Mobile Touch Trackpad**: Responsive web interface delivering a real-time desktop video stream with low-latency touch mouse and keyboard input.
+### The 4-Tier Blast Radius Matrix
+1. **`TIER_0_REFLEX`**: Non-mutating reads, volume queries, hardware telemetry (Autonomous, SLA < 15ms).
+2. **`TIER_1_SOFT`**: Reversible mutations, launching whitelisted apps, switching browser tabs.
+3. **`TIER_2_MUTATING`**: State-altering operations (file modifications, network config) requiring single-use cryptographic `ActionLease` tokens.
+4. **`TIER_3_DESTRUCTIVE`**: Irreversible actions (Terraform destroy, system wipe, raw scripts) requiring explicit operator confirmation, MFA verification, and non-replayable lease tickets.
 
 ---
 
-## 🚀 Quick Start Guide
+## 🛠️ The Tech Stack I Chose & Why
+
+- **Language & Runtime:** Python 3.13 (modern type hints, async/await, low overhead).
+- **Core Backend & APIs:** FastAPI & Uvicorn for asynchronous REST endpoints and WebSockets.
+- **Frontend & Visuals:** Three.js for procedural 3D WebGL rendering; HTML5 Canvas for real-time audio visualizers.
+- **Desktop Windowing:** Microsoft Edge WebView2 via `pywebview` for clean, solid, GPU-accelerated HUD rendering.
+- **Perception & Audio:** `openWakeWord` (local ONNX neural model) + `PyAudio` + Windows Multimedia Extension (`MME`) APIs.
+- **Operating System Control:** Pure Win32 API bindings (`user32.dll`, `kernel32.dll`, COM `IAudioEndpointVolume`).
+- **IoT & Hardware:** ESP32 (Tensilica LX6) programmed in C++/Arduino, optocoupler relays, BH1750 ambient light sensors, and MQTT.
+- **Cloud & DevOps:** AWS Boto3 SDK, HashiCorp Terraform, Docker, and GitHub Actions CI/CD.
+- **Persistence:** SQLite 3 with Write-Ahead Logging (WAL) and FTS5 full-text search.
+- **Remote Security:** Cloudflare Tunnels (`cloudflared`) with zero open inbound firewall ports.
+
+---
+
+## 🚀 Getting Started
+
+If you want to run J.A.R.V.I.S. on your own machine:
 
 ### Prerequisites
-- **Operating System**: Windows 10 or Windows 11 (64-bit)
-- **Python**: Version 3.10 through 3.13
-- **Hardware (Optional)**: Microphone for voice wake-word, ESP32 microcontroller for IoT relay control
+- Windows 10 or 11 (64-bit recommended for native Win32/COM audio hooks)
+- Python 3.10 – 3.13
+- Microphone for voice wake-word (optional for text-only use)
+- ESP32 microcontroller with relay module (optional for IoT features)
 
-### 1. Installation
+### 1. Clone & Set Up Environment
 ```powershell
-# Clone the repository
 git clone https://github.com/ShyamD2/project-jarvis.git
 cd "project-jarvis"
 
-# Create and activate a clean virtual environment
+# Create a virtual environment
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 
-# Install project and dependencies
+# Install dependencies
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
 ```
 
-### 2. Configure Environment Secrets
+### 2. Configure Environment Variables
 Create a `.env` file in the project root:
 ```env
-# Master Secret (used for HMAC cryptographic proof receipts)
-JARVIS_MASTER_SECRET=generate_a_random_32_character_string_here
+# Master Secret for cryptographic HMAC verification receipts
+JARVIS_MASTER_SECRET=generate_your_secure_32_char_secret_here
 
-# AI Model Providers (Optional — defaults to fast local reflex if omitted)
+# AI Model Providers (Local reflex fast-path works even without API keys!)
 GEMINI_API_KEY=your_gemini_api_key
 GROQ_API_KEY=your_groq_api_key
 
-# Optional Telegram Mobile Gateway
+# Mobile Remote Gateway (Optional)
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_ALLOWED_USERS=your_telegram_user_id
 ```
 
-### 3. Initialize Databases
+### 3. Initialize the Database
 ```powershell
 python migrations/migrate.py
 ```
 
-### 4. Launch J.A.R.V.I.S.
+### 4. Fire Up J.A.R.V.I.S.
 ```powershell
+# Launch the full system (FastAPI backend, WebSockets, and 3D WebGL HUD)
 python jarvis.py start
+
+# Or launch the floating 3D desktop agent directly
+python services/floating_agent/floating_app.py
 ```
-*Starts the FastAPI backend, WebSocket event mesh, and launches the Holographic HUD at `http://localhost:8000`.*
+Open your browser at `http://localhost:8000` to access the full-screen Command Cockpit.
 
 ---
 
-## 💻 CLI & Developer Commands
+## ⌨️ CLI & Developer Commands
 
 ```powershell
-# 1. Run natural language instructions directly via CLI
+# 1. Run natural language commands directly from your terminal
 python jarvis.py run "JARVIS, report workstation health and battery status"
-python jarvis.py run "JARVIS, set master volume to 40%"
+python jarvis.py run "JARVIS, set master volume to 35%"
 
-# 2. Emergency Stand-Down (instantly trips circuit breakers and closes mutations)
+# 2. Emergency Stand-Down (instantly trips circuit breakers and closes all mutations)
 python jarvis.py stand-down
 
-# 3. Execute the 100-Task Empirical Reliability Benchmark Suite
+# 3. Run the 100-Task Empirical Reliability Benchmark Suite
 python benchmarks/run_benchmark.py --profile unit
 
 # 4. Run the Automated Disaster Recovery Drill
@@ -399,156 +270,77 @@ python -m services.recovery.disaster_drill
 # 5. Run the complete 285-test regression suite
 pytest tests/ -v
 
-# 6. Execute static AST security scan (Bandit)
+# 6. Run the Bandit AST Security Scanner
 bandit -r services/ shared/ -ll -ii -x "tests/,scratch/"
 ```
 
 ---
 
-## 📁 Repository Structure
+## 📂 Project Structure
 
 ```text
-d:\Project J.A.R.V.I.S
-├── agents/                      # Specialized Domain Agents
-│   ├── action_dispatcher.py     # Single Execution Authority (Receipt Generation)
-│   ├── computer/                # Windows OS, Browser, Audio, Files agents
-│   ├── digital/                 # AWS Cloud, Terraform, Docker, K8s agents
-│   └── physical/                # ESP32 nodes, Relays, Lux sensors agents
-├── benchmarks/                  # Empirical Reliability Benchmark Engine
-│   ├── benchmark_engine.py      # Subsystem Latency SLA Matrix Evaluator
-│   ├── benchmark_tasks.yaml     # 100 Formal Benchmark Tasks
-│   └── run_benchmark.py         # Multi-profile Benchmark CLI
-├── devices/                     # Edge hardware gateways (Raspberry Pi, Mesh)
-├── docs/                        # Formal Technical Documentation & Specifications
-├── migrations/                  # Idempotent SQLite Database Schema Migrations
-├── ScreenShots/                 # Real high-resolution UI and benchmark screenshots
-├── scripts/                     # Automated drills, backups, and release evidence generator
-├── services/                    # The 5 Single Authorities & Core Microservices
+D:\Project J.A.R.V.I.S
+├── agents/                      # Specialized Domain Agents (Computer, Digital, Physical)
+│   ├── action_dispatcher.py     # Single Execution Authority & receipt issuer
+│   ├── computer/                # Windows OS, Browser CDP, Audio, Keyboard & Mouse
+│   ├── digital/                 # AWS Boto3, Terraform, Docker, Kubernetes
+│   └── physical/                # ESP32 nodes, Relays, Lux sensors, MQTT
+├── audio/                       # Boot chimes, sirens, and Stark audio clips
+├── benchmarks/                  # 100-Task Empirical Benchmark Engine & SLA Evaluator
+├── data/                        # SQLite WAL master database, checkpoints, and registries
+├── devices/                     # Microcontroller C++ firmware (ESP32) & Edge gateways
+├── docs/                        # 19-Page Project Report, SBOM, Architecture, and Security specs
+├── migrations/                  # Idempotent SQLite schema migrations
+├── ScreenShots/                 # 15 Curated UI, Benchmark, and Security verification screenshots
+├── services/                    # Core microservices & The 5 Single Authorities
 │   ├── brain/                   # AI runtime, Canonical Pipeline, Intent Router
-│   ├── gateway/                 # Telegram Bot & Low-Latency Remote Trackpad
-│   ├── jarvis_core/             # FastAPI REST API, WebSockets, Security Middleware
-│   ├── memory/                  # Hierarchical Memory (7 tiers) & Digital Twin
-│   ├── observability/           # Chained Audit Ledger, W3C Tracing, Prometheus
-│   ├── pc_agent/                # Workstation SRE, Native Win32 Audio & Windowing
-│   ├── permission_engine/       # Blast Radius Matrix & Single-Use ActionLeases
+│   ├── floating_agent/          # Pywebview Edge WebView2 Floating Desktop HUD
+│   ├── gateway/                 # Telegram Bot, Remote Trackpad & Cloudflare Tunnel
+│   ├── jarvis_core/             # FastAPI REST & WebSocket server, 3D WebGL static assets
+│   ├── memory/                  # 7-Tier Cognitive Memory & Digital Twin
+│   ├── pc_agent/                # Native Win32 COM Audio & Windowing, Workstation SRE
+│   ├── permission_engine/       # Blast Radius Safety Matrix & single-use ActionLeases
 │   ├── recovery/                # Automated Disaster Recovery Drill Engine
-│   ├── security/                # Circuit Breakers, Immune AST Sandbox, Prompt Shield
-│   ├── sensory/                 # openWakeWord Neural Daemon, Double-Clap Reflex
-│   ├── verification/            # Dual-Channel Ground Truth & Proof Receipts
-│   └── voice/                   # British Neural TTS, Clause Streaming, Barge-In
-├── shared/                      # Canonical Pydantic schemas, Event Mesh, SDK
-└── tests/                       # 285 Automated Test Suites
-    ├── chaos/                   # Fault injection & SQLite WAL stress tests
-    ├── e2e/                     # Real-machine automation tests
-    ├── integration/             # Cross-subsystem workflows
-    ├── security/                # 67 zero-trust security regression tests
-    ├── unit/                    # 114 isolated unit contract tests
-    └── verification/            # 31 ground-truth false-success invariant tests
+│   ├── security/                # Circuit Breakers, AST Sandbox, Prompt Shield
+│   ├── sensory/                 # openWakeWord Neural Daemon, Double-Clap Detector
+│   ├── verification/            # Dual-Channel Ground Truth & HMAC Proof Receipts
+│   └── voice/                   # Neural TTS, Sub-10ms Interrupt Service, Barge-In
+├── shared/                      # Pydantic schemas, Event Mesh, and SDK
+└── tests/                       # 285 Automated Tests (Unit, Security, Chaos, E2E)
 ```
 
 ---
 
-## 🏷️ Complete 35-Phase Subsystem Maturity Matrix
+## 📄 Formal Documentation & Whitepaper
 
-Every single subsystem in Project J.A.R.V.I.S. is certified against empirical verification standards:
+I authored detailed whitepapers and verification proofs for every aspect of the architecture:
 
-| Phase | Subsystem | Domain | Maturity Tier | Ground-Truth Verification Proof |
-| :---: | :--- | :--- | :--- | :--- |
-| **1** | AWS/IaC Foundation | DIGITAL | `INTEGRATION-VERIFIED` | Boto3 STS credentials, S3/EC2 describe, Terraform validate. |
-| **2** | JARVIS Core API | COMPUTER | `PRODUCTION-READY` | FastAPI REST & WebSocket server, OpenAPI v1 contracts, Pydantic schemas. |
-| **3** | AI Brain + Runtime | COMPUTER | `PRODUCTION-READY` | Multi-model routing (Gemini + Groq + local), ReAct loop, 100/100 benchmark. |
-| **4** | Real-Time Event Fabric | COMPUTER | `INTEGRATION-VERIFIED` | In-memory fast-path pub/sub with wildcard routing, offline MQTT spooling. |
-| **5** | Memory + World Model | COMPUTER | `PRODUCTION-READY` | SQLite FTS5 persistence, provenance tracking, temporal confidence decay. |
-| **6** | Master Planner | COMPUTER | `INTEGRATION-VERIFIED` | DAG multi-step execution, topological sorting, dependency tracking. |
-| **7** | Security & Permissions | COMPUTER | `PRODUCTION-READY` | 4-Tier blast radius, single-use `ActionLease`, HMAC ticket parameter binding. |
-| **8** | Tool/Action Registry | COMPUTER | `PRODUCTION-READY` | 31 certified domain tools, schema validation, canonical alias resolution. |
-| **9** | Voice + Wake Word | PHYSICAL | `REAL-HARDWARE-VERIFIED` | Local CPU `openWakeWord` ONNX inference, physical Intel microphone array. |
-| **10** | Clap / Sound Engine | PHYSICAL | `REAL-HARDWARE-VERIFIED` | Real-time PyAudio waveform double-clap detection (<30ms reflex). |
-| **11** | Voice Synthesizer | PHYSICAL | `REAL-HARDWARE-VERIFIED` | British neural TTS, clause streaming, sub-10ms vocal/hotkey interrupt. |
-| **12** | Windows Local Agent | COMPUTER | `REAL-HARDWARE-VERIFIED` | Real OS process inspection via `psutil`, active window detection via Win32. |
-| **13** | Windows App Control | COMPUTER | `REAL-HARDWARE-VERIFIED` | App Paths registry resolution, window minimize/maximize/focus. |
-| **14** | File & System Automation | COMPUTER | `REAL-HARDWARE-VERIFIED` | Safe Recycle Bin deletion, Core Audio master volume synchronization. |
-| **15** | Browser / Web Agent | COMPUTER | `INTEGRATION-VERIFIED` | CDP auto-attach, Chrome/Edge process spawning, HTTP content extraction. |
-| **16** | Screen Vision Agent | COMPUTER | `REAL-HARDWARE-VERIFIED` | Real desktop screenshot capture, coordinate normalization, UI grounding. |
-| **17** | AWS Cloud Agent | DIGITAL | `INTEGRATION-VERIFIED` | Boto3 STS caller identity, S3 bucket enumeration, EC2 instance telemetry. |
-| **18** | Terraform Agent | DIGITAL | `INTEGRATION-VERIFIED` | Automated `terraform validate` and `terraform plan` execution in dev. |
-| **19** | Docker Agent | DIGITAL | `INTEGRATION-VERIFIED` | Container inspection, start/stop/restart lifecycle, log tailing via CLI. |
-| **20** | Kubernetes Agent | DIGITAL | `SIMULATED` | Graceful offline topology queries when cluster offline; `kubectl` JSON parsing. |
-| **21** | Git / CI/CD Agent | DIGITAL | `PRODUCTION-READY` | Git repository staging, atomic commit creation, log inspection, clean checks. |
-| **22** | Cloud Operations Agent | DIGITAL | `INTEGRATION-VERIFIED` | SQS queue polling and cloud health status diagnostics. |
-| **23** | Cloud Security / SOC | DIGITAL | `UNIT-VERIFIED` | Static IAM least-privilege wildcard policy auditing and finding generation. |
-| **24** | Autonomous Remediation | DIGITAL | `INTEGRATION-VERIFIED` | Closed-loop self-healing on container alarms with rollback verification. |
-| **25** | AWS IoT Core | PHYSICAL | `INTEGRATION-VERIFIED` | Device Shadow synchronizer schema and MQTT publish/subscribe hooks. |
-| **26** | ESP32 Physical Agent | PHYSICAL | `LAB-VERIFIED` | Arduino/C++ firmware validated against virtual ESP32 hardware simulator. |
-| **27** | Raspberry Pi Gateway | PHYSICAL | `INTEGRATION-VERIFIED` | Edge node discovery, MQTT bridge forwarding, offline local survivability. |
-| **28** | Sensors + Lights + Relays | PHYSICAL | `LAB-VERIFIED` | Dual-relay actuation and ambient lux sensor verification via simulator. |
-| **29** | Unified Multi-World Routing | COMPUTER | `PRODUCTION-READY` | Cross-domain single instruction routing dispatched via `CanonicalPipeline`. |
-| **30** | Multi-Agent Coordination | COMPUTER | `INTEGRATION-VERIFIED` | Persona swarm coordination with task delegation and execution tracking. |
-| **31** | Verification & Recovery | COMPUTER | `PRODUCTION-READY` | Dual-channel ground-truth verification engine, 0% false-success invariant. |
-| **32** | Holographic HUD Dashboard | COMPUTER | `REAL-HARDWARE-VERIFIED` | 3D WebGL Arc Reactor, 32-bar audio visualizer, developer telemetry drawer. |
-| **33** | Mobile Remote Interface | PHYSICAL | `PRODUCTION-READY` | Cloudflare tunnel remote trackpad with PIN gate, Telegram bot gateway. |
-| **34** | FinOps Cost Guard | DIGITAL | `PRODUCTION-READY` | Hard daily/monthly USD limits, rate limiting, and auto-degrade to local reflex. |
-| **35** | Master Integration & SRE | COMPUTER | `PRODUCTION-READY` | Workstation SRE daemon, disaster recovery drills, and unified CLI `jarvis.py`. |
+- 📑 **[Read the 19-Page Official Project Report (Markdown)](docs/PROJECT_REPORT.md)**
+- 📕 **[Download the Official Whitepaper PDF (3.8 MB)](docs/PROJECT_REPORT.pdf)**
+- 🛡️ **[Security Architecture & Threat Model](docs/SECURITY.md)**
+- 🔍 **[Dual-Channel Verification & Ground Truth Proof](docs/VERIFICATION.md)**
+- 📊 **[Empirical Benchmark Suite & SLA Targets](docs/BENCHMARKS.md)**
+- 📦 **[CycloneDX v1.5 Software Bill of Materials](docs/SBOM.json)**
 
 ---
 
-## 🔒 Security & Responsible Disclosure
+## 👨‍💻 About the Author
 
-Project J.A.R.V.I.S. treats local autonomy as an industrial safety problem. For details regarding our threat model, sandbox boundaries, and responsible disclosure policy, please consult [`docs/SECURITY.md`](docs/SECURITY.md).
+I am **Shyam Kumar D**, a final-year B.Sc. Networking (Cloud Computing) student at Subbalakshmi Lakshmipathy College of Science (SLCS), Madurai, India (GPA: **8.4 / 10.0**).
 
----
+I specialize in **Cloud Infrastructure, SRE, DevSecOps, and Autonomous Systems**. When I'm not architecting J.A.R.V.I.S., I am writing predictive Kubernetes schedulers ([KubeForecast](https://github.com/ShyamD2/KubeForecast)), solving OverTheWire Bandit wargames, and engineering modular Terraform architectures.
 
-## 🌟 Star History
-
-If you find Project J.A.R.V.I.S. inspiring or useful for your AI agent and home automation work, please consider starring the repository! Every star directly motivates continuous development and helps more developers discover the project.
-
-<p align="center">
-  <a href="https://star-history.com/#ShyamD2/project-jarvis&Date">
-    <img src="https://api.star-history.com/svg?repos=ShyamD2/project-jarvis&type=Date" alt="Star History Chart" width="85%">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/ShyamD2/project-jarvis/stargazers">
-    <img src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" alt="Star this repo">
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://twitter.com/intent/tweet?text=Check%20out%20Project%20J.A.R.V.I.S.%20%E2%80%94%20the%20world's%20first%20Cyber-Physical%20Autonomous%20AgentOS%20with%20a%20mathematical%200%25%20false-success%20invariant!%20%F0%9F%A4%96%20https://github.com/ShyamD2/project-jarvis">
-    <img src="https://img.shields.io/badge/Share_on_X/Twitter-000000?style=for-the-badge&logo=x&logoColor=white" alt="Share on X">
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://www.linkedin.com/sharing/share-offsite/?url=https://github.com/ShyamD2/project-jarvis">
-    <img src="https://img.shields.io/badge/Share_on_LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Share on LinkedIn">
-  </a>
-</p>
-
----
-
-## 🤝 Community & Contributing
-
-We actively welcome contributions, ideas, bug reports, and hardware integrations!
-- Check out our **[Contributing Guide](CONTRIBUTING.md)** to get started with local development.
-- Join our **[GitHub Discussions](https://github.com/ShyamD2/project-jarvis/discussions)** to share your smart home setups or suggest new tools.
-- Please review our **[Code of Conduct](CODE_OF_CONDUCT.md)** before participating.
-
----
-
-## 👨‍💻 Author & Engineering Attribution
-
-**Shyam Kumar D**  
-*Aspiring Cloud Architect | AI Agents, DevOps & Cloud Engineering*
-
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/shyam-kumar-d-951254329)
-&nbsp;&nbsp;
-[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/ShyamD2)
-&nbsp;&nbsp;
-[![Project Report](https://img.shields.io/badge/Download_Report-PDF-red?style=for-the-badge&logo=adobe-acrobat-reader&logoColor=white)](docs/PROJECT_REPORT.pdf)
+- **GitHub:** [@ShyamD2](https://github.com/ShyamD2)
+- **LinkedIn:** [shyam-kumar-d-951254329](https://www.linkedin.com/in/shyam-kumar-d-951254329)
+- **Email:** [dshyamkumar021@gmail.com](mailto:dshyamkumar021@gmail.com)
+- **Portfolio:** [Interactive SRE Cockpit](https://github.com/ShyamD2/Personal-Portfolio)
 
 ---
 
 ## 📜 License
-Distributed under the **MIT License**. See `LICENSE` for more information.
+Distributed under the **MIT License**. See `LICENSE` for details.
 
 <p align="center">
-  <strong>Project J.A.R.V.I.S.</strong> — Engineered for absolute truth, zero false success, and total cyber-physical autonomy.
+  <i>"Ship secure, scalable systems. Automate manual chores. Leave zero downtime."</i><br>
+  <b>— Shyam Kumar D</b>
 </p>
